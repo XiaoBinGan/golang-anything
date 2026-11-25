@@ -1171,3 +1171,25 @@ the documents match the tool
 ### `make negative` 现在 14 条
 
 见 [CONTRACT.md](CONTRACT.md) 第五节：每条结论都有对应的「弄坏它，谁必须抓到」。
+
+## 性能轴现在会自己报警（第 56 轮）
+
+上轮发现 wasm 快路径死掉九轮没人察觉。这轮把它变成**会失败的测量**：
+
+```sh
+$ node scripts/floor/bridge-ab.mjs testdata/sample/port-rs /tmp/racmp2/rust/text-rs
+  go-anything wasm (in-process)      0.048 µs/call   20,656,718 calls/s
+  rust-anything napi                 0.070 µs/call   14,285,714 calls/s
+VERDICT wasm faster than napi: 1.45x (wasm 0.048 µs, napi 0.070 µs)     # rc=0
+```
+
+`perf.sh` 在这个探针失败时整体返回非零——**「桥这一轴输了」是一次失败的运行，不是一张可以直接读的表**。
+
+`make negative` 加了第 15 条：用「快路径已死」的工具重新生成 wasm 模块，探针必须拒绝把它算成赢：
+
+```
+ok    the bridge probe refuses a dead fast path (exit 1)
+```
+
+（写这条控制时我自己踩了一次：`sed` 把 `detectPortStyle(dir)` 注释掉之后，我用了一个**在注释之前**复制的备份去「恢复」，
+结果真正撤掉的是修复本身。控制脚本因此第一次报 `FAIL the bridge probe does not pass after restoring`——这就是它该做的事。）

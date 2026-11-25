@@ -171,11 +171,35 @@ PY
 expect_fail "doccheck notices a command missing from README" $?
 cp /tmp/negative-readme.md README.md
 
-# 9. perf: no rig, no numbers.
+# 9. the bridge axis: a generated wrapper that goes through the registry instead of the typed call is
+#    the regression that hid for nine rounds. Regenerate the wasm module with a tool whose fast path is
+#    dead and the probe must refuse to call it a win.
+if [ -e "${RUST_ANYTHING:-/tmp/ra-39/target/release/rust-anything}" ] && [ -e "${RUST_CRATE:-/tmp/racmp2/rust/text-rs}/cases.jsonl" ]; then
+  cp internal/wasmbridge/wasmbridge.go /tmp/negative-wasmbridge.go
+  python3 - internal/wasmbridge/wasmbridge.go <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s = s.replace('\tdetectPortStyle(dir)', '\t// detectPortStyle(dir)')
+open(p, 'w').write(s)
+PY
+  CGO_ENABLED=1 go build -o /tmp/negative-go-deadpath . || { printf 'FAIL  the dead-path build failed\n'; failures=$((failures + 1)); }
+  cp /tmp/negative-wasmbridge.go internal/wasmbridge/wasmbridge.go
+  /tmp/negative-go-deadpath wasm testdata/sample/port-rs >/dev/null 2>&1
+  node scripts/floor/bridge-ab.mjs testdata/sample/port-rs "${RUST_CRATE:-/tmp/racmp2/rust/text-rs}" >/dev/null 2>&1
+  expect_fail "the bridge probe refuses a dead fast path" $?
+  "$GO" wasm testdata/sample/port-rs >/dev/null 2>&1
+  node scripts/floor/bridge-ab.mjs testdata/sample/port-rs "${RUST_CRATE:-/tmp/racmp2/rust/text-rs}" >/dev/null 2>&1 ||
+    { printf 'FAIL  the bridge probe does not pass after restoring\n'; failures=$((failures + 1)); }
+else
+  printf 'skip  the bridge probe needs the rust rig (RUST_ANYTHING, RUST_CRATE)\n'
+fi
+
+# 10. perf: no rig, no numbers.
 RUST_ANYTHING=/nonexistent ./scripts/perf.sh >/dev/null 2>&1
 expect_fail "perf refuses a missing rig" $?
 
-# 10. npm install: a loader that answers a hard-coded wrong value, built from a patched template.
+# 11. npm install: a loader that answers a hard-coded wrong value, built from a patched template.
 cp internal/pkg/pkg.go /tmp/negative-pkg.go
 python3 - internal/pkg/pkg.go <<'PY2'
 import sys

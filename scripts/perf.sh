@@ -122,11 +122,20 @@ for k, n in (("go-anything diff", gc), ("rust-anything diff", rc)):
 print()
 print("== bridge, one call in-process, same function on both sides ==")
 probe = os.path.join(os.environ.get("PERF_DIR", "."), "scripts", "floor", "bridge-ab.mjs")
+bridge_status = 0
 if os.path.exists(probe):
     out = subprocess.run(["node", probe, go_crate, rust_crate], capture_output=True, text=True)
     print(out.stdout.strip() or out.stderr.strip())
+    # The probe exits non-zero when the wasm bridge is not faster than napi: that is the axis the goal is
+    # about, so a run where it lost is a failed run, not a table to read.
+    bridge_status = out.returncode
 else:
     print("  (scripts/floor/bridge-ab.mjs is missing)")
+    bridge_status = 1
+
+if bridge_status != 0:
+    # The bridge axis is the one the goal is about: a run where the wasm path lost is a failed run.
+    sys.exit(bridge_status)
 
 PY
 

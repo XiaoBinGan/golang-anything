@@ -43,4 +43,19 @@ for (const [name, xs] of Object.entries(rounds)) {
   const v = med(xs)
   console.log(`  ${name.padEnd(34)} ${(v / 1000).toFixed(3)} µs/call   ${Math.round(1e9 / v).toLocaleString()} calls/s`)
 }
+
+// The wasm bridge is the reason the goal's first axis is won, and it stopped being fast once without
+// anything noticing: portStyle was never filled, every wrapper went through the registry, and the number
+// in the document was nine rounds stale. A measurement that cannot fail is a document.
+const wasmNs = wasm ? med(rounds['go-anything wasm (in-process)']) : null
+const napiNs = med(rounds['rust-anything napi'])
+if (wasmNs === null) {
+  console.log('VERDICT wasm-missing: build the crate with `go-anything wasm` to measure this axis')
+  go.close?.()
+  process.exit(1)
+}
+const ratio = napiNs / wasmNs
+console.log(`VERDICT wasm ${ratio >= 1 ? 'faster' : 'SLOWER'} than napi: ${ratio.toFixed(2)}x ` +
+  `(wasm ${(wasmNs / 1000).toFixed(3)} µs, napi ${(napiNs / 1000).toFixed(3)} µs)`)
 go.close?.()
+process.exit(ratio > 1 ? 0 : 1)

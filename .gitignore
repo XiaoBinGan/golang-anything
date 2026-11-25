@@ -86,3 +86,13 @@ testdata/sample/*/libport.dylib
 testdata/waves/*/*/libport.dylib
 testdata/realworld*/*/*/libport.dylib
 testdata/markers/go-ports/markers-go/port.wasm
+testdata/sample/port-rs/port.wasm
+testdata/sample/port-rs/port.wasm
+testdata/waves/rust/util-go/port.wasm
+testdata/waves/rust/format-go/port.wasm
+testdata/realworld/go-ports/byteToHex-go/port.wasm
+testdata/realworld/go-ports/shellQuote-go/port.wasm
+testdata/realworld3/go-ports/uleb-go/port.wasm
+testdata/realworld4/go-ports/jadx-go/port.wasm
+testdata/markers/go-ports/markers-go/port.wasm
+testdata/realworld5/go-ports/jp-go/port.wasm
