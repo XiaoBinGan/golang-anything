@@ -642,3 +642,26 @@ every claim above was checked and held
 | `check.mjs` 把参数**解码后再序列化** | `-0` → `JSON.stringify([-0])` → `[0]`，标记在路上就丢了：`isNegativeZero` 经桥上答 `false`、经驱动答 `true` |
 
 现在 `CallKey` 只有一份，`check` 原样传标记。
+
+## 三个桥必须给出同一个答案（`scripts/allbridges.mjs`）
+
+```sh
+go-anything build <crate> && go-anything build --fast <crate> && go-anything wasm <crate>
+node scripts/allbridges.mjs testdata/markers/go-ports/markers-go
+```
+
+```
+ok   -0                 addon=-0        wasm=-0        stdio=-0
+ok   lone surrogate     addon=<ud800>   wasm=<ud800>   stdio=<ud800>
+ok   undefined          addon=undefined wasm=undefined stdio=undefined
+ok   Infinity           addon=Infinity  wasm=Infinity  stdio=Infinity
+ok   NaN                addon=NaN       wasm=NaN       stdio=NaN
+ok   -0 as an argument  addon=true      wasm=true      stdio=true
+```
+
+它一写出来就抓到两个真 bug：
+
+1. **参数方向没有标记**。`decode`（答案）有标记，`encode`（参数）没有——`JSON.stringify([-0])` 是 `[0]`，
+   所以 `isNegativeZero(-0)` 在每个真实的桥上都答 `false`，只有驱动答 `true`。
+2. **`wasm` 对「脚手架形状」的端口根本编不过**：生成器调的是类型化函数，而 `scaffold` 生成的是
+   `func f(args []any)`。现在走注册表（每个 crate 都有），端口若是类型化的则直接调用（保住 53 ns）。
