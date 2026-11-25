@@ -48,13 +48,12 @@
 | diff 吞吐 | 17,475 cases/s | **69,219 cases/s** | **快 4.0 倍** |
 | record 一个单元（墙钟） | 142 ms | **66 ms** | **快 2.1 倍** |
 | `analyze` 真实仓库（7,390 个 .ts） | 42.0 s | **8.46 s** | **快 5.0 倍** |
-| 启动 `--help` | 2.03 ms | 2.14 ms | **慢 0.10 ms**（95% CI [+0.06, +0.15]） |
+| 启动 `--help` | 2.03–2.21 ms | 2.14–2.28 ms | 点估计慢 0.07–0.11 ms，95% CI 跨零（**打平**） |
 
 逐项方法与负向对照在 [PERF.md](PERF.md)。一条命令复现：`GO_ANYTHING_PARSE=bin/go-anything-cgo ./scripts/perf.sh`。
 
-### 为什么启动这一轴赢不了（一句话版）
+### 启动这一轴：测量上打平，点估计略慢
 
-Go 运行时有 0.70 ms 的固定成本（空程序 1.96 ms vs `/usr/bin/true` 1.26 ms），Rust 没有；
-cgo 再加 1.2 ms，所以发布拆成「无 cgo 工具 + cgo 解析器」。挪掉 cgo 之后还剩 0.10 ms，
-拆到每一层都试过（`TZ`、`GOMAXPROCS`、`-s -w`、`-buildmode=exe`、去掉 `go/format`）——
-只有 `-buildmode=exe` 能再省 0.04 ms，代价是丢掉 ASLR，不用。
+三次独立采样，后两次的 bootstrap 95% CI 都跨过零（噪声底约 0.2 ms）。一个只打印 3 KB 静态串的
+Go 程序启动 1.93 ms，比 rust-anything 还快——所以差距不在语言，在本工具引的 133 个包（`inittrace`
+合计 0.156 ms，几乎全是 stdlib）。确定性赢它需要拆「分发器 + 引擎」，代价是每条真命令 +2 ms。
