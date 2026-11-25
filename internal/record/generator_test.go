@@ -90,3 +90,16 @@ func TestOneOversizedAnswerDoesNotEndTheRecording(t *testing.T) {
 		t.Errorf("%d cases: one oversized answer ended the recording", sum.Cases)
 	}
 }
+
+// A parameter typed Uint8Array used to be generated from the `any` table: numbers, nulls and strings
+// went into a byte parser, and the recorded cases proved behaviour no caller would ever ask for.
+func TestAByteContainerGetsBytes(t *testing.T) {
+	if dialect := dialectType("Uint8Array"); dialect != "bytes" {
+		t.Fatalf("Uint8Array maps to %q", dialect)
+	}
+	for _, typed := range []string{"Buffer", "Readonly<Uint8Array>"} {
+		if dialect := dialectType(typed); dialect != "bytes" {
+			t.Errorf("%s maps to %q", typed, dialect)
+		}
+	}
+}

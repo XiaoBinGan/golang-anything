@@ -16,6 +16,7 @@ import (
 
 	"github.com/xiaobingan/go-anything/internal/cases"
 	"github.com/xiaobingan/go-anything/internal/diff"
+	"github.com/xiaobingan/go-anything/internal/record"
 )
 
 // Options is one fuzz run.
@@ -129,13 +130,17 @@ func Run(opts Options) (Result, error) {
 	if err := cases.Write(callsPath, calls); err != nil {
 		return Result{}, err
 	}
+	hooksPath, err := record.WriteResolver(work)
+	if err != nil {
+		return Result{}, err
+	}
 	script := filepath.Join(work, "fuzz-original.mjs")
 	if err := os.WriteFile(script, []byte(originalScript), 0o644); err != nil {
 		return Result{}, err
 	}
 	origOut := filepath.Join(work, "fuzz-original.jsonl")
 	cmd := exec.Command("node", "--experimental-strip-types", "--no-warnings=ExperimentalWarning",
-		script, filepath.Join(root, m.Unit), callsPath, origOut)
+		"--import", hooksPath, script, filepath.Join(root, m.Unit), callsPath, origOut)
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return Result{}, fmt.Errorf("answering on the original: %w", err)
@@ -249,6 +254,10 @@ func dialectType(t string) string {
 	switch t {
 	case "string", "number", "boolean", "string[]", "number[]":
 		return t
+	case "Uint8Array", "Buffer", "Readonly<Uint8Array>":
+		// A byte container is its own family here too: drawing a string for it makes the original throw
+		// on a value no caller would pass, and the report is about the generator, not the port.
+		return "bytes"
 	}
 	if strings.HasPrefix(t, "{") || strings.HasSuffix(t, "}") {
 		return "object"
@@ -277,6 +286,13 @@ func valueOf(gen *rand.Rand, kind string) any {
 		out := make([]any, n)
 		for i := range out {
 			out[i] = randomNumber(gen)
+		}
+		return out
+	case "bytes":
+		n := gen.Intn(9)
+		out := make([]any, n)
+		for i := range out {
+			out[i] = float64(gen.Intn(256))
 		}
 		return out
 	case "object":

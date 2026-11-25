@@ -147,10 +147,16 @@ func Answer(name string, args []any) map[string]any {
 	return map[string]any{"ok": mark(v)}
 }
 
-// mark writes NaN, ±Infinity, -0 and code units the way the original's codec does, so a host sees
-// values rather than spellings JSON cannot carry.
+// Undefined is JavaScript's undefined: a port returns this where the original answered undefined, and
+// the wire spells it as a marker. Returning nil would say null, which is a different value.
+type Undefined struct{}
+
+// mark writes NaN, ±Infinity, -0, undefined and code units the way the original's codec does, so a host
+// sees values rather than spellings JSON cannot carry.
 func mark(v any) any {
 	switch x := v.(type) {
+	case Undefined:
+		return map[string]any{"$undefined": true}
 	case float64:
 		switch {
 		case math.IsNaN(x):

@@ -33,3 +33,11 @@ testdata/realworld/go-ports/*/index.cjs
 testdata/realworld/go-ports/*/port.py
 testdata/realworld/go-ports/*/portctl
 testdata/realworld/go-ports/*/work/
+testdata/realworld3/go-ports/*/addon.node
+testdata/realworld3/go-ports/*/answer.go
+testdata/realworld3/go-ports/*/*.dylib
+testdata/realworld3/go-ports/*/*.h
+testdata/realworld3/go-ports/*/index.cjs
+testdata/realworld3/go-ports/*/port.py
+testdata/realworld3/go-ports/*/portctl
+testdata/realworld3/go-ports/*/work/

@@ -37,6 +37,12 @@ const plan = JSON.parse(await readFile(planPath, 'utf8'))
 const table = {
   string: ['', 'a', 'abc', '  ', 'a b  c', 'x y z', 'pad  ', 'héllo', 'naïve café', '😀😀',
            '$5 apple', '$a$b', '$', 'a$', '  \t  ', 'ünïcodé', 'ÆØÅ', '中文 字', 'a\nb', '0'],
+  // Byte buffers: what a parser is handed. Small, and the last one is longer than any offset below so
+  // an index into it is in range for at least one case.
+  bytes: [
+    [], [0], [127], [128, 1], [255, 255, 255, 127], [0x80, 0x80, 0x80, 0x80, 0x08],
+    [1, 2, 3, 4, 5, 6, 7, 8], [0xff, 0x00, 0xff, 0x00],
+  ],
   // Magnitudes stay small on purpose: a times argument of 1e9 makes the original allocate a
   // gigabyte and the recording never returns. Big values are what --inputs is for.
   number: [0, 1, 2, -1, 7, 1.5, -0.5, 1e6, -1e6, 0.1 + 0.2, 3.14159, 1 / 3, -0],
@@ -189,14 +195,8 @@ func Run(opts Options) (Summary, error) {
 	if err := os.WriteFile(script, []byte(driver), 0o644); err != nil {
 		return Summary{}, err
 	}
-	hooksPath, err := filepath.Abs(filepath.Join(work, "resolve.mjs"))
+	hooksPath, err := WriteResolver(work)
 	if err != nil {
-		return Summary{}, err
-	}
-	if err := os.WriteFile(hooksPath, []byte(resolver), 0o644); err != nil {
-		return Summary{}, err
-	}
-	if err := os.WriteFile(filepath.Join(work, "resolve-hook.mjs"), []byte(resolveHook), 0o644); err != nil {
 		return Summary{}, err
 	}
 	// The unit's path is relative to the plan root, not to the process: find it the same way.
@@ -330,6 +330,10 @@ func dialectType(t string) string {
 		return "string[]"
 	case t == "number[]" || t == "Array<number>":
 		return "number[]"
+	case t == "Uint8Array" || t == "Buffer" || t == "Readonly<Uint8Array>":
+		// A byte container is its own dialect: generating a number, a null or a string for it makes the
+		// original read properties off a value no caller would pass, and the recording proves nothing.
+		return "bytes"
 	case strings.HasPrefix(t, "{") || strings.HasSuffix(t, "}"):
 		return "object"
 	}

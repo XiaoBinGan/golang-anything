@@ -377,3 +377,26 @@ scaffold → record（13 例 / 20 例）→ 手写 port.go → gate 全绿
 
 `byteToHex` 第一版我按「字节」实现，`gate` 立刻用 `byteToHex(-1)` 这一条打出 `expected "-1", got "-001"`——
 **是录制用例先发现了我的误解，不是我读代码读出来的**。
+
+## 第三个真实单元：`Uint8Array` 参数、对象返回、`undefined`
+
+`testdata/realworld3/`：`src/domain/elfAttributeUleb.ts`（来自 `rea` 仓库），签名是
+`(bytes: Uint8Array, offset: number, end: number) => { value, next } | undefined`。
+
+它一次压出三个能力缺口，都修了：
+
+| 缺口 | 修法 |
+| --- | --- |
+| `Uint8Array` 参数落到 `any` 表 → 生成 `null`/`true`/`"a b  c"` 喂给字节解析器 | 新增 `bytes` 方言（`Uint8Array`/`Buffer`/`Readonly<Uint8Array>`），`record` 与 `fuzz` 共用 |
+| 端口无法表达 `undefined`（返回 `nil` 变成 `null`） | crate 里加 `port.Undefined{}`，`mark` 与驱动都认它，写成 `{"$undefined":true}` |
+| `fuzz` 的原式运行没有注册解析钩子 → 带 import 的单元直接模块找不到 | 钩子抽成 `record.WriteResolver`，`record` 与 `fuzz` 共用 |
+
+还有一个不在工具里、在**端口里**的坑，是录制用例逼出来的：JS 里 `bytes[0.3]` 是 `undefined`，
+所以 `readElfAttributeUleb(bytes, 0.3, 1)` 返回 `{value: 0, next: 1.3}`——不是失败。我第一版按
+`int(0.3)` 取字节，229 条用例里 12 条不一致，`gate` 全部点名。
+
+```
+gate    229/229 ✅（三种写法：整数、分数、越界）
+fuzz    50/50（seed 9）
+check   229/229 经进程内 addon
+```

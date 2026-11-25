@@ -1,0 +1,8 @@
+{
+  "schema": "go-anything/port@1",
+  "unit": "src/domain/elfAttributeUleb.ts",
+  "crate": "github.com/xiaobingan/go-anything/testdata/realworld3/go-ports/uleb-go",
+  "files": ["src/domain/elfAttributeUleb.ts"],
+  "exports": [{"name":"readElfAttributeUleb","params":["Uint8Array","number","number"],"returns":"{ readonly value: number; readonly next: number } | undefined","line":4,"throw_lines":[],"blocked":""}],
+  "wire": "json"
+}

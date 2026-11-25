@@ -254,6 +254,9 @@ func answerOne(c testCase) (a answer) {
 // diff compares values rather than spellings.
 func mark(v any) any {
 	switch x := v.(type) {
+	case port.Undefined:
+		// The crate's Undefined: JavaScript's undefined, which nil would read as null.
+		return map[string]any{"$undefined": true}
 	case float64:
 		switch {
 		case math.IsNaN(x):

@@ -1,5 +1,10 @@
 package record
 
+import (
+	"os"
+	"path/filepath"
+)
+
 // resolver is the loader hook written next to the recorder: a source file imports './util', which is a
 // bundler's spelling, and Node's ESM resolver wants the extension. The hook tries the TypeScript and
 // JavaScript spellings before giving up, so the original loads the way the project it came from does.
@@ -45,3 +50,17 @@ function swaps(specifier) {
   return out
 }
 `
+
+// WriteResolver puts the two hook files in dir, so a node run can resolve TypeScript imports the way a
+// bundler does. record and fuzz both call it: the hook existed only in record, and fuzz on a unit with
+// an import failed with a module-not-found that looked like the user's mistake.
+func WriteResolver(dir string) (string, error) {
+	entry := filepath.Join(dir, "resolve.mjs")
+	if err := os.WriteFile(entry, []byte(resolver), 0o644); err != nil {
+		return "", err
+	}
+	if err := os.WriteFile(filepath.Join(dir, "resolve-hook.mjs"), []byte(resolveHook), 0o644); err != nil {
+		return "", err
+	}
+	return filepath.Abs(entry)
+}
