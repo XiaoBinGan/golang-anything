@@ -1,0 +1,7 @@
+# built binaries
+go-anything
+portctl
+testdata/*/rust/*/portctl
+# per-run work
+testdata/*/rust/*/work/
+testdata/*/rust/*/answers.jsonl

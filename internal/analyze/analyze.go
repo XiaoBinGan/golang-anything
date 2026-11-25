@@ -1,0 +1,452 @@
+// Package analyze walks a repository and lays out what a Go port would have to cover.
+//
+// The numbers are the ones rust-anything scores with, so a plan from either tool reads the same way:
+// readiness starts at 100 and subtracts risk points, size and fan-in; priority is half readiness and
+// half value (compute density, tests, size); `start_here` keeps ready units of at least 20 lines.
+package analyze
+
+import (
+	"fmt"
+	"math"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+
+	"github.com/xiaobingan/go-anything/internal/ts"
+)
+
+// Export is one function a bridge could carry.
+type Export struct {
+	Name    string     `json:"name"`
+	Params  []ts.Param `json:"params"`
+	Returns string     `json:"returns"`
+	Line    int        `json:"line"`
+	EndLine int        `json:"end_line"`
+	Method  bool       `json:"method,omitempty"`
+	// Receiver is the class of a static method.
+	Receiver   string `json:"receiver,omitempty"`
+	Async      bool   `json:"async,omitempty"`
+	Generic    bool   `json:"generic,omitempty"`
+	ThrowLines []int  `json:"throw_lines,omitempty"`
+	// Blocked says why the bridge cannot carry it, when it cannot.
+	Blocked string `json:"blocked,omitempty"`
+}
+
+// Risk is something that usually costs a rewrite its correctness.
+type Risk struct {
+	Kind   string   `json:"kind"`
+	Weight float64  `json:"weight"`
+	Lines  []string `json:"lines"`
+}
+
+// Unit is a file that ports as one piece.
+type Unit struct {
+	ID           string   `json:"id"`
+	Files        []string `json:"files"`
+	Loc          int      `json:"loc"`
+	Exports      []Export `json:"exports"`
+	Bridgeable   int      `json:"bridgeable"`
+	Readiness    int      `json:"readiness"`
+	Priority     int      `json:"priority"`
+	Density      float64  `json:"density"`
+	Risks        []Risk   `json:"risks"`
+	Wave         int      `json:"wave"`
+	InternalDeps []string `json:"internal_deps"`
+	ParseErrors  bool     `json:"parse_errors,omitempty"`
+	Status       string   `json:"status"` // ready, caution, blocked, keep
+	Notes        []string `json:"notes,omitempty"`
+}
+
+// Report is the whole plan.
+type Report struct {
+	Root      string   `json:"root"`
+	Language  string   `json:"language"`
+	Units     []Unit   `json:"units"`
+	StartHere []string `json:"start_here"`
+	Files     int      `json:"files"`
+	Lines     int      `json:"lines"`
+}
+
+// riskWeights follows rust-anything's severity table, so the two tools agree on what is dangerous.
+var riskWeights = map[string]float64{
+	"String offsets and slicing":                         6,
+	"Regex features the `regexp` package lacks":          6,
+	"Regexes built at runtime":                           6,
+	"Dynamic code (eval, new Function, computed import)": 6,
+	"Insertion-ordered maps and object keys":             3,
+	"Number semantics":                                   1,
+	"Async and promises":                                 3,
+	"Exceptions":                                         1,
+	"Class inheritance":                                  3,
+	"Reflection and prototypes":                          3,
+	"JSON round-trips":                                   1,
+	"Clock and random numbers":                           1,
+}
+
+// skipDir is everything that is not source a person wrote.
+var skipDir = map[string]bool{
+	"node_modules": true, "dist": true, "build": true, "out": true, ".git": true,
+	"coverage": true, ".next": true, ".nuxt": true, "vendor": true, "__pycache__": true,
+	"rust": true, "port": true, "go-anything": true,
+}
+
+// Run analyzes root.
+func Run(root string) (*Report, error) {
+	abs, err := filepath.Abs(root)
+	if err != nil {
+		return nil, err
+	}
+	rep := &Report{Root: abs, Language: "typescript"}
+	var units []Unit
+	byPath := map[string]int{}
+	err = filepath.WalkDir(abs, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			if skipDir[d.Name()] {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if _, ok := ts.LangOf(d.Name()); !ok {
+			return nil
+		}
+		if isTestFile(d.Name()) {
+			return nil
+		}
+		parsed, err := ts.Parse(path)
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(abs, path)
+		if err != nil {
+			return err
+		}
+		rel = filepath.ToSlash(rel)
+		if len(parsed.Fns) == 0 {
+			return nil
+		}
+		units = append(units, unitOf(rel, parsed))
+		byPath[rel] = len(units) - 1
+		rep.Files++
+		rep.Lines += parsed.Loc
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(units) == 0 {
+		return rep, nil
+	}
+	resolveDeps(abs, units, byPath)
+	orderWaves(units, byPath)
+	for i := range units {
+		units[i].Readiness, units[i].Priority, units[i].Density = score(units[i])
+		units[i].Status = status(units[i])
+		units[i].Notes = notes(units[i])
+	}
+	sort.Slice(units, func(i, j int) bool {
+		if units[i].Wave != units[j].Wave {
+			return units[i].Wave < units[j].Wave
+		}
+		if units[i].Priority != units[j].Priority {
+			return units[i].Priority > units[j].Priority
+		}
+		return units[i].ID < units[j].ID
+	})
+	rep.Units = units
+	rep.StartHere = startHere(units)
+	return rep, nil
+}
+
+func isTestFile(name string) bool {
+	for _, suffix := range []string{".test.ts", ".spec.ts", ".test.tsx", ".spec.tsx",
+		".test.js", ".spec.js", ".d.ts"} {
+		if strings.HasSuffix(name, suffix) {
+			return true
+		}
+	}
+	return false
+}
+
+// isComponent spots a React-shaped export: a capitalised name in a .tsx/.jsx file, or one that
+// returns `null` — markup no bridge can carry across a language boundary.
+func isComponent(rel string, e Export) bool {
+	if !strings.HasSuffix(rel, ".tsx") && !strings.HasSuffix(rel, ".jsx") {
+		return false
+	}
+	name := e.Name
+	return name != "" && name[0] >= 'A' && name[0] <= 'Z'
+}
+
+// unitOf turns a parsed file into a unit: exports with their bridge blocks, risks with file:line.
+func unitOf(rel string, f *ts.File) Unit {
+	u := Unit{ID: rel, Files: []string{rel}, Loc: f.Loc, ParseErrors: !f.ParseOK}
+	for _, fn := range f.Fns {
+		e := Export{
+			Name:       fn.Name,
+			Params:     fn.Params,
+			Returns:    fn.Returns,
+			Line:       fn.Line,
+			EndLine:    fn.EndLine,
+			Method:     fn.Method,
+			Receiver:   fn.Receiver,
+			Async:      fn.Async,
+			Generic:    fn.Generic,
+			ThrowLines: fn.ThrowLines,
+		}
+		switch {
+		case fn.Generator:
+			e.Blocked = "is a generator"
+		case fn.Generic:
+			e.Blocked = "is generic: the bridge carries concrete types only"
+		case fn.Async:
+			e.Blocked = "is async: the call would have to cross asynchronously"
+		}
+		if e.Blocked == "" && isComponent(rel, e) {
+			e.Blocked = "is a UI component: it returns markup"
+		}
+		if e.Blocked == "" {
+			u.Bridgeable++
+		}
+		u.Exports = append(u.Exports, e)
+	}
+	grouped := map[string]*Risk{}
+	for _, r := range f.Risks {
+		weight, ok := riskWeights[r.Kind]
+		if !ok {
+			weight = 1
+		}
+		g, ok := grouped[r.Kind]
+		if !ok {
+			g = &Risk{Kind: r.Kind, Weight: weight}
+			grouped[r.Kind] = g
+		}
+		g.Lines = append(g.Lines, fmt.Sprintf("%s:%d %s", rel, r.Line, r.Code))
+	}
+	for _, r := range grouped {
+		sort.Strings(r.Lines)
+		u.Risks = append(u.Risks, *r)
+	}
+	sort.Slice(u.Risks, func(i, j int) bool { return u.Risks[i].Kind < u.Risks[j].Kind })
+	return u
+}
+
+// resolveDeps keeps the imports that land on another unit of this repository.
+func resolveDeps(root string, units []Unit, byPath map[string]int) {
+	for i := range units {
+		deps := map[string]bool{}
+		for _, imp := range importsOf(filepath.Join(root, units[i].ID)) {
+			if !strings.HasPrefix(imp, ".") {
+				continue
+			}
+			base := filepath.ToSlash(filepath.Join(filepath.Dir(units[i].ID), imp))
+			for _, candidate := range []string{base, base + ".ts", base + ".tsx", base + ".js",
+				strings.TrimSuffix(base, ".js") + ".ts", strings.TrimSuffix(base, ".ts") + ".js",
+				base + "/index.ts", base + "/index.js"} {
+				if idx, ok := byPath[candidate]; ok && candidate != units[i].ID {
+					deps[units[idx].ID] = true
+				}
+			}
+		}
+		for dep := range deps {
+			units[i].InternalDeps = append(units[i].InternalDeps, dep)
+		}
+		sort.Strings(units[i].InternalDeps)
+	}
+}
+
+// importsOf re-reads one file for its import specifiers. Cheap next to a port.
+func importsOf(path string) []string {
+	f, err := ts.Parse(path)
+	if err != nil {
+		return nil
+	}
+	out := make([]string, 0, len(f.Imports))
+	for _, imp := range f.Imports {
+		out = append(out, imp.Specifier)
+	}
+	return out
+}
+
+// orderWaves puts a unit after the units it imports; a cycle stays in one wave, as the Rust tool does.
+func orderWaves(units []Unit, byPath map[string]int) {
+	wave := make([]int, len(units))
+	state := make([]int, len(units)) // 0 unvisited, 1 in progress, 2 done
+	var visit func(i int) int
+	visit = func(i int) int {
+		switch state[i] {
+		case 1:
+			return 0 // cycle
+		case 2:
+			return wave[i]
+		}
+		state[i] = 1
+		w := 0
+		for _, dep := range units[i].InternalDeps {
+			j, ok := byPath[dep]
+			if !ok {
+				continue
+			}
+			if next := visit(j) + 1; next > w {
+				w = next
+			}
+		}
+		state[i] = 2
+		wave[i] = w
+		return w
+	}
+	for i := range units {
+		visit(i)
+	}
+	for i := range units {
+		units[i].Wave = wave[i]
+	}
+}
+
+// score is readiness, priority and density, with the same terms rust-anything documents.
+func score(u Unit) (readiness, priority int, density float64) {
+	riskPoints := 0.0
+	for _, r := range u.Risks {
+		riskPoints += r.Weight * math.Log(1+float64(len(r.Lines)))
+	}
+	sizePenalty := float64(u.Loc) / 40
+	fanIn := 0.0 // a file has no fan-in of its own; the folder model in the Rust tool does
+	readinessF := 100 - riskPoints - sizePenalty - fanIn
+	readinessF = math.Max(0, math.Min(100, readinessF))
+
+	ops := 0.0
+	for _, r := range u.Risks {
+		switch r.Kind {
+		case "String offsets and slicing", "Number semantics":
+			ops += float64(len(r.Lines))
+		}
+	}
+	if u.Loc > 0 {
+		density = math.Round(ops*100/float64(u.Loc)*10) / 10
+	}
+	compute := math.Min(density*4, 50)
+	size := float64(u.Loc) / 4
+	switch {
+	case u.Loc >= 600:
+		size = 10
+	case u.Loc >= 80:
+		size = 20
+	}
+	value := compute + size // tests are not modelled: they add 30 or 15 in the Rust tool
+	priorityF := readinessF*0.5 + value*0.5
+	priorityF = math.Max(0, math.Min(100, priorityF))
+	return int(math.Round(readinessF)), int(math.Round(priorityF)), density
+}
+
+// status is what `map` prints: ready, caution, blocked or keep.
+func status(u Unit) string {
+	switch {
+	case u.Bridgeable == 0 && len(u.Exports) > 0:
+		return "blocked"
+	case u.Bridgeable == 0:
+		return "keep"
+	case u.ParseErrors:
+		return "caution"
+	case u.Readiness >= 60:
+		return "ready"
+	}
+	return "caution"
+}
+
+// notes says what a reader needs to know about this unit, in the words a plan uses.
+func notes(u Unit) []string {
+	var out []string
+	if u.ParseErrors {
+		out = append(out, "parse errors: results for this unit are partial")
+	}
+	blocked := 0
+	for _, e := range u.Exports {
+		if e.Blocked != "" {
+			blocked++
+		}
+	}
+	if blocked > 0 {
+		out = append(out, fmt.Sprintf("%d of %d exports stay in the original", blocked, len(u.Exports)))
+	}
+	if len(u.InternalDeps) > 0 {
+		out = append(out, fmt.Sprintf("imports %s: port %s first, or together",
+			strings.Join(quoteAll(u.InternalDeps), ", "), pronoun(len(u.InternalDeps))))
+	}
+	throws := 0
+	for _, e := range u.Exports {
+		throws += len(e.ThrowLines)
+	}
+	if throws > 0 {
+		out = append(out, fmt.Sprintf("%d throw paths need a recorded failing case each", throws))
+	}
+	return out
+}
+
+func quoteAll(items []string) []string {
+	out := make([]string, len(items))
+	for i, s := range items {
+		out[i] = "`" + s + "`"
+	}
+	return out
+}
+
+func pronoun(n int) string {
+	if n == 1 {
+		return "it"
+	}
+	return "them"
+}
+
+// startHere is the shortlist: ready units of at least 20 lines, ten at most.
+func startHere(units []Unit) []string {
+	pick := func(statuses []string, minLoc int) []Unit {
+		var list []Unit
+		for _, u := range units {
+			ok := false
+			for _, s := range statuses {
+				if u.Status == s {
+					ok = true
+					break
+				}
+			}
+			if ok && u.Loc >= minLoc && u.Bridgeable > 0 {
+				list = append(list, u)
+			}
+		}
+		sort.SliceStable(list, func(i, j int) bool {
+			if list[i].Priority != list[j].Priority {
+				return list[i].Priority > list[j].Priority
+			}
+			if list[i].Readiness != list[j].Readiness {
+				return list[i].Readiness > list[j].Readiness
+			}
+			if list[i].Wave != list[j].Wave {
+				return list[i].Wave < list[j].Wave
+			}
+			if list[i].Density != list[j].Density {
+				return list[i].Density > list[j].Density
+			}
+			return list[i].ID < list[j].ID
+		})
+		return list
+	}
+	const floor = 20
+	list := pick([]string{"ready"}, floor)
+	if len(list) < 3 {
+		list = pick([]string{"ready", "caution"}, floor)
+	}
+	if len(list) == 0 {
+		list = pick([]string{"ready", "caution"}, 1)
+	}
+	var out []string
+	for i, u := range list {
+		if i == 10 {
+			break
+		}
+		out = append(out, u.ID)
+	}
+	return out
+}
