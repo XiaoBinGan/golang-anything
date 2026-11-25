@@ -415,3 +415,23 @@ gate    2/2 ✅（空闲 → undefined；已中断 → JadxInterruption，抛错
 fuzz    20/20（seed 4）
 check   2/2 经进程内 addon
 ```
+
+## shadow / enable 在真实 crate 上（不是 fixture）
+
+`shadow` 和 `enable` 之前只在 fixture 上验证过。拿 `uleb-go`（有 `import './leb128.js'`、229 条用例）
+一跑，两个都不成立：
+
+| 命令 | 真实 crate 上的失败 | 修法 |
+| --- | --- | --- |
+| `shadow` | `shadow.cjs` 直接 `require` 原式，**没注册解析钩子** → 带 import 的单元一加载就找不到模块 | 生成时顺带写 `resolve.mjs`，并在 `shadow.cjs` 里先 `register` 再 require |
+| `enable` | 原式是 `export const read = …`，块里写 `read = …` → 加载即 **`Assignment to constant variable`** | 把该声明改成 `export let`，并记录改了哪些名字；`disable` 改回 `const`，文件仍**字节一致**（sha256 相同） |
+
+实测证据：
+
+```
+shadow 72 次真实调用 → 0 处不一致
+故意把分数偏移截断（改了端口）→ shadow 点名那 1 条：
+  {"fn":"readElfAttributeUleb","args":[[255,255,255,127],2.5,3],"want":{"value":0,"next":3.5},"why":"the answers differ"}
+enable 后，从原式路径导入 → {"next":2,"value":128}（走 Go 端口）
+disable 后 sha256 与 enable 前完全相同
+```
