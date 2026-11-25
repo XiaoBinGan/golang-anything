@@ -17,6 +17,7 @@ import (
 	"github.com/xiaobingan/go-anything/internal/cases"
 	"github.com/xiaobingan/go-anything/internal/diff"
 	"github.com/xiaobingan/go-anything/internal/nodeflags"
+	"github.com/xiaobingan/go-anything/internal/pool"
 	"github.com/xiaobingan/go-anything/internal/record"
 )
 
@@ -341,9 +342,8 @@ func randomString(gen *rand.Rand) string {
 	// The alphabet carries the punctuation that changes what a function does, not only letters: the
 	// recorder's table learned this in round 21 and this generator had drifted from it, so 200 fresh
 	// draws could not find a shellQuote that had dropped its quote escaping.
-	// Structural characters as well as letters: a port that escaped "~" but not "/" passed 400 fresh
-	// draws, because the alphabet had no slash in it. What a function is about has to be in the pool.
-	alphabet := []rune("ab  $\t\n.-_0é😀中\u00a0\u200bß'\"\\`|;&<>()[]{}*?~#%!,:/=@+")
+	// The same pool the recorder draws from: one list, so the two generators cannot drift apart again.
+	alphabet := pool.Alphabet()
 	n := gen.Intn(12)
 	out := make([]rune, n)
 	for i := range out {

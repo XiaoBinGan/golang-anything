@@ -846,3 +846,26 @@ go-anything: gate: 9 of 224 cases do not match
 第二条顺带修了 `cases.Read` 的扫描器上限（一条用例可以很大，Scanner 会在 1 MB 处停下）。
 
 九个 crate 全部 `fuzz` 通过：`120/120、48/48、24/24、30/30、30/30、30/30、30/30、210/210、120/120`。
+
+## 一份清单，两个生成器（第 43 轮）
+
+`record` 的字符串表和 `fuzz` 的字母表**漂移过三次**（引号、结构字符、斜杠），每次都是「修了 A，B 还留着」。
+这轮把它们收敛成一个清单 `internal/pool`：
+
+```go
+const Structural = "'\"\\/`|;&<>()[]{}*?~#%!.,:=@+$"
+func Values() []string   // record 的表：精选值 + 每个结构字符单独一条
+func Alphabet() []rune   // fuzz 的字母表
+func JSValues() string   // 渲染成 JS 字面量，注入生成的录制脚本
+```
+
+**测试写死了一份「必须存在」的清单**——不是我读同一个常量再断言它，而是独立写出来：
+
+```
+从 Structural 删掉 '/' 与 '['：
+  pool_test.go:20: '/' is not in the pool at all
+  pool_test.go:23: the fuzz alphabet cannot produce '/'
+  pool_test.go:20: '[' is not in the pool at all
+```
+
+重录后用例数：`port-rs 253 → 328`、`shellQuote 56 → 80`、`jp-go 224 → 320`，九个 crate 全部 gate + check + addon 绿。

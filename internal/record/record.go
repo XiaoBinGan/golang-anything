@@ -22,6 +22,7 @@ import (
 	"github.com/xiaobingan/go-anything/internal/analyze"
 	"github.com/xiaobingan/go-anything/internal/cases"
 	"github.com/xiaobingan/go-anything/internal/nodeflags"
+	"github.com/xiaobingan/go-anything/internal/pool"
 	"github.com/xiaobingan/go-anything/internal/ts"
 )
 
@@ -36,16 +37,7 @@ const plan = JSON.parse(await readFile(planPath, 'utf8'))
 // One table per declared type. A port only has to reproduce calls the original accepts, so the
 // generator never crosses a type: that was the prototype's first mistake.
 const table = {
-  string: ['', 'a', 'abc', '  ', 'a b  c', 'x y z', 'pad  ', 'héllo', 'naïve café', '😀😀',
-           '$5 apple', '$a$b', '$', 'a$', '  \t  ', 'ünïcodé', 'ÆØÅ', '中文 字', 'a\nb', '0',
-           // Punctuation that changes what a function does. It was missing, and a port that dropped the
-           // quote escaping in shellQuote passed every case until these values existed.
-           "it's", "''", "a'b'c", '\\', 'a\\b', '"', 'a"b', 'cmd --flag | tee', '$(id)', 'a|b', 'a;b', '--flag',
-           // Structural characters, which a function like a JSON-pointer escaper is entirely about:
-           // escapeJsonPointerToken was recorded 64 times with no "~" and no "/" in it, so a port that
-           // returned its argument unchanged passed every case.
-           '/a/b', '~0~1', '~', '/', 'a/b', '~/x', 'a~b', 'a/b/c', '1/2', 'a.b', 'a:b', 'a=b',
-           'a&b', 'a?b', 'a#b', 'a%b', 'a+b', 'a@b', 'a,b', 'a*b', 'a!b', '[]', '{}', '()'],
+  string: %STRING_TABLE%,
   // Byte buffers: what a parser is handed. Small, and the last one is longer than any offset below so
   // an index into it is in range for at least one case.
   bytes: [
@@ -243,7 +235,8 @@ func Run(opts Options) (Summary, error) {
 		return Summary{}, err
 	}
 	script := filepath.Join(work, "record.mjs")
-	if err := os.WriteFile(script, []byte(driver), 0o644); err != nil {
+	text := strings.Replace(driver, "%STRING_TABLE%", pool.JSValues(), 1)
+	if err := os.WriteFile(script, []byte(text), 0o644); err != nil {
 		return Summary{}, err
 	}
 	hooksPath, err := WriteResolver(work)

@@ -5,24 +5,24 @@
 {"fn":"box","args":["\"",-1000000],"error":"RangeError: box: width must be at least 4"}
 {"fn":"box","args":["~",0],"error":"RangeError: box: width must be at least 4"}
 {"fn":"box","args":["/",{"$number":"-0"}],"error":"RangeError: box: width must be at least 4"}
-{"fn":"box","args":["  ",0.30000000000000004],"error":"RangeError: box: width must be at least 4"}
-{"fn":"box","args":["a$",0.3333333333333333],"error":"RangeError: box: width must be at least 4"}
-{"fn":"box","args":["''",-0.5],"error":"RangeError: box: width must be at least 4"}
-{"fn":"box","args":["[]",1],"error":"RangeError: box: width must be at least 4"}
-{"fn":"box","args":["{}",-1],"error":"RangeError: box: width must be at least 4"}
-{"fn":"box","args":["()",1.5],"error":"RangeError: box: width must be at least 4"}
-{"fn":"box","args":["abc",2],"error":"RangeError: box: width must be at least 4"}
-{"fn":"box","args":["ÆØÅ",3.14159],"error":"RangeError: box: width must be at least 4"}
-{"fn":"box","args":["a\nb",7],"ok":"-  a\nb-"}
-{"fn":"box","args":["a\"b",-1000000],"error":"RangeError: box: width must be at least 4"}
-{"fn":"box","args":["a|b",0],"error":"RangeError: box: width must be at least 4"}
-{"fn":"box","args":["a;b",{"$number":"-0"}],"error":"RangeError: box: width must be at least 4"}
-{"fn":"box","args":["a/b",0.30000000000000004],"error":"RangeError: box: width must be at least 4"}
-{"fn":"box","args":["~/x",0.3333333333333333],"error":"RangeError: box: width must be at least 4"}
-{"fn":"box","args":["a~b",-0.5],"error":"RangeError: box: width must be at least 4"}
-{"fn":"box","args":["1/2",1],"error":"RangeError: box: width must be at least 4"}
-{"fn":"box","args":["a.b",-1],"error":"RangeError: box: width must be at least 4"}
-{"fn":"box","args":["a:b",1.5],"error":"RangeError: box: width must be at least 4"}
-{"fn":"box","args":["a=b",2],"error":"RangeError: box: width must be at least 4"}
-{"fn":"box","args":["a&b",3.14159],"error":"RangeError: box: width must be at least 4"}
-{"fn":"box","args":["a?b",7],"ok":"-  a?b-"}
+{"fn":"box","args":["'",0.30000000000000004],"error":"RangeError: box: width must be at least 4"}
+{"fn":"box","args":["\"",0.3333333333333333],"error":"RangeError: box: width must be at least 4"}
+{"fn":"box","args":["\\",-0.5],"error":"RangeError: box: width must be at least 4"}
+{"fn":"box","args":["/",1],"error":"RangeError: box: width must be at least 4"}
+{"fn":"box","args":["`",-1],"error":"RangeError: box: width must be at least 4"}
+{"fn":"box","args":["|",1.5],"error":"RangeError: box: width must be at least 4"}
+{"fn":"box","args":[";",2],"error":"RangeError: box: width must be at least 4"}
+{"fn":"box","args":["&",3.14159],"error":"RangeError: box: width must be at least 4"}
+{"fn":"box","args":["<",7],"ok":"-    <-"}
+{"fn":"box","args":["(",-1000000],"error":"RangeError: box: width must be at least 4"}
+{"fn":"box","args":[")",0],"error":"RangeError: box: width must be at least 4"}
+{"fn":"box","args":["[",{"$number":"-0"}],"error":"RangeError: box: width must be at least 4"}
+{"fn":"box","args":["]",0.30000000000000004],"error":"RangeError: box: width must be at least 4"}
+{"fn":"box","args":["{",0.3333333333333333],"error":"RangeError: box: width must be at least 4"}
+{"fn":"box","args":["}",-0.5],"error":"RangeError: box: width must be at least 4"}
+{"fn":"box","args":["*",1],"error":"RangeError: box: width must be at least 4"}
+{"fn":"box","args":["?",-1],"error":"RangeError: box: width must be at least 4"}
+{"fn":"box","args":["~",1.5],"error":"RangeError: box: width must be at least 4"}
+{"fn":"box","args":["#",2],"error":"RangeError: box: width must be at least 4"}
+{"fn":"box","args":["%",3.14159],"error":"RangeError: box: width must be at least 4"}
+{"fn":"box","args":["!",7],"ok":"-    !-"}
