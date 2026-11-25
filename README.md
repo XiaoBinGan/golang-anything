@@ -108,9 +108,28 @@ port-rs 1.2.3 (library) → <crate>/package
 三种形态：`library`（npm 主包 + 每平台子包 + `go.mod`）、`cli`（每平台二进制 + 回落到原包）、
 `service`（Dockerfile）。工作流**不会替你发布**；换形态重跑会删掉上次写、这次不写的文件（有测试）。
 
+## profile / go：按真实负载决定先移植什么
+
+```
+$ go-anything profile --command workload.mjs --top 5 testdata/sample
+| Function | Where | Share | Unit | Port? |
+| `words` | `src/text.ts:8` | 15.7% | `src/text.ts` | yes |
+| `(top level)` | `workload.mjs:1` | 13.7% | — | not part of a unit |
+| `count` | `src/text.ts:14` | 2.0% | `src/text.ts` | yes |
+
+$ go-anything go --command workload.mjs .
+Hottest portable unit: `src/text.ts`
+Scaffolded 4 file(s), recorded 609 cases, wrote 4 wrapper file(s) for `src/text.ts`.
+Next: fill in go-ports/text-go/port.go, then `go-anything gate go-ports/text-go`.
+```
+
+`profile` 按**自身耗时**排（不是总耗时），剔除 runtime 帧与 `node_modules`；`go` 把
+profile → 选单元 → scaffold → record → 包装器串成一条。刚生成的那个 crate 直接 `gate` 通过 609/609、
+`build --fast` 后 `check` 609/609 经进程内 addon——这条链在本轮实测过。
+
 ## 与 rust-anything 的能力对齐
 
-见 [PARITY.md](PARITY.md)：26 条命令的逐项状态。**已实现 19 条**（`analyze` `scaffold/bridge` `record` `build` `diff` `bench` `clean` `gate` `map` `doctor` `enable` `disable` `shadow` `fuzz` `refresh` `report` `package` `app record` `app replay`，外加三条自创的 `check` `fast` `shadow-report`），7 条待做（`profile` `go` `app front-door/wire/lift`、`setup/mcp`）。
+见 [PARITY.md](PARITY.md)：26 条命令的逐项状态。**已实现 21 条**（`analyze` `scaffold/bridge` `record` `build` `diff` `bench` `clean` `gate` `map` `doctor` `enable` `disable` `shadow` `fuzz` `refresh` `report` `package` `app record` `app replay` `profile` `go`，外加三条自创的 `check` `fast` `shadow-report`），5 条待做（`app front-door/wire/lift`、`setup/mcp`）。
 
 ## 性能：进程内桥 0.73 µs/次
 

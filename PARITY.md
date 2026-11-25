@@ -14,8 +14,8 @@
 | 6 | `diff` | `diff` | ✅ | 按调用配对（不是行号）；键序无关、浮点容差、错误类型比较、panic 对应异常 |
 | 7 | `bench` | `bench` | ✅ | 两侧同法计时，逐函数 + 几何平均 |
 | 8 | `fuzz` | `fuzz` | ✅ | 新种子生成未录过的输入，两侧对比；`--seed` 可复现，`--keep` 把失败用例写进 `cases.jsonl` 让 `gate` 从此盯住 |
-| 9 | `profile` | — | ⬜ | 跑真实负载找热点函数 |
-| 10 | `go` | — | ⬜ | 一条命令串完 profile→bridge→record→交接 |
+| 9 | `profile` | `profile` | ✅ | `node --cpu-prof` 跑真实负载，按**自身耗时**排热点函数并映射到单元；runtime 帧与 `node_modules` 剔除 |
+| 10 | `go` | `go` | ✅ | 一条命令：profile → 选最热的可移植单元 → scaffold + record + 包装器，并打印下一步 |
 | 11 | `enable` | `enable` | ✅ | 在原式末尾插一段标记块，把导出重绑到 Go 端口；`--only` 选函数，`--async` 走 stdio；未构建或导出名写错直接拒绝 |
 | 12 | `disable` | `disable` | ✅ | 精确移除该块，文件回到**字节一致**（有测试断言） |
 | 13 | `report` | `report` | ✅ | `REPORT.md` + `card.svg`（840×240，不通过时换色），数字全部来自当场跑的 `diff`/`bench` |
@@ -34,7 +34,7 @@
 | 26 | — | `check` | ✅ 额外 | 用真正被调用的那条桥（addon 或 stdio）回放全部用例 |
 | 27 | — | `fast` | ✅ 额外 | 只构建进程内桥 |
 
-**当前：26 条里 19 条已实现（含 3 条自创：`check` `fast` `shadow-report`），7 条待做。**
+**当前：26 条里 21 条已实现（含 3 条自创：`check` `fast` `shadow-report`），5 条待做。**
 
 ## 性能（本机 macOS arm64，Node 22.22，Go 1.26）
 

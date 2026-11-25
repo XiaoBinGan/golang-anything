@@ -23,6 +23,7 @@ import (
 	"github.com/xiaobingan/go-anything/internal/fuzz"
 	"github.com/xiaobingan/go-anything/internal/mapdoc"
 	"github.com/xiaobingan/go-anything/internal/pkg"
+	"github.com/xiaobingan/go-anything/internal/profile"
 	"github.com/xiaobingan/go-anything/internal/record"
 	"github.com/xiaobingan/go-anything/internal/report"
 	"github.com/xiaobingan/go-anything/internal/scaffold"
@@ -55,6 +56,8 @@ const usage = `go-anything: port a codebase into Go, one unit at a time.
   go-anything package  <crate> [--shape library|cli|service]   lay out what users install + CI
   go-anything app record <repo> --command CMD    run a whole program on its cases and keep them
   go-anything app replay <repo> --command CMD    run another build against the recorded cases
+  go-anything profile  <repo> --command CMD       run a workload under the profiler and rank hot functions
+  go-anything go       <repo> --command CMD       profile, pick the hottest unit, and hand it over
 
 A crate is a folder this tool made. It holds go-anything.json, cases.jsonl, port.go and cmd/godriver.
 `
@@ -110,6 +113,10 @@ func main() {
 		err = runPackage(os.Args[2:])
 	case "app":
 		err = runApp(os.Args[2:])
+	case "profile":
+		err = runProfile(os.Args[2:])
+	case "go":
+		err = runGo(os.Args[2:])
 	case "-h", "--help", "help":
 		fmt.Print(usage)
 		return
@@ -657,6 +664,15 @@ func buildFast(dir, nodeInclude string) error {
 	if err != nil {
 		return err
 	}
+	// The c-shared library is built from `cmd/portlib`, which `bridge` writes; write it here when the
+	// crate predates that step, so `build --fast` means what it says.
+	if _, err := os.Stat(filepath.Join(dir, "cmd", "portlib")); err != nil {
+		if _, err := bridge.Run(bridge.Options{
+			CrateDir: dir, Crate: m.Crate, Unit: m.Unit, Exports: m.Names(),
+		}); err != nil {
+			return err
+		}
+	}
 	files, err := fastbridge.Run(fastbridge.Options{
 		CrateDir: dir, Crate: m.Crate, Exports: m.Names(), NodeInclude: nodeInclude,
 	})
@@ -1090,4 +1106,134 @@ func runApp(args []string) error {
 		return fmt.Errorf("app replay: %d of %d cases differ", len(res.Failed), res.Cases)
 	}
 	return nil
+}
+
+// runProfile runs a workload under the profiler and prints what it found.
+func runProfile(args []string) error {
+	fs := flag.NewFlagSet("profile", flag.ExitOnError)
+	command := fs.String("command", "", "the workload: a script node runs, with its arguments")
+	nodeArg := fs.String("node-arg", "", "extra argument for node, e.g. --import=tsx")
+	top := fs.Int("top", 12, "hot functions to show")
+	timeout := fs.Duration("timeout", 5*time.Minute, "how long the workload may take")
+	fs.Parse(args)
+	if fs.NArg() != 1 {
+		return fmt.Errorf("profile takes one repository root")
+	}
+	var nodeArgs []string
+	if *nodeArg != "" {
+		nodeArgs = strings.Split(*nodeArg, ",")
+	}
+	rep, err := profile.Run(profile.Options{
+		Repo: fs.Arg(0), Command: strings.Fields(*command), NodeArgs: nodeArgs,
+		Timeout: *timeout, Top: *top,
+	})
+	if err != nil {
+		return err
+	}
+	fmt.Print(rep.Markdown())
+	return nil
+}
+
+// runGo is the one-command path: profile a workload, take the hottest portable unit, and set it up.
+func runGo(args []string) error {
+	fs := flag.NewFlagSet("go", flag.ExitOnError)
+	command := fs.String("command", "", "the workload that shows what is hot")
+	unit := fs.String("unit", "", "port this unit instead of the hottest one")
+	crate := fs.String("crate", "", "crate folder to create; defaults to rust/<unit>")
+	fs.Parse(args)
+	if fs.NArg() != 1 {
+		return fmt.Errorf("go takes one repository root")
+	}
+	repo := fs.Arg(0)
+	target := *unit
+	if target == "" {
+		rep, err := profile.Run(profile.Options{Repo: repo, Command: strings.Fields(*command)})
+		if err != nil {
+			return err
+		}
+		fmt.Print(rep.Markdown())
+		for _, h := range rep.Hot {
+			if h.Unit != "" && h.Portable == "" {
+				target = h.Unit
+				break
+			}
+		}
+		if target == "" {
+			return fmt.Errorf("nothing portable ran: pass --unit to choose one")
+		}
+		fmt.Printf("\nHottest portable unit: `%s`\n\n", target)
+	}
+	plan, err := analyze.Run(repo)
+	if err != nil {
+		return err
+	}
+	var chosen *analyze.Unit
+	for i := range plan.Units {
+		if plan.Units[i].ID == target {
+			chosen = &plan.Units[i]
+		}
+	}
+	if chosen == nil {
+		return fmt.Errorf("no unit %q in %s", target, repo)
+	}
+	if chosen.Bridgeable == 0 {
+		return fmt.Errorf("`%s` has no export a bridge can carry: %s", target, strings.Join(chosen.Notes, "; "))
+	}
+	out := *crate
+	if out == "" {
+		out = filepath.Join(repo, "go-ports", strings.TrimSuffix(filepath.Base(target), filepath.Ext(target))+"-go")
+	}
+	if err := os.MkdirAll(out, 0o755); err != nil {
+		return err
+	}
+	// A crate needs an import path: use the module the repository already declares, or a placeholder.
+	cratePath := "example.com/" + filepath.Base(repo) + "/" + filepath.Base(out)
+	if raw, err := os.ReadFile(filepath.Join(repo, "go.mod")); err == nil {
+		if module := moduleOf(string(raw)); module != "" {
+			rel, err := filepath.Rel(repo, out)
+			if err == nil && !strings.HasPrefix(rel, "..") {
+				cratePath = module + "/" + filepath.ToSlash(rel)
+			}
+		}
+	}
+	files, err := scaffold.Run(scaffold.Options{CrateDir: out, Unit: *chosen, Crate: cratePath})
+	if err != nil {
+		return err
+	}
+	sum, err := record.Run(record.Options{CrateDir: out, Unit: *chosen})
+	if err != nil {
+		return err
+	}
+	wrappers, err := bridge.Run(bridge.Options{
+		CrateDir: out, Crate: cratePath, Unit: chosen.ID, Exports: exportNames(*chosen),
+	})
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Scaffolded %d file(s), recorded %d cases, wrote %d wrapper file(s) for `%s`.\n",
+		len(files), sum.Cases, len(wrappers), target)
+	fmt.Printf("Next: fill in %s, then `go-anything gate %s`.\n", filepath.Join(out, "port.go"), out)
+	return nil
+}
+
+// moduleOf reads the module path from a go.mod.
+func moduleOf(text string) string {
+	for _, line := range strings.Split(text, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "module ") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "module "))
+		}
+	}
+	return ""
+}
+
+// exportNames lists the exports a crate's bridge can carry.
+func exportNames(u analyze.Unit) []string {
+	var out []string
+	for _, e := range u.Exports {
+		if e.Blocked == "" {
+			out = append(out, e.Name)
+		}
+	}
+	return out
 }
