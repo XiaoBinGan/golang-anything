@@ -1100,3 +1100,26 @@ every check in this folder fails when it should          # 19 秒
    现在零值要求符号位一致：`the answer differs in sign of zero`。
 
 这两条是同一个盲区的两面：**线协议专门为 `-0` 设了标记，而两条比较路径都不认它。**
+
+## 三个桥各有各的负向对照（第 52 轮）
+
+`scripts/allbridges.mjs` 的第三列原来叫 `stdio`，其实还是 addon 的另一个入口——**pipe 从没在装好 addon 的机器上被测过**。
+
+现在：`GO_ANYTHING_NO_ADDON=1` 强制走 pipe，`allbridges.mjs` 多跑一遍并与 wasm 对比：
+
+```
+ok   -0                 addon=-0        wasm=-0        stdio=-0
+...
+pipe: 6/6 agree with the wasm bridge
+```
+
+`make negative` 现在逐个弄坏三个桥，**三个都必须红**：
+
+| 破坏 | 谁抓到 |
+| --- | --- |
+| wasm 包装的 `encode` 丢掉 `-0` | `allbridges notices a wasm wrapper that drops -0` |
+| pipe 二进制把参数丢掉（`Answer(name, nil)`） | `allbridges notices a pipe that answers without arguments` |
+| addon 里编译进去的 `mark` 丢符号 | `allbridges notices an addon that loses the sign of zero` |
+
+顺带一条经验：**修复源码不足以恢复**——addon 里是编译进去的副本，控制脚本必须重新 `build --fast`，
+否则它报的是自己留下的残留（第一次跑就撞上了，`FAIL allbridges does not recover`）。
