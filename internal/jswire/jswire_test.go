@@ -52,3 +52,33 @@ func TestTheGeneratedFilesCarryTheSharedText(t *testing.T) {
 		}
 	}
 }
+
+// A platform object a caller passes in has no own enumerable fields: an AbortSignal reached the port as {}
+// and a port that throws on an aborted signal looked like a port that never throws. This is the branch
+// that keeps it.
+func TestAnAbortSignalCrossesAsAMarker(t *testing.T) {
+	if _, err := exec.LookPath("node"); err != nil {
+		t.Skip("node is not on PATH")
+	}
+	dir := t.TempDir()
+	script := filepath.Join(dir, "signal.cjs")
+	source := Encode + `
+const idle = new AbortController().signal
+const stopped = new AbortController()
+stopped.abort(new Error('interrupted'))
+console.log(JSON.stringify([encode(idle), encode(stopped.signal)]))`
+	if err := os.WriteFile(script, []byte(source), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out, err := exec.Command("node", script).CombinedOutput()
+	if err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	text := strings.TrimSpace(string(out))
+	if !strings.Contains(text, `"$abortSignal"`) {
+		t.Fatalf("the signal did not become a marker: %s", text)
+	}
+	if !strings.Contains(text, `"aborted":false`) || !strings.Contains(text, `"aborted":true`) {
+		t.Errorf("the aborted state is not carried: %s", text)
+	}
+}

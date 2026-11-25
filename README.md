@@ -888,3 +888,26 @@ canon(NaN) == '"$NaN"'  而不是 'null'
 
 负向对照：把 `Canon` 里的 `-0` 分支删掉 → `node` 输出 `"0|0|true|..."` → 测试立刻红。
 （我这次删错了行、删到 `Encode` 的，测试同样立刻红——两边都在网里。）
+
+## `shadow` 现在也比对抛错（第 45 轮）
+
+之前 `shadow` 的包装是：
+
+```js
+const want = ORIGINAL[fn](...args)   // 原式抛错 → 整个包装炸掉，什么也没记
+```
+
+和端口的行为对比只覆盖「两边都返回」。用一个会抛错的真实单元（`JadxInterruption`）一试：
+
+| 情况 | 之前 | 现在 |
+| --- | --- | --- |
+| 两边都抛同类错 | 原式把包装炸掉，无记录 | 一致，不记 |
+| 端口不再抛错 | 无记录 | `one side failed and the other did not` |
+| 端口抛错类型不同 | 无记录 | `the error type differs`（`want {"error":"JadxInterruption"} got {"error":"Error"}`） |
+
+顺带修了两个连带问题：
+
+1. **`AbortSignal` 参数过桥变成 `{}`** —— 它没有自有可枚举字段，`encode` 没处理，于是「会在中断时抛错的端口」看起来像「永不抛错」。现在写成 `$abortSignal` 标记。
+2. **桥返回的错误类型名读错** —— 从 Go 回来的错误是普通 `Error`，`constructor.name` 是 `"Error"`，会把正确的端口判成错的。现在按消息前缀读（`JadxInterruption: …`）。
+
+两条负向对照都跑过：端口不抛 → 2/4 不一致；抛错类型不同 → 2/4 不一致且点名 `the error type differs`。

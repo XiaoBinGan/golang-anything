@@ -57,21 +57,51 @@ const note = (fn, args, want, got, why) => {
 
 const wrap = fn => (...args) => {
   counters.calls++
-  const want = ORIGINAL[fn](...args)
-  let got, threw
+  // Both sides are called and both are allowed to throw: a shadow that only compared answers would
+  // never notice that the port stopped raising where the original still does. The original's behaviour
+  // is what the caller gets, whatever the port did.
+  let want, wantError
   try {
-    got = port.callSync ? port.callSync(fn, ...args) : undefined
-    if (!port.callSync) threw = 'the in-process addon is not built'
+    want = ORIGINAL[fn](...args)
   } catch (e) {
-    threw = String(e && e.message)
+    wantError = errorKind(e)
   }
-  if (threw) {
-    // The original answered, the port did not: that is a mismatch like any other.
-    if (!(ORIGINAL_THROWS && ORIGINAL_THROWS[fn])) note(fn, args, want, undefined, threw)
+  let got, gotError, bridgeDown
+  try {
+    if (!port.callSync) bridgeDown = 'the in-process addon is not built'
+    else got = port.callSync(fn, ...args)
+  } catch (e) {
+    gotError = errorKind(e)
+  }
+
+  if (bridgeDown) {
+    note(fn, args, want, undefined, bridgeDown)
+  } else if (wantError !== undefined && gotError !== undefined) {
+    // Both raised: the kind has to agree, the way diff compares a recorded error with a port's.
+    if (wantError !== gotError) note(fn, args, { error: wantError }, { error: gotError }, 'the error type differs')
+  } else if (wantError !== undefined || gotError !== undefined) {
+    note(fn, args, wantError === undefined ? want : { error: wantError },
+      gotError === undefined ? got : { error: gotError }, 'one side failed and the other did not')
   } else if (canon(want) !== canon(got)) {
     note(fn, args, want, got, 'the answers differ')
   }
+
+  if (wantError !== undefined) throw wantError === errorKind(wantError) ? new Error(wantError) : wantError
   return want
+}
+
+// errorKind is the error's name, which is what diff compares: the message can differ between a port and
+// the original without the behaviour differing.
+const errorKind = e => {
+  if (e === undefined) return undefined
+  // A class the original raised carries its name in the prototype. An error that came back from Go is a
+  // plain Error whose message starts with the kind ("JadxInterruption: …"), and reading the constructor
+  // there would compare "Error" against "JadxInterruption" and call a correct port wrong.
+  const name = e && typeof e === 'object' && e.constructor ? e.constructor.name : ''
+  if (name && name !== 'Error') return name
+  const text = String(e && e.message !== undefined ? e.message : e)
+  const at = text.indexOf(':')
+  return at > 0 ? text.slice(0, at).trim() : text.trim()
 }
 
 // The original is TypeScript: registering the resolver first means './foo.js' finds 'foo.ts', which is
@@ -85,7 +115,6 @@ try {
 }
 
 const ORIGINAL = require(ORIGINAL_PATH)
-const ORIGINAL_THROWS = null
 
 const shadow = {}
 for (const name of FUNCTIONS) {

@@ -42,6 +42,12 @@ const Encode = `function encode(v) {
     return v
   }
   if (typeof v === 'bigint') return { $bigint: v.toString() }
+  // A platform object a caller passes in: an AbortSignal has no own enumerable fields, so without this
+  // branch it reached the port as {}, and a port that throws on an aborted signal looked like a port
+  // that never throws.
+  if (typeof AbortSignal !== 'undefined' && v instanceof AbortSignal) {
+    return { $abortSignal: { aborted: v.aborted, reason: v.aborted ? encode(v.reason) : null } }
+  }
   if (typeof v === 'string' && !v.isWellFormed()) {
     return { $utf16: [...Array(v.length)].map((_, i) => v.charCodeAt(i)) }
   }
