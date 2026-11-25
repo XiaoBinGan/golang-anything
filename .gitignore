@@ -25,3 +25,11 @@ testdata/waves/rust/*/portctl
 testdata/waves/rust/*/index.cjs
 testdata/waves/rust/*/port.py
 testdata/waves/rust/*/libport.h
+testdata/realworld/go-ports/*/addon.node
+testdata/realworld/go-ports/*/answer.go
+testdata/realworld/go-ports/*/*.dylib
+testdata/realworld/go-ports/*/*.h
+testdata/realworld/go-ports/*/index.cjs
+testdata/realworld/go-ports/*/port.py
+testdata/realworld/go-ports/*/portctl
+testdata/realworld/go-ports/*/work/

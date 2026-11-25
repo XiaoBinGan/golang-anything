@@ -1,0 +1,8 @@
+{
+  "schema": "go-anything/port@1",
+  "unit": "src/byteToHex.ts",
+  "crate": "github.com/xiaobingan/go-anything/testdata/realworld/go-ports/byteToHex-go",
+  "files": ["src/byteToHex.ts"],
+  "exports": [{"name":"byteToHex","params":["number"],"returns":"string","line":5,"throw_lines":[],"blocked":""}],
+  "wire": "json"
+}

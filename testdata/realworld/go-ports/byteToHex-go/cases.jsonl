@@ -1,0 +1,13 @@
+{"fn":"byteToHex","args":[0],"ok":"00"}
+{"fn":"byteToHex","args":[1],"ok":"01"}
+{"fn":"byteToHex","args":[2],"ok":"02"}
+{"fn":"byteToHex","args":[-1],"ok":"-1"}
+{"fn":"byteToHex","args":[7],"ok":"07"}
+{"fn":"byteToHex","args":[1.5],"ok":"1.8"}
+{"fn":"byteToHex","args":[-0.5],"ok":"-0.8"}
+{"fn":"byteToHex","args":[1000000],"ok":"f4240"}
+{"fn":"byteToHex","args":[-1000000],"ok":"-f4240"}
+{"fn":"byteToHex","args":[0.30000000000000004],"ok":"0.4cccccccccccd"}
+{"fn":"byteToHex","args":[3.14159],"ok":"3.243f3e0370cdc"}
+{"fn":"byteToHex","args":[0.3333333333333333],"ok":"0.55555555555554"}
+{"fn":"byteToHex","args":[{"$number":"-0"}],"ok":"00"}

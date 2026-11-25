@@ -357,3 +357,23 @@ CGO_ENABLED=1 go test ./...     # analyze / diff / ts / wire 四套
 3. **更多语言**：Python（tree-sitter-python）、Java、C#。桥接各自不同，方法论可复用。
 4. **`--from-tests` 录制**：跑原式测试时把调用参数拦截下来录成用例（现在只有覆盖率）。
 5. **副作用录制**：出站 HTTP、邮件、SQL 行。
+
+## 真实代码：两个来自 `rea` 仓库的单元
+
+不是我自己写的 fixture——`testdata/realworld/` 里两个文件原样来自一个 7,390 个 TypeScript 文件的仓库：
+
+| 单元 | 原式 | 移植时撞到的事 |
+| --- | --- | --- |
+| `src/kernel/byteToHex.ts` | `byte.toString(16).padStart(2, "0")` | 不是「字节转十六进制」：`byteToHex(1.5)` 是 `"1.8"`，`byteToHex(-1)` 是 `"-1"`（`padStart` 连负号一起数） |
+| `src/domain/desktop/shellQuote.ts` | `"'${value.replaceAll("'", `'"'"'`)}'"` | 全部逻辑都在那个 `replaceAll`：单引号要变成 `'"'"'` |
+
+两个都走完整条链：
+
+```
+scaffold → record（13 例 / 20 例）→ 手写 port.go → gate 全绿
+        → bridge → build --fast → check 13/13、20/20（进程内 addon）
+        → fuzz 60/60、80/80（新种子）
+```
+
+`byteToHex` 第一版我按「字节」实现，`gate` 立刻用 `byteToHex(-1)` 这一条打出 `expected "-1", got "-001"`——
+**是录制用例先发现了我的误解，不是我读代码读出来的**。

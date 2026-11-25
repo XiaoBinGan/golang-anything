@@ -1,0 +1,20 @@
+{"fn":"shellQuote","args":[""],"ok":"''"}
+{"fn":"shellQuote","args":["a"],"ok":"'a'"}
+{"fn":"shellQuote","args":["abc"],"ok":"'abc'"}
+{"fn":"shellQuote","args":["  "],"ok":"'  '"}
+{"fn":"shellQuote","args":["a b  c"],"ok":"'a b  c'"}
+{"fn":"shellQuote","args":["x y z"],"ok":"'x y z'"}
+{"fn":"shellQuote","args":["pad  "],"ok":"'pad  '"}
+{"fn":"shellQuote","args":["héllo"],"ok":"'héllo'"}
+{"fn":"shellQuote","args":["naïve café"],"ok":"'naïve café'"}
+{"fn":"shellQuote","args":["😀😀"],"ok":"'😀😀'"}
+{"fn":"shellQuote","args":["$5 apple"],"ok":"'$5 apple'"}
+{"fn":"shellQuote","args":["$a$b"],"ok":"'$a$b'"}
+{"fn":"shellQuote","args":["$"],"ok":"'$'"}
+{"fn":"shellQuote","args":["a$"],"ok":"'a$'"}
+{"fn":"shellQuote","args":["  \t  "],"ok":"'  \t  '"}
+{"fn":"shellQuote","args":["ünïcodé"],"ok":"'ünïcodé'"}
+{"fn":"shellQuote","args":["ÆØÅ"],"ok":"'ÆØÅ'"}
+{"fn":"shellQuote","args":["中文 字"],"ok":"'中文 字'"}
+{"fn":"shellQuote","args":["a\nb"],"ok":"'a\nb'"}
+{"fn":"shellQuote","args":["0"],"ok":"'0'"}
