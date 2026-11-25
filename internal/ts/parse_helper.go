@@ -166,7 +166,10 @@ func ParserPath() (string, error) { return helperPath() }
 // selfCandidates are the other builds of this tool that can parse, in the order worth trying.
 func selfCandidates(dir string) []string {
 	var out []string
-	for _, name := range []string{"go-anything", "go-anything-cgo"} {
+	// go-anything comes last: it is the front binary now, built without cgo, and starting it for a parse
+	// answers "__parse needs a build made with CGO_ENABLED=1" — which read as a broken parser rather than
+	// the wrong helper.
+	for _, name := range []string{"go-anything-cgo", "go-anything"} {
 		out = append(out, filepath.Join(dir, name))
 	}
 	return out

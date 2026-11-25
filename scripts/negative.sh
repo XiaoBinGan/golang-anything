@@ -220,11 +220,19 @@ CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" -o bin/go-anything .
 expect_fail "perf refuses a cgo build in the fast binary's place" $?
 cp /tmp/negative-fast-build bin/go-anything 2>/dev/null || ./scripts/build.sh bin >/dev/null 2>&1
 
-# 12. perf: no rig, no numbers.
+# 12. the front binary: without its engine it must say so, not answer as if it were the whole tool.
+cp bin/go-anything-engine /tmp/negative-engine
+rm -f bin/go-anything-engine
+./bin/go-anything diff testdata/sample/port-rs >/dev/null 2>&1
+expect_fail "the front says it cannot find its engine" $?
+cp /tmp/negative-engine bin/go-anything-engine
+./bin/go-anything diff testdata/sample/port-rs >/dev/null 2>&1 || { printf 'FAIL  the front does not recover\n'; failures=$((failures + 1)); }
+
+# 13. perf: no rig, no numbers.
 RUST_ANYTHING=/nonexistent ./scripts/perf.sh >/dev/null 2>&1
 expect_fail "perf refuses a missing rig" $?
 
-# 13. npm install: a loader that answers a hard-coded wrong value, built from a patched template.
+# 14. npm install: a loader that answers a hard-coded wrong value, built from a patched template.
 cp internal/pkg/pkg.go /tmp/negative-pkg.go
 python3 - internal/pkg/pkg.go <<'PY2'
 import sys
