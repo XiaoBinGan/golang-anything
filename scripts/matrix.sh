@@ -29,6 +29,15 @@ run() {
   failures=0
   for crate in $CRATES; do
     name=$(basename "$crate")
+    # A fresh clone has none of the generated files: index.cjs, cmd/portctl and answer.go are written by
+    # `bridge`, and the addon by `build --fast`. Generate them here, at 15 ms a crate, so the matrix says
+    # what the crates can do rather than what a clone happens to contain.
+    if [ ! -f "$crate/index.cjs" ] || [ ! -d "$crate/cmd/portctl" ] || [ ! -f "$crate/answer.go" ]; then
+      "$GO" bridge "$crate" >/dev/null 2>&1
+    fi
+    if [ ! -f "$crate/addon.node" ] && [ "${NO_BUILD:-0}" != "1" ]; then
+      "$GO" build --fast "$crate" >/dev/null 2>&1
+    fi
     cases=$(wc -l < "$crate/cases.jsonl" 2>/dev/null | tr -d ' ')
     cases=${cases:-0}
 
