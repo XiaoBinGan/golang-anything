@@ -994,3 +994,27 @@ $ node scripts/mcp-client.mjs .        # 需要 npm i @modelcontextprotocol/sdk
 15 tools: analyze, map, diff, gate, record, fuzz, doctor, check, bench, shadow-report, enable, disable, clean, refresh, profile
 ok   analyze … ok   check … ok   clean … ok   unknown tool → isError
 ```
+
+### 顺带：`doctor` 与它诊断的代码不一致
+
+第二次跑客户端时 `doctor` 报 `MISS parser available`——但 `bin/go-anything-cgo` 就在旁边，而真正会去启动
+解析器的代码（`ts.helperPath`）**能找到它**。
+
+原因：`doctor` 自己又写了一遍「去哪里找解析器」的搜索，只看 `GO_ANYTHING_PARSE` 和 `PATH`，不看二进制旁边。
+**同一逻辑的第二份实现，又一次。** 现在 `doctor` 调 `ts.ParserPath()`，两种构建各有实现（cgo 构建自己就是解析器）。
+
+验证：
+
+```
+有 helper           → ok   parser available   /tmp/nocgo/go-anything-cgo
+删掉 helper         → MISS parser available   no cgo in this build: …
+```
+
+### 这一轮的账
+
+| 发现 | 由谁发现 |
+| --- | --- |
+| 8 个命令不是 MCP 工具 | 官方 SDK 客户端 `tools/list` |
+| `"required": null` 让整张工具表被拒 | 同上（schema 校验） |
+| 委托给命令而不是重写 | 我，按 CONTRACT.md 的原则 |
+| `doctor` 与 `ParserPath` 不一致 | 客户端第二次跑（第一次是第一次构建，恰好没有 helper 缺失） |

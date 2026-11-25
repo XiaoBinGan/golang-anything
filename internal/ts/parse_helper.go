@@ -158,6 +158,11 @@ func ParseSource(src []byte, lang Lang, path string) (*File, error) {
 	return shared.ask(request{Path: path, Lang: string(lang), Src: src})
 }
 
+// ParserPath is where the parser would be found, asked of the code that will actually start it. doctor
+// used to search again on its own and reported the missing parser for a setup that worked, because it
+// only looked at GO_ANYTHING_PARSE and PATH and not next to the binary.
+func ParserPath() (string, error) { return helperPath() }
+
 // selfCandidates are the other builds of this tool that can parse, in the order worth trying.
 func selfCandidates(dir string) []string {
 	var out []string

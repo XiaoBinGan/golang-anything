@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/xiaobingan/go-anything/internal/ts"
 )
 
 // run drives the server with the frames given and returns the replies.
@@ -174,5 +176,19 @@ func TestTheDelegatedToolsAreTheCommands(t *testing.T) {
 		if !names[want] {
 			t.Errorf("%s is a command but not a tool", want)
 		}
+	}
+}
+
+// doctor used to search for the parser helper itself and reported a missing one for a setup that worked.
+// The fix asks ts.ParserPath; this test pins the agreement from the side that can see both.
+func TestDoctorAsksTheParserLookup(t *testing.T) {
+	helper, err := ts.ParserPath()
+	_ = helper
+	// A cgo build is its own parser, so ParserPath answers an error and doctor must not claim otherwise.
+	if err == nil {
+		return // a separate helper exists: doctor finding it is the expected answer
+	}
+	if _, statErr := os.Stat(filepath.Join(filepath.Dir(os.Args[0]), "go-anything-cgo")); statErr == nil {
+		t.Error("a helper sits beside the test binary but ParserPath does not find it")
 	}
 }

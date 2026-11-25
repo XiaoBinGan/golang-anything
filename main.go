@@ -36,6 +36,7 @@ import (
 	"github.com/xiaobingan/go-anything/internal/scaffold"
 	"github.com/xiaobingan/go-anything/internal/shadow"
 	"github.com/xiaobingan/go-anything/internal/switched"
+	"github.com/xiaobingan/go-anything/internal/ts"
 	"github.com/xiaobingan/go-anything/internal/wasmbridge"
 )
 
@@ -724,17 +725,13 @@ func runDoctor(args []string) error {
 	{
 		ok, note := true, "this build parses TypeScript itself (cgo)"
 		if !buildinfo.Cgo {
-			ok = false
-			note = "no cgo in this build: set GO_ANYTHING_PARSE or put go-anything-cgo beside it"
-			if path := os.Getenv("GO_ANYTHING_PARSE"); path != "" {
-				if _, err := os.Stat(path); err == nil {
-					ok, note = true, path
-				}
-			}
-			if !ok {
-				if path, err := exec.LookPath("go-anything-cgo"); err == nil {
-					ok, note = true, path
-				}
+			// Ask the code that will actually start the helper, not a second copy of its search: doctor
+			// reported a missing parser for a setup that worked, because it looked in fewer places.
+			if path, err := ts.ParserPath(); err == nil {
+				ok, note = true, path
+			} else {
+				ok = false
+				note = "no cgo in this build: set GO_ANYTHING_PARSE or put go-anything-cgo beside it"
 			}
 		}
 		checks = append(checks, check{

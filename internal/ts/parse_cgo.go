@@ -6,6 +6,7 @@ package ts
 
 import (
 	"context"
+	"errors"
 	"os"
 	"strings"
 
@@ -231,3 +232,7 @@ func normalizeType(t string) string {
 	}
 	return t
 }
+
+// ParserPath answers where a separate parser would be. This build is the parser, so there is none: the
+// function exists so the code that asks compiles in both builds.
+func ParserPath() (string, error) { return "", errors.New("this build parses TypeScript itself") }
