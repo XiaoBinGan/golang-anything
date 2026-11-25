@@ -4,9 +4,14 @@
 {"fn":"count","args":["0"],"ok":0}
 {"fn":"count","args":["\\"],"ok":0}
 {"fn":"count","args":["\""],"ok":0}
+{"fn":"count","args":["~"],"ok":0}
+{"fn":"count","args":["/"],"ok":0}
 {"fn":"count","args":["  "],"ok":2}
 {"fn":"count","args":["a$"],"ok":0}
 {"fn":"count","args":["''"],"ok":0}
+{"fn":"count","args":["[]"],"ok":0}
+{"fn":"count","args":["{}"],"ok":0}
+{"fn":"count","args":["()"],"ok":0}
 {"fn":"count","args":["abc"],"ok":0}
 {"fn":"count","args":["ÆØÅ"],"ok":0}
 {"fn":"count","args":["a\nb"],"ok":0}
@@ -14,54 +19,97 @@
 {"fn":"count","args":["a\"b"],"ok":0}
 {"fn":"count","args":["a|b"],"ok":0}
 {"fn":"count","args":["a;b"],"ok":0}
+{"fn":"count","args":["a/b"],"ok":0}
+{"fn":"count","args":["~/x"],"ok":0}
+{"fn":"count","args":["a~b"],"ok":0}
+{"fn":"count","args":["1/2"],"ok":0}
+{"fn":"count","args":["a.b"],"ok":0}
+{"fn":"count","args":["a:b"],"ok":0}
+{"fn":"count","args":["a=b"],"ok":0}
+{"fn":"count","args":["a&b"],"ok":0}
+{"fn":"count","args":["a?b"],"ok":0}
+{"fn":"count","args":["a#b"],"ok":0}
+{"fn":"count","args":["a%b"],"ok":0}
+{"fn":"count","args":["a+b"],"ok":0}
+{"fn":"count","args":["a@b"],"ok":0}
+{"fn":"count","args":["a,b"],"ok":0}
+{"fn":"count","args":["a*b"],"ok":0}
+{"fn":"count","args":["a!b"],"ok":0}
 {"fn":"count","args":["😀😀"],"ok":0}
 {"fn":"count","args":["$a$b"],"ok":0}
 {"fn":"count","args":["中文 字"],"ok":1}
 {"fn":"count","args":["it's"],"ok":0}
+{"fn":"count","args":["/a/b"],"ok":0}
+{"fn":"count","args":["~0~1"],"ok":0}
 {"fn":"count","args":["x y z"],"ok":2}
 {"fn":"count","args":["pad  "],"ok":2}
 {"fn":"count","args":["héllo"],"ok":0}
 {"fn":"count","args":["  \t  "],"ok":4}
 {"fn":"count","args":["a'b'c"],"ok":0}
 {"fn":"count","args":["$(id)"],"ok":0}
+{"fn":"count","args":["a/b/c"],"ok":0}
 {"fn":"count","args":["a b  c"],"ok":3}
 {"fn":"count","args":["--flag"],"ok":0}
 {"fn":"count","args":["ünïcodé"],"ok":0}
 {"fn":"count","args":["$5 apple"],"ok":1}
 {"fn":"count","args":["naïve café"],"ok":1}
 {"fn":"count","args":["cmd --flag | tee"],"ok":3}
-{"fn":"rangeOf","args":["","a$"],"ok":{"start":-1,"end":1,"rest":""}}
-{"fn":"rangeOf","args":["a","''"],"ok":{"start":-1,"end":1,"rest":"a"}}
-{"fn":"rangeOf","args":["$","abc"],"ok":{"start":-1,"end":2,"rest":"$"}}
-{"fn":"rangeOf","args":["0","ÆØÅ"],"ok":{"start":-1,"end":2,"rest":"0"}}
-{"fn":"rangeOf","args":["\\","a\nb"],"ok":{"start":-1,"end":2,"rest":"\\"}}
-{"fn":"rangeOf","args":["\"","a\\b"],"ok":{"start":-1,"end":2,"rest":"\""}}
-{"fn":"rangeOf","args":["  ","a\"b"],"ok":{"start":-1,"end":2,"rest":" "}}
-{"fn":"rangeOf","args":["a$","a|b"],"ok":{"start":-1,"end":2,"rest":"$"}}
-{"fn":"rangeOf","args":["''","a;b"],"ok":{"start":-1,"end":2,"rest":"'"}}
-{"fn":"rangeOf","args":["abc","😀😀"],"ok":{"start":-1,"end":3,"rest":"c"}}
-{"fn":"rangeOf","args":["ÆØÅ","$a$b"],"ok":{"start":-1,"end":3,"rest":"Å"}}
-{"fn":"rangeOf","args":["a\nb","中文 字"],"ok":{"start":-1,"end":3,"rest":"b"}}
-{"fn":"rangeOf","args":["a\\b","it's"],"ok":{"start":-1,"end":3,"rest":"b"}}
-{"fn":"rangeOf","args":["a\"b","x y z"],"ok":{"start":-1,"end":4,"rest":"b"}}
-{"fn":"rangeOf","args":["a|b","pad  "],"ok":{"start":-1,"end":4,"rest":"b"}}
-{"fn":"rangeOf","args":["a;b","héllo"],"ok":{"start":-1,"end":4,"rest":"b"}}
-{"fn":"rangeOf","args":["😀😀","  \t  "],"ok":{"start":-1,"end":4,"rest":{"$utf16":[56832]}}}
-{"fn":"rangeOf","args":["$a$b","a'b'c"],"ok":{"start":-1,"end":4,"rest":"b"}}
-{"fn":"rangeOf","args":["中文 字","$(id)"],"ok":{"start":-1,"end":4,"rest":"字"}}
-{"fn":"rangeOf","args":["it's","a b  c"],"ok":{"start":-1,"end":5,"rest":"s"}}
-{"fn":"rangeOf","args":["x y z","--flag"],"ok":{"start":-1,"end":5,"rest":"z"}}
-{"fn":"rangeOf","args":["pad  ","ünïcodé"],"ok":{"start":-1,"end":6,"rest":" "}}
-{"fn":"rangeOf","args":["héllo","$5 apple"],"ok":{"start":-1,"end":7,"rest":"o"}}
-{"fn":"rangeOf","args":["  \t  ","naïve café"],"ok":{"start":-1,"end":9,"rest":" "}}
-{"fn":"rangeOf","args":["a'b'c","cmd --flag | tee"],"ok":{"start":-1,"end":15,"rest":"c"}}
-{"fn":"rangeOf","args":["$(id)",""],"ok":{"start":0,"end":0,"rest":"$(id)"}}
+{"fn":"rangeOf","args":["","/"],"ok":{"start":-1,"end":0,"rest":""}}
+{"fn":"rangeOf","args":["a","  "],"ok":{"start":-1,"end":1,"rest":"a"}}
+{"fn":"rangeOf","args":["$","a$"],"ok":{"start":-1,"end":1,"rest":"$"}}
+{"fn":"rangeOf","args":["0","''"],"ok":{"start":-1,"end":1,"rest":"0"}}
+{"fn":"rangeOf","args":["\\","[]"],"ok":{"start":-1,"end":1,"rest":"\\"}}
+{"fn":"rangeOf","args":["\"","{}"],"ok":{"start":-1,"end":1,"rest":"\""}}
+{"fn":"rangeOf","args":["~","()"],"ok":{"start":-1,"end":1,"rest":"~"}}
+{"fn":"rangeOf","args":["/","abc"],"ok":{"start":-1,"end":2,"rest":"/"}}
+{"fn":"rangeOf","args":["  ","ÆØÅ"],"ok":{"start":-1,"end":2,"rest":" "}}
+{"fn":"rangeOf","args":["a$","a\nb"],"ok":{"start":-1,"end":2,"rest":"$"}}
+{"fn":"rangeOf","args":["''","a\\b"],"ok":{"start":-1,"end":2,"rest":"'"}}
+{"fn":"rangeOf","args":["[]","a\"b"],"ok":{"start":-1,"end":2,"rest":"]"}}
+{"fn":"rangeOf","args":["{}","a|b"],"ok":{"start":-1,"end":2,"rest":"}"}}
+{"fn":"rangeOf","args":["()","a;b"],"ok":{"start":-1,"end":2,"rest":")"}}
+{"fn":"rangeOf","args":["abc","a/b"],"ok":{"start":-1,"end":2,"rest":"c"}}
+{"fn":"rangeOf","args":["ÆØÅ","~/x"],"ok":{"start":-1,"end":2,"rest":"Å"}}
+{"fn":"rangeOf","args":["a\nb","a~b"],"ok":{"start":-1,"end":2,"rest":"b"}}
+{"fn":"rangeOf","args":["a\\b","1/2"],"ok":{"start":-1,"end":2,"rest":"b"}}
+{"fn":"rangeOf","args":["a\"b","a.b"],"ok":{"start":-1,"end":2,"rest":"b"}}
+{"fn":"rangeOf","args":["a|b","a:b"],"ok":{"start":-1,"end":2,"rest":"b"}}
+{"fn":"rangeOf","args":["a;b","a=b"],"ok":{"start":-1,"end":2,"rest":"b"}}
+{"fn":"rangeOf","args":["a/b","a&b"],"ok":{"start":-1,"end":2,"rest":"b"}}
+{"fn":"rangeOf","args":["~/x","a?b"],"ok":{"start":-1,"end":2,"rest":"x"}}
+{"fn":"rangeOf","args":["a~b","a#b"],"ok":{"start":-1,"end":2,"rest":"b"}}
+{"fn":"rangeOf","args":["1/2","a%b"],"ok":{"start":-1,"end":2,"rest":"2"}}
+{"fn":"rangeOf","args":["a.b","a+b"],"ok":{"start":-1,"end":2,"rest":"b"}}
+{"fn":"rangeOf","args":["a:b","a@b"],"ok":{"start":-1,"end":2,"rest":"b"}}
+{"fn":"rangeOf","args":["a=b","a,b"],"ok":{"start":-1,"end":2,"rest":"b"}}
+{"fn":"rangeOf","args":["a&b","a*b"],"ok":{"start":-1,"end":2,"rest":"b"}}
+{"fn":"rangeOf","args":["a?b","a!b"],"ok":{"start":-1,"end":2,"rest":"b"}}
+{"fn":"rangeOf","args":["a#b","😀😀"],"ok":{"start":-1,"end":3,"rest":"b"}}
+{"fn":"rangeOf","args":["a%b","$a$b"],"ok":{"start":-1,"end":3,"rest":"b"}}
+{"fn":"rangeOf","args":["a+b","中文 字"],"ok":{"start":-1,"end":3,"rest":"b"}}
+{"fn":"rangeOf","args":["a@b","it's"],"ok":{"start":-1,"end":3,"rest":"b"}}
+{"fn":"rangeOf","args":["a,b","/a/b"],"ok":{"start":-1,"end":3,"rest":"b"}}
+{"fn":"rangeOf","args":["a*b","~0~1"],"ok":{"start":-1,"end":3,"rest":"b"}}
+{"fn":"rangeOf","args":["a!b","x y z"],"ok":{"start":-1,"end":4,"rest":"b"}}
+{"fn":"rangeOf","args":["😀😀","pad  "],"ok":{"start":-1,"end":4,"rest":{"$utf16":[56832]}}}
+{"fn":"rangeOf","args":["$a$b","héllo"],"ok":{"start":-1,"end":4,"rest":"b"}}
+{"fn":"rangeOf","args":["中文 字","  \t  "],"ok":{"start":-1,"end":4,"rest":"字"}}
+{"fn":"rangeOf","args":["it's","a'b'c"],"ok":{"start":-1,"end":4,"rest":"s"}}
+{"fn":"rangeOf","args":["/a/b","$(id)"],"ok":{"start":-1,"end":4,"rest":"b"}}
+{"fn":"rangeOf","args":["~0~1","a/b/c"],"ok":{"start":-1,"end":4,"rest":"1"}}
+{"fn":"rangeOf","args":["x y z","a b  c"],"ok":{"start":-1,"end":5,"rest":"z"}}
+{"fn":"rangeOf","args":["pad  ","--flag"],"ok":{"start":-1,"end":5,"rest":" "}}
+{"fn":"rangeOf","args":["héllo","ünïcodé"],"ok":{"start":-1,"end":6,"rest":"o"}}
+{"fn":"rangeOf","args":["  \t  ","$5 apple"],"ok":{"start":-1,"end":7,"rest":" "}}
+{"fn":"rangeOf","args":["a'b'c","naïve café"],"ok":{"start":-1,"end":9,"rest":"c"}}
+{"fn":"rangeOf","args":["$(id)","cmd --flag | tee"],"ok":{"start":-1,"end":15,"rest":")"}}
+{"fn":"rangeOf","args":["a/b/c",""],"ok":{"start":0,"end":0,"rest":"a/b/c"}}
 {"fn":"rangeOf","args":["a b  c","a"],"ok":{"start":0,"end":1,"rest":"a b  c"}}
 {"fn":"rangeOf","args":["--flag","$"],"ok":{"start":-1,"end":0,"rest":"g"}}
 {"fn":"rangeOf","args":["ünïcodé","0"],"ok":{"start":-1,"end":0,"rest":"é"}}
 {"fn":"rangeOf","args":["$5 apple","\\"],"ok":{"start":-1,"end":0,"rest":"e"}}
 {"fn":"rangeOf","args":["naïve café","\""],"ok":{"start":-1,"end":0,"rest":"é"}}
-{"fn":"rangeOf","args":["cmd --flag | tee","  "],"ok":{"start":-1,"end":1,"rest":"e"}}
+{"fn":"rangeOf","args":["cmd --flag | tee","~"],"ok":{"start":-1,"end":0,"rest":"e"}}
 {"fn":"rangeOf","args":["",""],"ok":{"start":0,"end":0,"rest":""}}
 {"fn":"rangeOf","args":["","a"],"ok":{"start":-1,"end":0,"rest":""}}
 {"fn":"rangeOf","args":["","$"],"ok":{"start":-1,"end":0,"rest":""}}
@@ -153,9 +201,14 @@
 {"fn":"words","args":["0"],"ok":[]}
 {"fn":"words","args":["\\"],"ok":[]}
 {"fn":"words","args":["\""],"ok":[]}
+{"fn":"words","args":["~"],"ok":[]}
+{"fn":"words","args":["/"],"ok":[]}
 {"fn":"words","args":["  "],"ok":[]}
 {"fn":"words","args":["a$"],"ok":[]}
 {"fn":"words","args":["''"],"ok":[]}
+{"fn":"words","args":["[]"],"ok":[]}
+{"fn":"words","args":["{}"],"ok":[]}
+{"fn":"words","args":["()"],"ok":[]}
 {"fn":"words","args":["abc"],"ok":[]}
 {"fn":"words","args":["ÆØÅ"],"ok":[]}
 {"fn":"words","args":["a\nb"],"ok":[]}
@@ -163,16 +216,35 @@
 {"fn":"words","args":["a\"b"],"ok":[]}
 {"fn":"words","args":["a|b"],"ok":[]}
 {"fn":"words","args":["a;b"],"ok":[]}
+{"fn":"words","args":["a/b"],"ok":[]}
+{"fn":"words","args":["~/x"],"ok":[]}
+{"fn":"words","args":["a~b"],"ok":[]}
+{"fn":"words","args":["1/2"],"ok":[]}
+{"fn":"words","args":["a.b"],"ok":[]}
+{"fn":"words","args":["a:b"],"ok":[]}
+{"fn":"words","args":["a=b"],"ok":[]}
+{"fn":"words","args":["a&b"],"ok":[]}
+{"fn":"words","args":["a?b"],"ok":[]}
+{"fn":"words","args":["a#b"],"ok":[]}
+{"fn":"words","args":["a%b"],"ok":[]}
+{"fn":"words","args":["a+b"],"ok":[]}
+{"fn":"words","args":["a@b"],"ok":[]}
+{"fn":"words","args":["a,b"],"ok":[]}
+{"fn":"words","args":["a*b"],"ok":[]}
+{"fn":"words","args":["a!b"],"ok":[]}
 {"fn":"words","args":["😀😀"],"ok":[]}
 {"fn":"words","args":["$a$b"],"ok":["a","b"]}
 {"fn":"words","args":["中文 字"],"ok":[]}
 {"fn":"words","args":["it's"],"ok":[]}
+{"fn":"words","args":["/a/b"],"ok":[]}
+{"fn":"words","args":["~0~1"],"ok":[]}
 {"fn":"words","args":["x y z"],"ok":[]}
 {"fn":"words","args":["pad  "],"ok":[]}
 {"fn":"words","args":["héllo"],"ok":[]}
 {"fn":"words","args":["  \t  "],"ok":[]}
 {"fn":"words","args":["a'b'c"],"ok":[]}
 {"fn":"words","args":["$(id)"],"ok":[]}
+{"fn":"words","args":["a/b/c"],"ok":[]}
 {"fn":"words","args":["a b  c"],"ok":[]}
 {"fn":"words","args":["--flag"],"ok":[]}
 {"fn":"words","args":["ünïcodé"],"ok":[]}

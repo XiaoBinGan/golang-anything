@@ -23,39 +23,46 @@ testdata/markers/go-ports/markers-go
 testdata/realworld5/go-ports/jp-go
 "}
 
-{
-  printf '%-16s %8s %6s %-22s %s\n' crate cases gate bridge speed
-  printf '%-16s %8s %6s %-22s %s\n' ---------------- -------- ----- ---------------------- -----
+run() {
+  printf '%-16s %7s %5s %6s %-9s %s\n' crate cases gate check bridge speed
+  printf '%-16s %7s %5s %6s %-9s %s\n' ---------------- ------- ----- ------ --------- -----
   failures=0
   for crate in $CRATES; do
     name=$(basename "$crate")
     cases=$(wc -l < "$crate/cases.jsonl" 2>/dev/null | tr -d ' ')
     cases=${cases:-0}
 
-    # gate: the definition of done. A crate that fails here is reported as such, not hidden.
+    # gate: the definition of done, through the driver.
     if "$GO" gate "$crate" >/dev/null 2>&1; then gate=ok; else gate=FAIL; failures=$((failures+1)); fi
 
-    # check: the same cases through the wrapper a caller uses, and which bridge answered them.
-    check=$("$GO" check "$crate" 2>/dev/null | tail -1)
-    case "$check" in
+    # check: the same cases through the wrapper a caller actually uses. A crate that gates but fails
+    # here has one of the two paths wrong, and that is the drift this column exists to catch: a port
+    # that answered [[97],[98]] through the addon and ["a","b"] through the driver passed gate alone.
+    check_text=$("$GO" check "$crate" 2>/dev/null | tail -1)
+    if printf '%s' "$check_text" | grep -q '^[0-9]*/[0-9]* cases'; then check=ok; else check=FAIL; failures=$((failures+1)); fi
+    case "$check_text" in
       *"in-process addon"*) bridge=addon ;;
-      *"stdio"*)            bridge=stdio ;;
-      *)                    bridge="none"; failures=$((failures+1)) ;;
+      *stdio*)              bridge="stdio!" ;; # a crate whose addon was never built
+      *)                    bridge="-" ;;
     esac
+    # The in-process bridge is the one that ships: a crate falling back to the pipe has not been built
+    # the way a caller is told to build it, and the speed column would be measuring the wrong path.
+    if [ "$bridge" = "stdio!" ]; then failures=$((failures+1)); fi
 
-    # bench: the geometric mean over the crate's functions, or "-" when it cannot be timed.
+    # speed: the geometric mean over the crate's functions, or "-" when it cannot be timed.
     speed=$("$GO" bench "$crate" 2>/dev/null | grep -o 'Geometric mean: [0-9.]*x [a-z]*' | sed 's/Geometric mean: //')
     speed=${speed:-"-"}
 
-    printf '%-16s %8s %6s %-22s %s\n' "$name" "$cases" "$gate" "$bridge" "$speed"
+    printf '%-16s %7s %5s %6s %-9s %s\n' "$name" "$cases" "$gate" "$check" "$bridge" "$speed"
   done
   echo
   if [ "$failures" -eq 0 ]; then
-    echo "every crate gates and answers through a real bridge"
+    echo "every crate gates, answers through the in-process bridge, and can be timed"
   else
     echo "$failures problem(s) above"
   fi
-} | tee "$OUT"
+}
+run | tee "$OUT"
 
 echo
 echo "written to $OUT"

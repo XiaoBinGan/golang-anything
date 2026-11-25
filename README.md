@@ -801,3 +801,35 @@ disable → 字节一致（sha 相同）✅
 | **单字符串快路径跳过了标记** | `answer1` 直接 `json.Marshal(v)`，`[]uint16` 变成 `[[97],[98]]`：`gate`（驱动）通过、`check`（桥）31 条不一致、`shadow` 4 条 |
 
 第二个尤其值得记：**同一份端口，驱动答对、桥答错**——正是 40 轮前设计 `check` 就是为了抓这类。
+
+## 矩阵多了两列，字符串表多了结构字符（第 41 轮）
+
+`scripts/matrix.sh` 现在强制 **gate + check + bridge** 三列都过，`stdio` 落回会标成 `stdio!` 并计为失败：
+
+```
+crate               cases  gate  check bridge    speed
+port-rs               253    ok     ok addon     3.54x faster
+util-go                56    ok     ok addon     1.31x slower
+format-go              28    ok     ok addon   128.66x faster
+shellQuote-go          56    ok     ok addon     1.41x faster
+jp-go                 224    ok     ok addon     2.84x faster
+…
+every crate gates, answers through the in-process bridge, and can be timed
+```
+
+负向对照：删掉 `addon.node` → 该行 `bridge` 变成 **`stdio!`**，脚本报 problem。
+
+### 更重要的是它抓出的一个假绿灯
+
+把 `escapeJsonPointerToken` 改成**原样返回**，`gate` 依然全绿——因为 64 条用例里**没有一条含 `~` 或 `/`**，
+而这两个字符正是这个函数存在的理由。
+
+修法：字符串表加入**结构字符** `/ ~ . : = & ? # % + @ , * ! [] {} ()` 与 `a/b/c`、`~0~1` 这类组合。
+重录后 `escape` 有 112 条用例、8 条含 `~`、12 条含 `/`；再弄坏端口：
+
+```
+- escapeJsonPointerToken("a/b/c"): expected "a~1b~1c", got "a/b/c"
+go-anything: gate: 9 of 224 cases do not match
+```
+
+同一次修改把 `port-rs` 从 181 例推到 **253 例**（`shellQuote` 32 → 56）。

@@ -4,9 +4,14 @@
 {"fn":"shellQuote","args":["0"],"ok":"'0'"}
 {"fn":"shellQuote","args":["\\"],"ok":"'\\'"}
 {"fn":"shellQuote","args":["\""],"ok":"'\"'"}
+{"fn":"shellQuote","args":["~"],"ok":"'~'"}
+{"fn":"shellQuote","args":["/"],"ok":"'/'"}
 {"fn":"shellQuote","args":["  "],"ok":"'  '"}
 {"fn":"shellQuote","args":["a$"],"ok":"'a$'"}
 {"fn":"shellQuote","args":["''"],"ok":"''\"'\"''\"'\"''"}
+{"fn":"shellQuote","args":["[]"],"ok":"'[]'"}
+{"fn":"shellQuote","args":["{}"],"ok":"'{}'"}
+{"fn":"shellQuote","args":["()"],"ok":"'()'"}
 {"fn":"shellQuote","args":["abc"],"ok":"'abc'"}
 {"fn":"shellQuote","args":["ÆØÅ"],"ok":"'ÆØÅ'"}
 {"fn":"shellQuote","args":["a\nb"],"ok":"'a\nb'"}
@@ -14,16 +19,35 @@
 {"fn":"shellQuote","args":["a\"b"],"ok":"'a\"b'"}
 {"fn":"shellQuote","args":["a|b"],"ok":"'a|b'"}
 {"fn":"shellQuote","args":["a;b"],"ok":"'a;b'"}
+{"fn":"shellQuote","args":["a/b"],"ok":"'a/b'"}
+{"fn":"shellQuote","args":["~/x"],"ok":"'~/x'"}
+{"fn":"shellQuote","args":["a~b"],"ok":"'a~b'"}
+{"fn":"shellQuote","args":["1/2"],"ok":"'1/2'"}
+{"fn":"shellQuote","args":["a.b"],"ok":"'a.b'"}
+{"fn":"shellQuote","args":["a:b"],"ok":"'a:b'"}
+{"fn":"shellQuote","args":["a=b"],"ok":"'a=b'"}
+{"fn":"shellQuote","args":["a&b"],"ok":"'a&b'"}
+{"fn":"shellQuote","args":["a?b"],"ok":"'a?b'"}
+{"fn":"shellQuote","args":["a#b"],"ok":"'a#b'"}
+{"fn":"shellQuote","args":["a%b"],"ok":"'a%b'"}
+{"fn":"shellQuote","args":["a+b"],"ok":"'a+b'"}
+{"fn":"shellQuote","args":["a@b"],"ok":"'a@b'"}
+{"fn":"shellQuote","args":["a,b"],"ok":"'a,b'"}
+{"fn":"shellQuote","args":["a*b"],"ok":"'a*b'"}
+{"fn":"shellQuote","args":["a!b"],"ok":"'a!b'"}
 {"fn":"shellQuote","args":["😀😀"],"ok":"'😀😀'"}
 {"fn":"shellQuote","args":["$a$b"],"ok":"'$a$b'"}
 {"fn":"shellQuote","args":["中文 字"],"ok":"'中文 字'"}
 {"fn":"shellQuote","args":["it's"],"ok":"'it'\"'\"'s'"}
+{"fn":"shellQuote","args":["/a/b"],"ok":"'/a/b'"}
+{"fn":"shellQuote","args":["~0~1"],"ok":"'~0~1'"}
 {"fn":"shellQuote","args":["x y z"],"ok":"'x y z'"}
 {"fn":"shellQuote","args":["pad  "],"ok":"'pad  '"}
 {"fn":"shellQuote","args":["héllo"],"ok":"'héllo'"}
 {"fn":"shellQuote","args":["  \t  "],"ok":"'  \t  '"}
 {"fn":"shellQuote","args":["a'b'c"],"ok":"'a'\"'\"'b'\"'\"'c'"}
 {"fn":"shellQuote","args":["$(id)"],"ok":"'$(id)'"}
+{"fn":"shellQuote","args":["a/b/c"],"ok":"'a/b/c'"}
 {"fn":"shellQuote","args":["a b  c"],"ok":"'a b  c'"}
 {"fn":"shellQuote","args":["--flag"],"ok":"'--flag'"}
 {"fn":"shellQuote","args":["ünïcodé"],"ok":"'ünïcodé'"}

@@ -40,7 +40,12 @@ const table = {
            '$5 apple', '$a$b', '$', 'a$', '  \t  ', 'ünïcodé', 'ÆØÅ', '中文 字', 'a\nb', '0',
            // Punctuation that changes what a function does. It was missing, and a port that dropped the
            // quote escaping in shellQuote passed every case until these values existed.
-           "it's", "''", "a'b'c", '\\', 'a\\b', '"', 'a"b', 'cmd --flag | tee', '$(id)', 'a|b', 'a;b', '--flag'],
+           "it's", "''", "a'b'c", '\\', 'a\\b', '"', 'a"b', 'cmd --flag | tee', '$(id)', 'a|b', 'a;b', '--flag',
+           // Structural characters, which a function like a JSON-pointer escaper is entirely about:
+           // escapeJsonPointerToken was recorded 64 times with no "~" and no "/" in it, so a port that
+           // returned its argument unchanged passed every case.
+           '/a/b', '~0~1', '~', '/', 'a/b', '~/x', 'a~b', 'a/b/c', '1/2', 'a.b', 'a:b', 'a=b',
+           'a&b', 'a?b', 'a#b', 'a%b', 'a+b', 'a@b', 'a,b', 'a*b', 'a!b', '[]', '{}', '()'],
   // Byte buffers: what a parser is handed. Small, and the last one is longer than any offset below so
   // an index into it is in range for at least one case.
   bytes: [

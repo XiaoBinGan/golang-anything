@@ -4,9 +4,14 @@
 {"fn":"escapeJsonPointerToken","args":["0"],"ok":"0"}
 {"fn":"escapeJsonPointerToken","args":["\\"],"ok":"\\"}
 {"fn":"escapeJsonPointerToken","args":["\""],"ok":"\""}
+{"fn":"escapeJsonPointerToken","args":["~"],"ok":"~0"}
+{"fn":"escapeJsonPointerToken","args":["/"],"ok":"~1"}
 {"fn":"escapeJsonPointerToken","args":["  "],"ok":"  "}
 {"fn":"escapeJsonPointerToken","args":["a$"],"ok":"a$"}
 {"fn":"escapeJsonPointerToken","args":["''"],"ok":"''"}
+{"fn":"escapeJsonPointerToken","args":["[]"],"ok":"[]"}
+{"fn":"escapeJsonPointerToken","args":["{}"],"ok":"{}"}
+{"fn":"escapeJsonPointerToken","args":["()"],"ok":"()"}
 {"fn":"escapeJsonPointerToken","args":["abc"],"ok":"abc"}
 {"fn":"escapeJsonPointerToken","args":["ÆØÅ"],"ok":"ÆØÅ"}
 {"fn":"escapeJsonPointerToken","args":["a\nb"],"ok":"a\nb"}
@@ -14,16 +19,35 @@
 {"fn":"escapeJsonPointerToken","args":["a\"b"],"ok":"a\"b"}
 {"fn":"escapeJsonPointerToken","args":["a|b"],"ok":"a|b"}
 {"fn":"escapeJsonPointerToken","args":["a;b"],"ok":"a;b"}
+{"fn":"escapeJsonPointerToken","args":["a/b"],"ok":"a~1b"}
+{"fn":"escapeJsonPointerToken","args":["~/x"],"ok":"~0~1x"}
+{"fn":"escapeJsonPointerToken","args":["a~b"],"ok":"a~0b"}
+{"fn":"escapeJsonPointerToken","args":["1/2"],"ok":"1~12"}
+{"fn":"escapeJsonPointerToken","args":["a.b"],"ok":"a.b"}
+{"fn":"escapeJsonPointerToken","args":["a:b"],"ok":"a:b"}
+{"fn":"escapeJsonPointerToken","args":["a=b"],"ok":"a=b"}
+{"fn":"escapeJsonPointerToken","args":["a&b"],"ok":"a&b"}
+{"fn":"escapeJsonPointerToken","args":["a?b"],"ok":"a?b"}
+{"fn":"escapeJsonPointerToken","args":["a#b"],"ok":"a#b"}
+{"fn":"escapeJsonPointerToken","args":["a%b"],"ok":"a%b"}
+{"fn":"escapeJsonPointerToken","args":["a+b"],"ok":"a+b"}
+{"fn":"escapeJsonPointerToken","args":["a@b"],"ok":"a@b"}
+{"fn":"escapeJsonPointerToken","args":["a,b"],"ok":"a,b"}
+{"fn":"escapeJsonPointerToken","args":["a*b"],"ok":"a*b"}
+{"fn":"escapeJsonPointerToken","args":["a!b"],"ok":"a!b"}
 {"fn":"escapeJsonPointerToken","args":["😀😀"],"ok":"😀😀"}
 {"fn":"escapeJsonPointerToken","args":["$a$b"],"ok":"$a$b"}
 {"fn":"escapeJsonPointerToken","args":["中文 字"],"ok":"中文 字"}
 {"fn":"escapeJsonPointerToken","args":["it's"],"ok":"it's"}
+{"fn":"escapeJsonPointerToken","args":["/a/b"],"ok":"~1a~1b"}
+{"fn":"escapeJsonPointerToken","args":["~0~1"],"ok":"~00~01"}
 {"fn":"escapeJsonPointerToken","args":["x y z"],"ok":"x y z"}
 {"fn":"escapeJsonPointerToken","args":["pad  "],"ok":"pad  "}
 {"fn":"escapeJsonPointerToken","args":["héllo"],"ok":"héllo"}
 {"fn":"escapeJsonPointerToken","args":["  \t  "],"ok":"  \t  "}
 {"fn":"escapeJsonPointerToken","args":["a'b'c"],"ok":"a'b'c"}
 {"fn":"escapeJsonPointerToken","args":["$(id)"],"ok":"$(id)"}
+{"fn":"escapeJsonPointerToken","args":["a/b/c"],"ok":"a~1b~1c"}
 {"fn":"escapeJsonPointerToken","args":["a b  c"],"ok":"a b  c"}
 {"fn":"escapeJsonPointerToken","args":["--flag"],"ok":"--flag"}
 {"fn":"escapeJsonPointerToken","args":["ünïcodé"],"ok":"ünïcodé"}
@@ -36,9 +60,14 @@
 {"fn":"jsonPointerSyntaxProblem","args":["0"],"ok":"missing-slash"}
 {"fn":"jsonPointerSyntaxProblem","args":["\\"],"ok":"missing-slash"}
 {"fn":"jsonPointerSyntaxProblem","args":["\""],"ok":"missing-slash"}
+{"fn":"jsonPointerSyntaxProblem","args":["~"],"ok":"missing-slash"}
+{"fn":"jsonPointerSyntaxProblem","args":["/"],"ok":null}
 {"fn":"jsonPointerSyntaxProblem","args":["  "],"ok":"missing-slash"}
 {"fn":"jsonPointerSyntaxProblem","args":["a$"],"ok":"missing-slash"}
 {"fn":"jsonPointerSyntaxProblem","args":["''"],"ok":"missing-slash"}
+{"fn":"jsonPointerSyntaxProblem","args":["[]"],"ok":"missing-slash"}
+{"fn":"jsonPointerSyntaxProblem","args":["{}"],"ok":"missing-slash"}
+{"fn":"jsonPointerSyntaxProblem","args":["()"],"ok":"missing-slash"}
 {"fn":"jsonPointerSyntaxProblem","args":["abc"],"ok":"missing-slash"}
 {"fn":"jsonPointerSyntaxProblem","args":["ÆØÅ"],"ok":"missing-slash"}
 {"fn":"jsonPointerSyntaxProblem","args":["a\nb"],"ok":"missing-slash"}
@@ -46,16 +75,35 @@
 {"fn":"jsonPointerSyntaxProblem","args":["a\"b"],"ok":"missing-slash"}
 {"fn":"jsonPointerSyntaxProblem","args":["a|b"],"ok":"missing-slash"}
 {"fn":"jsonPointerSyntaxProblem","args":["a;b"],"ok":"missing-slash"}
+{"fn":"jsonPointerSyntaxProblem","args":["a/b"],"ok":"missing-slash"}
+{"fn":"jsonPointerSyntaxProblem","args":["~/x"],"ok":"missing-slash"}
+{"fn":"jsonPointerSyntaxProblem","args":["a~b"],"ok":"missing-slash"}
+{"fn":"jsonPointerSyntaxProblem","args":["1/2"],"ok":"missing-slash"}
+{"fn":"jsonPointerSyntaxProblem","args":["a.b"],"ok":"missing-slash"}
+{"fn":"jsonPointerSyntaxProblem","args":["a:b"],"ok":"missing-slash"}
+{"fn":"jsonPointerSyntaxProblem","args":["a=b"],"ok":"missing-slash"}
+{"fn":"jsonPointerSyntaxProblem","args":["a&b"],"ok":"missing-slash"}
+{"fn":"jsonPointerSyntaxProblem","args":["a?b"],"ok":"missing-slash"}
+{"fn":"jsonPointerSyntaxProblem","args":["a#b"],"ok":"missing-slash"}
+{"fn":"jsonPointerSyntaxProblem","args":["a%b"],"ok":"missing-slash"}
+{"fn":"jsonPointerSyntaxProblem","args":["a+b"],"ok":"missing-slash"}
+{"fn":"jsonPointerSyntaxProblem","args":["a@b"],"ok":"missing-slash"}
+{"fn":"jsonPointerSyntaxProblem","args":["a,b"],"ok":"missing-slash"}
+{"fn":"jsonPointerSyntaxProblem","args":["a*b"],"ok":"missing-slash"}
+{"fn":"jsonPointerSyntaxProblem","args":["a!b"],"ok":"missing-slash"}
 {"fn":"jsonPointerSyntaxProblem","args":["😀😀"],"ok":"missing-slash"}
 {"fn":"jsonPointerSyntaxProblem","args":["$a$b"],"ok":"missing-slash"}
 {"fn":"jsonPointerSyntaxProblem","args":["中文 字"],"ok":"missing-slash"}
 {"fn":"jsonPointerSyntaxProblem","args":["it's"],"ok":"missing-slash"}
+{"fn":"jsonPointerSyntaxProblem","args":["/a/b"],"ok":null}
+{"fn":"jsonPointerSyntaxProblem","args":["~0~1"],"ok":"missing-slash"}
 {"fn":"jsonPointerSyntaxProblem","args":["x y z"],"ok":"missing-slash"}
 {"fn":"jsonPointerSyntaxProblem","args":["pad  "],"ok":"missing-slash"}
 {"fn":"jsonPointerSyntaxProblem","args":["héllo"],"ok":"missing-slash"}
 {"fn":"jsonPointerSyntaxProblem","args":["  \t  "],"ok":"missing-slash"}
 {"fn":"jsonPointerSyntaxProblem","args":["a'b'c"],"ok":"missing-slash"}
 {"fn":"jsonPointerSyntaxProblem","args":["$(id)"],"ok":"missing-slash"}
+{"fn":"jsonPointerSyntaxProblem","args":["a/b/c"],"ok":"missing-slash"}
 {"fn":"jsonPointerSyntaxProblem","args":["a b  c"],"ok":"missing-slash"}
 {"fn":"jsonPointerSyntaxProblem","args":["--flag"],"ok":"missing-slash"}
 {"fn":"jsonPointerSyntaxProblem","args":["ünïcodé"],"ok":"missing-slash"}
@@ -68,9 +116,14 @@
 {"fn":"jsonPointerTokens","args":["0"],"ok":[""]}
 {"fn":"jsonPointerTokens","args":["\\"],"ok":[""]}
 {"fn":"jsonPointerTokens","args":["\""],"ok":[""]}
+{"fn":"jsonPointerTokens","args":["~"],"ok":[""]}
+{"fn":"jsonPointerTokens","args":["/"],"ok":[""]}
 {"fn":"jsonPointerTokens","args":["  "],"ok":[" "]}
 {"fn":"jsonPointerTokens","args":["a$"],"ok":["$"]}
 {"fn":"jsonPointerTokens","args":["''"],"ok":["'"]}
+{"fn":"jsonPointerTokens","args":["[]"],"ok":["]"]}
+{"fn":"jsonPointerTokens","args":["{}"],"ok":["}"]}
+{"fn":"jsonPointerTokens","args":["()"],"ok":[")"]}
 {"fn":"jsonPointerTokens","args":["abc"],"ok":["bc"]}
 {"fn":"jsonPointerTokens","args":["ÆØÅ"],"ok":["ØÅ"]}
 {"fn":"jsonPointerTokens","args":["a\nb"],"ok":["\nb"]}
@@ -78,16 +131,35 @@
 {"fn":"jsonPointerTokens","args":["a\"b"],"ok":["\"b"]}
 {"fn":"jsonPointerTokens","args":["a|b"],"ok":["|b"]}
 {"fn":"jsonPointerTokens","args":["a;b"],"ok":[";b"]}
+{"fn":"jsonPointerTokens","args":["a/b"],"ok":["","b"]}
+{"fn":"jsonPointerTokens","args":["~/x"],"ok":["","x"]}
+{"fn":"jsonPointerTokens","args":["a~b"],"ok":["~b"]}
+{"fn":"jsonPointerTokens","args":["1/2"],"ok":["","2"]}
+{"fn":"jsonPointerTokens","args":["a.b"],"ok":[".b"]}
+{"fn":"jsonPointerTokens","args":["a:b"],"ok":[":b"]}
+{"fn":"jsonPointerTokens","args":["a=b"],"ok":["=b"]}
+{"fn":"jsonPointerTokens","args":["a&b"],"ok":["&b"]}
+{"fn":"jsonPointerTokens","args":["a?b"],"ok":["?b"]}
+{"fn":"jsonPointerTokens","args":["a#b"],"ok":["#b"]}
+{"fn":"jsonPointerTokens","args":["a%b"],"ok":["%b"]}
+{"fn":"jsonPointerTokens","args":["a+b"],"ok":["+b"]}
+{"fn":"jsonPointerTokens","args":["a@b"],"ok":["@b"]}
+{"fn":"jsonPointerTokens","args":["a,b"],"ok":[",b"]}
+{"fn":"jsonPointerTokens","args":["a*b"],"ok":["*b"]}
+{"fn":"jsonPointerTokens","args":["a!b"],"ok":["!b"]}
 {"fn":"jsonPointerTokens","args":["😀😀"],"ok":[{"$utf16":[56832,55357,56832]}]}
 {"fn":"jsonPointerTokens","args":["$a$b"],"ok":["a$b"]}
 {"fn":"jsonPointerTokens","args":["中文 字"],"ok":["文 字"]}
 {"fn":"jsonPointerTokens","args":["it's"],"ok":["t's"]}
+{"fn":"jsonPointerTokens","args":["/a/b"],"ok":["a","b"]}
+{"fn":"jsonPointerTokens","args":["~0~1"],"ok":["0/"]}
 {"fn":"jsonPointerTokens","args":["x y z"],"ok":[" y z"]}
 {"fn":"jsonPointerTokens","args":["pad  "],"ok":["ad  "]}
 {"fn":"jsonPointerTokens","args":["héllo"],"ok":["éllo"]}
 {"fn":"jsonPointerTokens","args":["  \t  "],"ok":[" \t  "]}
 {"fn":"jsonPointerTokens","args":["a'b'c"],"ok":["'b'c"]}
 {"fn":"jsonPointerTokens","args":["$(id)"],"ok":["(id)"]}
+{"fn":"jsonPointerTokens","args":["a/b/c"],"ok":["","b","c"]}
 {"fn":"jsonPointerTokens","args":["a b  c"],"ok":[" b  c"]}
 {"fn":"jsonPointerTokens","args":["--flag"],"ok":["-flag"]}
 {"fn":"jsonPointerTokens","args":["ünïcodé"],"ok":["nïcodé"]}
@@ -100,9 +172,14 @@
 {"fn":"unescapeJsonPointerToken","args":["0"],"ok":"0"}
 {"fn":"unescapeJsonPointerToken","args":["\\"],"ok":"\\"}
 {"fn":"unescapeJsonPointerToken","args":["\""],"ok":"\""}
+{"fn":"unescapeJsonPointerToken","args":["~"],"ok":"~"}
+{"fn":"unescapeJsonPointerToken","args":["/"],"ok":"/"}
 {"fn":"unescapeJsonPointerToken","args":["  "],"ok":"  "}
 {"fn":"unescapeJsonPointerToken","args":["a$"],"ok":"a$"}
 {"fn":"unescapeJsonPointerToken","args":["''"],"ok":"''"}
+{"fn":"unescapeJsonPointerToken","args":["[]"],"ok":"[]"}
+{"fn":"unescapeJsonPointerToken","args":["{}"],"ok":"{}"}
+{"fn":"unescapeJsonPointerToken","args":["()"],"ok":"()"}
 {"fn":"unescapeJsonPointerToken","args":["abc"],"ok":"abc"}
 {"fn":"unescapeJsonPointerToken","args":["ÆØÅ"],"ok":"ÆØÅ"}
 {"fn":"unescapeJsonPointerToken","args":["a\nb"],"ok":"a\nb"}
@@ -110,16 +187,35 @@
 {"fn":"unescapeJsonPointerToken","args":["a\"b"],"ok":"a\"b"}
 {"fn":"unescapeJsonPointerToken","args":["a|b"],"ok":"a|b"}
 {"fn":"unescapeJsonPointerToken","args":["a;b"],"ok":"a;b"}
+{"fn":"unescapeJsonPointerToken","args":["a/b"],"ok":"a/b"}
+{"fn":"unescapeJsonPointerToken","args":["~/x"],"ok":"~/x"}
+{"fn":"unescapeJsonPointerToken","args":["a~b"],"ok":"a~b"}
+{"fn":"unescapeJsonPointerToken","args":["1/2"],"ok":"1/2"}
+{"fn":"unescapeJsonPointerToken","args":["a.b"],"ok":"a.b"}
+{"fn":"unescapeJsonPointerToken","args":["a:b"],"ok":"a:b"}
+{"fn":"unescapeJsonPointerToken","args":["a=b"],"ok":"a=b"}
+{"fn":"unescapeJsonPointerToken","args":["a&b"],"ok":"a&b"}
+{"fn":"unescapeJsonPointerToken","args":["a?b"],"ok":"a?b"}
+{"fn":"unescapeJsonPointerToken","args":["a#b"],"ok":"a#b"}
+{"fn":"unescapeJsonPointerToken","args":["a%b"],"ok":"a%b"}
+{"fn":"unescapeJsonPointerToken","args":["a+b"],"ok":"a+b"}
+{"fn":"unescapeJsonPointerToken","args":["a@b"],"ok":"a@b"}
+{"fn":"unescapeJsonPointerToken","args":["a,b"],"ok":"a,b"}
+{"fn":"unescapeJsonPointerToken","args":["a*b"],"ok":"a*b"}
+{"fn":"unescapeJsonPointerToken","args":["a!b"],"ok":"a!b"}
 {"fn":"unescapeJsonPointerToken","args":["😀😀"],"ok":"😀😀"}
 {"fn":"unescapeJsonPointerToken","args":["$a$b"],"ok":"$a$b"}
 {"fn":"unescapeJsonPointerToken","args":["中文 字"],"ok":"中文 字"}
 {"fn":"unescapeJsonPointerToken","args":["it's"],"ok":"it's"}
+{"fn":"unescapeJsonPointerToken","args":["/a/b"],"ok":"/a/b"}
+{"fn":"unescapeJsonPointerToken","args":["~0~1"],"ok":"~/"}
 {"fn":"unescapeJsonPointerToken","args":["x y z"],"ok":"x y z"}
 {"fn":"unescapeJsonPointerToken","args":["pad  "],"ok":"pad  "}
 {"fn":"unescapeJsonPointerToken","args":["héllo"],"ok":"héllo"}
 {"fn":"unescapeJsonPointerToken","args":["  \t  "],"ok":"  \t  "}
 {"fn":"unescapeJsonPointerToken","args":["a'b'c"],"ok":"a'b'c"}
 {"fn":"unescapeJsonPointerToken","args":["$(id)"],"ok":"$(id)"}
+{"fn":"unescapeJsonPointerToken","args":["a/b/c"],"ok":"a/b/c"}
 {"fn":"unescapeJsonPointerToken","args":["a b  c"],"ok":"a b  c"}
 {"fn":"unescapeJsonPointerToken","args":["--flag"],"ok":"--flag"}
 {"fn":"unescapeJsonPointerToken","args":["ünïcodé"],"ok":"ünïcodé"}

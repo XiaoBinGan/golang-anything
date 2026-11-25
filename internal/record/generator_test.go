@@ -200,3 +200,22 @@ func TestAnAnswerThatIsAClassInstanceIsNotRecorded(t *testing.T) {
 		t.Errorf("%d cases recorded for an answer JSON cannot carry", sum.Cases)
 	}
 }
+
+// The string table has to carry the characters a function's job is made of. escapeJsonPointerToken was
+// recorded 64 times with no "~" and no "/" in any argument, so a port that returned its input unchanged
+// passed the gate.
+func TestTheStringTableHasStructuralCharacters(t *testing.T) {
+	values := driverStrings(t)
+	for _, want := range []string{"/", "~", "a/b/c", "~0~1"} {
+		found := false
+		for _, v := range values {
+			if v == want || strings.Contains(v, want) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("no value in the string table contains %q", want)
+		}
+	}
+}
