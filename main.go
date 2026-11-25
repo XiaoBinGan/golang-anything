@@ -915,27 +915,40 @@ const show = v => {
 
 const inProcess = port.inProcess === true
 const cases = (await readFile(process.argv[3], 'utf8')).split('\n').filter(Boolean).map(JSON.parse)
+// Two calls per case, so matched counts calls, not cases: reporting it against the case count is how the
+// first version printed "-82 case(s) differ" for a crate that had simply gained a second pass.
 let matched = 0
+let calls = 0
 const bad = []
 for (const c of cases) {
   try {
     // The arguments go to the bridge as they were recorded, markers and all: decoding them here turns
     // {"$number":"-0"} into -0, and JSON.stringify([-0]) is "[0]" — the marker never reaches the port,
     // which is how isNegativeZero answered false through the bridge and true through the driver.
-    const args = c.args ?? []
-    const got = inProcess ? port.callSync(c.fn, ...args) : await port.call(c.fn, args)
-    // The recorded answer carries wire markers too: decode before comparing.
+    // Two calls per case, because they exercise different halves of the wire:
+    //   the markers as recorded — the path the driver takes, and what check has always done;
+    //   the values decoded from those markers — the path a real caller takes, where the wrapper has to
+    //   encode live -0, NaN and undefined or the port never sees them.
+    // Only the second one catches a broken encode, and the first version of this file only did the first:
+    // removing the -0 branch from index.cjs left check green while a real call answered false.
+    const asRecorded = c.args ?? []
+    const asValue = decode(c.args ?? [])
     const want = decode(c.ok)
-    if (canon(got) === canon(want)) matched++
-    // A mismatch has to be readable: "want 0, got 0" is what a -0 against 0 looks like when the values
-    // are printed the ordinary way.
-    else if (bad.length < 5) bad.push({ fn: c.fn, args: c.args, want: show(want), got: show(got) })
+    for (const args of [asRecorded, asValue]) {
+      calls++
+      const got = inProcess ? port.callSync(c.fn, ...args) : await port.call(c.fn, args)
+      if (canon(got) === canon(want)) { matched++; continue }
+      // A mismatch has to be readable: "want 0, got 0" is what a -0 against 0 looks like when the values
+      // are printed the ordinary way.
+      if (bad.length < 5) bad.push({ fn: c.fn, args: c.args, want: show(want), got: show(got) })
+      break
+    }
   } catch (e) {
     if (c.error && String(e.message).split(':')[0] === c.error.split(':')[0]) matched++
     else if (bad.length < 5) bad.push({ fn: c.fn, args: c.args, want: c.error, got: String(e.message) })
   }
 }
-console.log(JSON.stringify({ matched, total: cases.length, bad, inProcess }))
+console.log(JSON.stringify({ matched, total: calls, cases: cases.length, bad, inProcess }))
 port.close?.()
 `
 

@@ -52,11 +52,33 @@ printf '{"fn":"jsonPointerTokens","args":["/a/b"],"ok":["wrong"]}\n' >> "$crate/
 expect_fail "evidence notices a case that does not hold" $?
 cp /tmp/negative-cases.jsonl "$crate/cases.jsonl"
 
-# 4. perf: no rig, no numbers.
+# 4. the bridge's encode: a wrapper that drops -0 must fail check while the driver still passes. If both
+#    fail, the two paths are one path and one of them is decoration.
+crate=testdata/markers/go-ports/markers-go
+cp "$crate/index.cjs" /tmp/negative-index.cjs
+sed -i '' "s|if (Object.is(v, -0)) return { \$number: '-0' }||" "$crate/index.cjs"
+if "$GO" gate "$crate" >/dev/null 2>&1; then
+  printf 'ok    gate still passes with a broken bridge (it does not use the wrapper)\n'
+else
+  printf 'FAIL  gate failed too, so it cannot tell the bridge from the driver\n'
+  failures=$((failures + 1))
+fi
+"$GO" check "$crate" >/dev/null 2>&1
+expect_fail "check notices a bridge that drops -0" $?
+cp /tmp/negative-index.cjs "$crate/index.cjs"
+
+# 5. the driver's mark: answering 0 where the original answered -0 must fail gate.
+cp "$crate/cmd/godriver/main.go" /tmp/negative-driver.go
+sed -i '' 's|return map\[string\]any{"\$number": "-0"}|return 0.0|' "$crate/cmd/godriver/main.go"
+"$GO" gate "$crate" >/dev/null 2>&1
+expect_fail "gate notices a driver that loses the sign of zero" $?
+cp /tmp/negative-driver.go "$crate/cmd/godriver/main.go"
+
+# 6. perf: no rig, no numbers.
 RUST_ANYTHING=/nonexistent ./scripts/perf.sh >/dev/null 2>&1
 expect_fail "perf refuses a missing rig" $?
 
-# 5. npm install: a loader that answers a hard-coded wrong value, built from a patched template.
+# 7. npm install: a loader that answers a hard-coded wrong value, built from a patched template.
 cp internal/pkg/pkg.go /tmp/negative-pkg.go
 python3 - internal/pkg/pkg.go <<'PY2'
 import sys

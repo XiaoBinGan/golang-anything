@@ -249,6 +249,12 @@ func compare(path string, want, got any, tolerance float64) string {
 		if !ok {
 			return at() + " is a number on one side"
 		}
+		// -0 and 0 are the same number in arithmetic and different values in JavaScript, which is why the
+		// wire carries a marker for one of them: comparing them as equal let a port that lost the sign pass
+		// every case, and only the canonical form in check could tell.
+		if w == 0 && g == 0 && math.Signbit(w) != math.Signbit(g) {
+			return at() + " differs in sign of zero"
+		}
 		if w == g || (math.IsNaN(w) && math.IsNaN(g)) {
 			return ""
 		}
