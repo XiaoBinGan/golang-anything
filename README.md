@@ -940,3 +940,31 @@ every rule in CONTRACT.md still has something holding it
 | 从 `pool` 删掉 `/` | `FAIL  pool: … reachable in both generators` |
 
 它已并入 `scripts/evidence.sh`，所以每次「一条命令验证全部主张」都会顺带验证这份契约还在。
+
+## 从零 clone 到全绿：60 秒（第 47 轮）
+
+之前没人真的试过。试了一次，`make check` 连挂三处——**而我自己的工作树里它们也一直是红的，因为我的检查只数了 `ok` 行，没看 `FAIL`**。
+
+| 问题 | 原因 |
+| --- | --- |
+| `internal/canon_test.go: undefined: checkScript` | 测试放错包（它读 `main` 包里的东西） |
+| `TestTheStringTableHas...` 失败 | 测试仍在解析 `record.go` 里的表，而表在 43 轮搬进了 `internal/pool` |
+| `Cannot find module index.cjs` | `index.cjs`/`cmd/portctl`/`answer.go`/addon 都是生成物且被 gitignore，clone 里没有 |
+
+修法：删掉重复的 `canon_test.go`（`internal/jswire` 的测试覆盖同样的性质）、表测试指向 `pool.Values()`、
+**矩阵在测量前先生成缺失的文件**（每个 crate 15 ms）。
+
+### `make check`
+
+```sh
+$ make check
+...  build → test → contract → matrix → evidence
+all checks passed
+real  0m59.566s        # 全新 clone，第一次跑
+```
+
+### 顺带发现的第三个问题
+
+`contract.sh` 现在多一条规则：**重新生成每个 crate 后，`git diff` 必须为空**。因为它一加上就报出三份
+陈旧文件——`port-rs/answer.go` 缺 `Undefined` 标记，两份 `index.cjs` 还内联着 44 轮已搬走的线协议代码。
+负向对照：往 `answer.go` 里加一行注释提交 → `FAIL generated files: stale committed copies in testdata/sample/port-rs`。
