@@ -7,3 +7,5 @@ testdata/*/rust/*/work/
 testdata/*/rust/*/answers.jsonl
 testdata/*/REPORT.md
 testdata/*/card.svg
+testdata/*/work/
+testdata/*/rust/*/work/

@@ -1,40 +1,40 @@
-{"fn":"rangeOf","args":[".\n中 b$","-  中éa​b​"]}
-{"fn":"rangeOf","args":["$a ","😀"]}
-{"fn":"rangeOf","args":["ß​😀  \nß-"," "]}
-{"fn":"rangeOf","args":["_-\n é​a😀",""]}
-{"fn":"rangeOf","args":[" a0\n​b_中-😀","0"]}
-{"fn":"rangeOf","args":["","\n"]}
-{"fn":"rangeOf","args":[".b$ \t😀-\n\n.","b\t​0\n a"]}
-{"fn":"rangeOf","args":["\t\n  ",""]}
-{"fn":"rangeOf","args":["__a\n é.é中中","_-é.-"]}
-{"fn":"rangeOf","args":["\tß0  \ta0ß.","ß0_ 😀. \t"]}
-{"fn":"words","args":["b中😀-b​"]}
-{"fn":"words","args":["é"]}
-{"fn":"words","args":["a$a"]}
-{"fn":"words","args":["é0 a 中b"]}
-{"fn":"words","args":["中中中é😀"]}
-{"fn":"words","args":["​  \n"]}
-{"fn":"words","args":["__-ßßa  中  "]}
-{"fn":"words","args":["​bé\t0__ "]}
-{"fn":"words","args":[" \néb \t-"]}
+{"fn":"rangeOf","args":["é__é😀"," -é"]}
+{"fn":"rangeOf","args":["​0_.​","\n😀é 中é .😀a中"]}
+{"fn":"rangeOf","args":["0-\ta-bßa\té ",""]}
+{"fn":"rangeOf","args":["​$a- ","ß\tß中é.\na中é."]}
+{"fn":"rangeOf","args":[" ","😀-éß0"]}
+{"fn":"rangeOf","args":["\t中​","a-a  $$"]}
+{"fn":"rangeOf","args":["ßéaé-. ß","😀"]}
+{"fn":"rangeOf","args":["","\nbab_ \n$"]}
+{"fn":"rangeOf","args":[" "," \t$"]}
+{"fn":"rangeOf","args":["$中-éß_ 😀.$"," _😀 .- ß "]}
+{"fn":"words","args":[" ​-\n a"]}
+{"fn":"words","args":["😀\n é  0 "]}
+{"fn":"words","args":["0b0 "]}
+{"fn":"words","args":["中é​a$0"]}
+{"fn":"words","args":["é​..\t​é\t​​ "]}
+{"fn":"words","args":["中0ß -😀​​ß-b"]}
 {"fn":"words","args":[""]}
-{"fn":"count","args":["\n$a中😀 ß\t\n"]}
-{"fn":"count","args":["é"]}
-{"fn":"count","args":["é$ -$b"]}
-{"fn":"count","args":["a\tß.."]}
-{"fn":"count","args":["\n \tbé😀ßb "]}
-{"fn":"count","args":[" ß _😀ß$.."]}
-{"fn":"count","args":["中ß 中"]}
-{"fn":"count","args":["ßß"]}
-{"fn":"count","args":["-0​"]}
-{"fn":"count","args":["$中   é"]}
-{"fn":"ratio","args":[369,184032063000000]}
-{"fn":"ratio","args":[-117.14285714285714,-35.714285714285715]}
-{"fn":"ratio","args":[-44.857142857142854,-165]}
-{"fn":"ratio","args":[0,2.6666666666666665]}
-{"fn":"ratio","args":[0.41590018173506094,0]}
-{"fn":"ratio","args":[473,0]}
-{"fn":"ratio","args":[0,2.6666666666666665]}
-{"fn":"ratio","args":[0,-111]}
-{"fn":"ratio","args":[-278,0]}
-{"fn":"ratio","args":[0,0]}
+{"fn":"words","args":["​-$aaé0"]}
+{"fn":"words","args":["b._- bb"]}
+{"fn":"words","args":["\n\n"]}
+{"fn":"count","args":["b ."]}
+{"fn":"count","args":["a\n.a中$ ."]}
+{"fn":"count","args":["-._\n _b\t"]}
+{"fn":"count","args":[" \n "]}
+{"fn":"count","args":[" ​$\t\n"]}
+{"fn":"count","args":["-_a \t"]}
+{"fn":"count","args":["ß中a$0  é"]}
+{"fn":"count","args":["$"]}
+{"fn":"count","args":["$0a\n_..."]}
+{"fn":"count","args":["a中-\t a$\nb "]}
+{"fn":"ratio","args":[449277887000000,-64.71428571428571]}
+{"fn":"ratio","args":[1,683]}
+{"fn":"ratio","args":[662701029000000,-789]}
+{"fn":"ratio","args":[381725295000000,-0.8338106905901477]}
+{"fn":"ratio","args":[-851,-0.5081834601733596]}
+{"fn":"ratio","args":[2,1.3333333333333333]}
+{"fn":"ratio","args":[1,2]}
+{"fn":"ratio","args":[862060264000000,994405623000000]}
+{"fn":"ratio","args":[0.6666666666666666,1.3333333333333333]}
+{"fn":"ratio","args":[-35.57142857142857,0]}
