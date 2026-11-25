@@ -1,5 +1,4 @@
 // Every bridge must answer the same thing for the values JSON cannot carry.
-// Every bridge must answer the same thing for the values JSON cannot carry.
 //
 //   node scripts/allbridges.mjs testdata/markers/go-ports/markers-go
 //

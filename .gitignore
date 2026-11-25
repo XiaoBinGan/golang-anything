@@ -60,3 +60,7 @@ testdata/markers/go-ports/*/port.py
 testdata/markers/go-ports/*/portctl
 testdata/markers/go-ports/*/work/
 testdata/markers/go-ports/*/shadow.jsonl
+testdata/markers/go-ports/*/index.wasm.mjs
+testdata/markers/go-ports/*/port.wasm
+testdata/markers/go-ports/*/wasm_support.go
+testdata/markers/go-ports/*/cmd/portwasm/
