@@ -1018,3 +1018,39 @@ ok   analyze … ok   check … ok   clean … ok   unknown tool → isError
 | `"required": null` 让整张工具表被拒 | 同上（schema 校验） |
 | 委托给命令而不是重写 | 我，按 CONTRACT.md 的原则 |
 | `doctor` 与 `ParserPath` 不一致 | 客户端第二次跑（第一次是第一次构建，恰好没有 helper 缺失） |
+
+## 真的 `npm install` 一次（第 49 轮）
+
+上一轮的 `package` 只是「工作流会构建其他平台」。这轮走真实消费者路径：`npm pack` 两个包 → 起一个
+本地 registry → `npm install jp` → 让 npm 自己解析 `optionalDependencies` → `require('jp')`。
+
+```sh
+$ ./scripts/npm-install-check.sh
+== package ==
+platform: darwin-arm64
+== tarballs ==
+  jp-1.0.0.tgz
+  jp-darwin-arm64-1.0.0.tgz
+== registry ==
+== install ==
+added 2 packages in 159ms
+== use it ==
+ok   the installed package answers correctly
+== the platform package is required, not optional at runtime ==
+ok   a missing platform package says so
+```
+
+### 过程中撞到的三件事
+
+| 问题 | 现象 |
+| --- | --- |
+| registry 的 `shasum` 是占位符 | `npm error code EINTEGRITY … wanted sha1-AAAA…`，一个包都装不上 |
+| `npm pack` 把 tgz 写进**运行时的目录** | 平台包的 tgz 落在 `jp-darwin-arm64/` 里，脚本按父目录找 → 缺失但没报 |
+| 脚本永远 `exit 0` | `FAIL` 只是一行文字，CI 看不到 |
+
+三件事都修好后，两条负向对照都能红：
+
+| 破坏 | 结果 |
+| --- | --- |
+| 生成的 loader 不 `require` 平台包 | `FAIL a missing platform package did not say so`，`rc=1` |
+| loader 返回写死的错答案 | `FAIL {"answer":[],"escaped":""}`，`rc=1` |
