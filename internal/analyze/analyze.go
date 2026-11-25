@@ -111,6 +111,11 @@ func Run(root string) (*Report, error) {
 			if skipDir[d.Name()] {
 				return filepath.SkipDir
 			}
+			// A folder that holds a crate is this tool's output, not source a person wrote: its helper
+			// files (resolve.mjs, check.mjs) would otherwise appear in the plan as units of their own.
+			if _, err := os.Stat(filepath.Join(path, "go-anything.json")); err == nil {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 		if _, ok := ts.LangOf(d.Name()); !ok {

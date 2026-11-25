@@ -18,6 +18,7 @@ import (
 	"github.com/xiaobingan/go-anything/internal/app"
 	"github.com/xiaobingan/go-anything/internal/bench"
 	"github.com/xiaobingan/go-anything/internal/bridge"
+	"github.com/xiaobingan/go-anything/internal/buildinfo"
 	"github.com/xiaobingan/go-anything/internal/diff"
 	"github.com/xiaobingan/go-anything/internal/fastbridge"
 	"github.com/xiaobingan/go-anything/internal/frontdoor"
@@ -659,6 +660,56 @@ func runDoctor(args []string) error {
 			OK:   !needs,
 			Note: strings.TrimSpace(string(out)),
 			Fix:  "record adds --experimental-strip-types itself on older Node",
+		})
+	}
+	// A GOROOT that does not match the `go` binary compiles nothing, and the error it gives names neither:
+	// "compile: version go1.22.5 does not match go tool version go1.26.2". It cost an hour here, so the
+	// check compiles something instead of trusting `go env`.
+	{
+		dir, err := os.MkdirTemp("", "go-anything-doctor")
+		if err == nil {
+			defer os.RemoveAll(dir)
+			src := filepath.Join(dir, "main.go")
+			_ = os.WriteFile(src, []byte("package main\n\nfunc main() {}\n"), 0o644)
+			_ = os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module probe\n\ngo 1.24\n"), 0o644)
+			build := exec.Command("go", "build", "-o", filepath.Join(dir, "probe"), ".")
+			build.Dir = dir
+			var stderr strings.Builder
+			build.Stderr = &stderr
+			runErr := build.Run()
+			c := check{Name: "go builds a program", OK: runErr == nil}
+			if runErr != nil {
+				c.Note = strings.TrimSpace(firstLine(stderr.String()))
+				if c.Note == "" {
+					c.Note = runErr.Error()
+				}
+				c.Fix = "the go binary and its GOROOT disagree: set GOROOT to the installation the binary " +
+					"came from (export GOROOT=$(brew --prefix go)/libexec on Homebrew)"
+			}
+			checks = append(checks, c)
+		}
+	}
+	// The parser is a second build of this tool. A build made with cgo is its own parser; a fast build
+	// needs one next to it or named by GO_ANYTHING_PARSE.
+	{
+		ok, note := true, "this build parses TypeScript itself (cgo)"
+		if !buildinfo.Cgo {
+			ok = false
+			note = "no cgo in this build: set GO_ANYTHING_PARSE or put go-anything-cgo beside it"
+			if path := os.Getenv("GO_ANYTHING_PARSE"); path != "" {
+				if _, err := os.Stat(path); err == nil {
+					ok, note = true, path
+				}
+			}
+			if !ok {
+				if path, err := exec.LookPath("go-anything-cgo"); err == nil {
+					ok, note = true, path
+				}
+			}
+		}
+		checks = append(checks, check{
+			Name: "parser available", OK: ok, Note: note,
+			Fix: "CGO_ENABLED=1 go build -o go-anything-cgo . — needed by analyze, record, scaffold and refresh",
 		})
 	}
 	// cgo must be on: tree-sitter is C.

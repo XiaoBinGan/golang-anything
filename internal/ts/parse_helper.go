@@ -52,6 +52,9 @@ func helperPath() (string, error) {
 			return candidate, nil
 		}
 	}
+	if path, err := exec.LookPath("go-anything-cgo"); err == nil {
+		return path, nil
+	}
 	// A build of this tool made with cgo can parse: the commands that need it start it as a helper.
 	// That keeps the common case to one binary and a flag, not a sidecar file. The running binary is
 	// skipped: handing the work back to the process that has no parser is a loop, not a fallback.

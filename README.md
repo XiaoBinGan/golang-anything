@@ -517,3 +517,23 @@ tools/call gate  {crate: uleb-go}        → {"cases":229,"matched":229,"passed"
 tools/call diff  {crate: jadx-go}        → {"cases":2,"matched":2,"passed":true}
 tools/call fuzz  {crate: shellQuote-go}  → {"calls":15,"matched":15,"seed":7}
 ```
+
+## 四个命令在真实 crate 上（doctor / clean / refresh / map）
+
+| 命令 | 真实 crate 上的结果 |
+| --- | --- |
+| `doctor` | 新增两项检查：**真编译一个程序**（`GOROOT` 与 `go` 二进制不匹配时立刻暴露）、**解析器是否可用**（cgo 构建能自己解析，快构建要边上有个 `go-anything-cgo`） |
+| `clean` | `uleb-go` 清掉 3 项 / 6.0 MB（`portctl`、`cmd/gobench`、`work`），清完 `gate` 仍绿、`check` 229/229 |
+| `refresh` | `jadx-go` 重写 4 个文件后 `gate` 仍绿 |
+| `map` | 发现计划里混进了工具自己的产物（`resolve-hook.mjs` 被当成一个单元） |
+
+最后一条是真 bug：`analyze` 会把 crate 文件夹里的生成文件（`resolve.mjs`、`check.mjs`、`shadow.cjs`）
+当成源码。现在**含有 `go-anything.json` 的目录整个跳过**——工具的输出不该出现在计划里。
+
+`doctor` 的负向对照：
+
+```
+$ GOROOT=/nonexistent go-anything doctor
+MISS go builds a program  go: cannot find GOROOT directory: /nonexistent
+     fix: the go binary and its GOROOT disagree: set GOROOT to the installation the binary came from
+```

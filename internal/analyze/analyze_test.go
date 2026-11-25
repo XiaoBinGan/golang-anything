@@ -3,7 +3,9 @@
 package analyze
 
 import (
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -67,5 +69,37 @@ func TestPlanIsEmptyWithoutSource(t *testing.T) {
 	}
 	if len(rep.Units) != 0 || len(rep.StartHere) != 0 {
 		t.Fatalf("empty repo: %+v", rep)
+	}
+}
+
+// The tool's own output must not appear in the plan: a crate folder holds generated helper files
+// (resolve.mjs, check.mjs, shadow.cjs) that are JavaScript by extension and would be listed as units.
+func TestACrateFolderIsNotSource(t *testing.T) {
+	root := t.TempDir()
+	write := func(rel, body string) {
+		t.Helper()
+		path := filepath.Join(root, rel)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("src/unit.ts", "export const f = (a: string): string => a\n")
+	write("go-ports/unit-go/go-anything.json", `{"unit":"src/unit.ts","crate":"example.com/x","exports":[]}`)
+	write("go-ports/unit-go/resolve-hook.mjs", "export async function resolve() {}\n")
+
+	rep, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, u := range rep.Units {
+		if strings.Contains(u.ID, "go-ports") {
+			t.Errorf("the plan contains the tool's own output: %s", u.ID)
+		}
+	}
+	if len(rep.Units) != 1 || rep.Units[0].ID != "src/unit.ts" {
+		t.Errorf("units: %+v", rep.Units)
 	}
 }
