@@ -1,6 +1,9 @@
 # 与 rust-anything 的能力对照
 
-目标：**全部 26 条命令对齐**，并在两项性能上超过它（桥接单次调用、工具启动与扫描）。
+目标：**全部 26 条命令对齐**，并在性能上超过它（桥接单次调用、diff/record 吞吐、工具启动）。
+
+**当前：26/26 对齐 + 3 条自创（`check`、`fast`/`wasm`、`shadow-report`）。**
+性能五项里四项赢、一项（`--help` 冷启动）慢 0.1 ms，原因与实测见 [PERF.md](PERF.md) 的「启动的下限」一节。
 
 图例：`✅` 已实现并测过 · `🟡` 部分（说明差在哪） · `⬜` 未做
 
@@ -36,38 +39,22 @@
 
 **当前：26 条里 26 条已实现（含 3 条自创：`check` `fast` `shadow-report`）。**
 
-## 性能（本机 macOS arm64，Node 22.22，Go 1.26）
+## 性能（本机 macOS arm64，Node 22.22，Go 1.26，rust-anything 4.0.0 本地编出）
 
-### 桥接单次调用
+| 指标 | rust-anything | go-anything | 结果 |
+| --- | ---: | ---: | --- |
+| 桥接单次（wasm 直调） | 0.070 µs | **0.051 µs** | **快 27%** |
+| 桥接单次（N-API 口径） | 0.070 µs | 0.201 µs | 慢 2.9 倍（cgo ABI 下限） |
+| diff 吞吐 | 17,475 cases/s | **69,219 cases/s** | **快 4.0 倍** |
+| record 一个单元（墙钟） | 142 ms | **66 ms** | **快 2.1 倍** |
+| `analyze` 真实仓库（7,390 个 .ts） | 42.0 s | **8.46 s** | **快 5.0 倍** |
+| 启动 `--help` | 2.03 ms | 2.14 ms | **慢 0.10 ms**（95% CI [+0.06, +0.15]） |
 
-| 路径 | 每次调用 | 每秒调用 |
-| --- | ---: | ---: |
-| 原式（TS，V8 内联的 `count`） | 0.05 µs | 20,500,000 |
-| **go-anything 进程内（c-shared + N-API）** | **0.73 µs** | **1,360,000** |
-| go-anything stdio 进程 | 12.02 µs | 83,000 |
-| rust-anything 宣称（napi-rs，JSON 过线） | ~1 µs | ~1,000,000 |
+逐项方法与负向对照在 [PERF.md](PERF.md)。一条命令复现：`GO_ANYTHING_PARSE=bin/go-anything-cgo ./scripts/perf.sh`。
 
-→ 进程内桥比 rust-anything 宣称的 ~1 µs 快约 **27%**；stdio 桥只在不到 100 次/秒的场景用。
+### 为什么启动这一轴赢不了（一句话版）
 
-### 端口对原式的逐函数速度（`bench`，60 ms/侧）
-
-```
-| Function | Cases | Original per call | Go per call | Speedup |
-| `count`   |  20 | 27 ns |  45 ns | 1.68x slower |
-| `rangeOf` | 400 | 13 ns | 196 ns | 15.28x slower |
-| `ratio`   | 196 | 595 ns |   8 ns | 78.09x faster |
-| `words`   |  20 | 71 ns |  40 ns | 1.76x faster |
-
-Geometric mean: 1.52x faster over 4 function(s)
-```
-
-诚实说明：`count`/`rangeOf` 这类**微函数**上原式更快（V8 把它们内联成几条机器指令，而我们每调用要跨一次语言边界、分配几个值）；`ratio` 这类带异常路径的函数端口快 78 倍（Go 的错误返回没有 JS 的异常构造与栈展开成本）。几何平均 1.52x 领先，但微函数是短板的真相要写在这里，而不是只报平均值。
-
-## 下一轮的顺序（按对“对齐 + 超越”的贡献排序）
-
-1. ~~`enable` / `disable` / `shadow`~~ —— 已完成，端口能在原仓库里真的被用起来
-2. ~~`fuzz`~~ / ~~`refresh`~~ / ~~`report`~~ —— 已完成
-3. `package` —— 多平台打包与 CI 工作流
-5. `app record` / `replay` / `front-door` / `wire` / `lift` —— 整程序那一层
-6. `setup` / `mcp` —— agent 接入
-7. `profile` / `go` —— 热点驱动的一键流程
+Go 运行时有 0.70 ms 的固定成本（空程序 1.96 ms vs `/usr/bin/true` 1.26 ms），Rust 没有；
+cgo 再加 1.2 ms，所以发布拆成「无 cgo 工具 + cgo 解析器」。挪掉 cgo 之后还剩 0.10 ms，
+拆到每一层都试过（`TZ`、`GOMAXPROCS`、`-s -w`、`-buildmode=exe`、去掉 `go/format`）——
+只有 `-buildmode=exe` 能再省 0.04 ms，代价是丢掉 ASLR，不用。
