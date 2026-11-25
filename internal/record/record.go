@@ -254,7 +254,11 @@ func Run(opts Options) (Summary, error) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), limit)
 	defer cancel()
-	args := append(nodeflags.Args(), "--import", hooksPath, script, unitPath, out, planPath, extra,
+	// The recorder writes a temporary file and the finished recording is renamed into place: a reader
+	// (a `diff` or a `gate` running at the same time) sees the old recording or the new one, never half
+	// of one.
+	staged := out + ".staged"
+	args := append(nodeflags.Args(), "--import", hooksPath, script, unitPath, staged, planPath, extra,
 		strings.Join(opts.Only, ","))
 	cmd := exec.CommandContext(ctx, "node", args...)
 	cmd.Stderr = os.Stderr
@@ -264,6 +268,9 @@ func Run(opts Options) (Summary, error) {
 				"so add real inputs with --inputs instead", limit)
 		}
 		return Summary{}, fmt.Errorf("recording failed: %w", err)
+	}
+	if err := os.Rename(staged, out); err != nil {
+		return Summary{}, fmt.Errorf("moving the finished recording into place: %w", err)
 	}
 	list, err := cases.Read(out)
 	if err != nil {
