@@ -174,6 +174,29 @@ const scratch = exports.go_scratch()
 const encoder = new TextEncoder()
 const decoder = new TextDecoder()
 
+// encode is the inverse of decode: a call carrying -0, NaN, Infinity or undefined has to reach the port
+// as itself, and JSON.stringify([-0]) is "[0]".
+const encode = v => {
+  if (v === undefined) return { $undefined: true }
+  if (typeof v === 'number') {
+    if (Number.isNaN(v)) return { $number: 'NaN' }
+    if (!Number.isFinite(v)) return { $number: v > 0 ? 'Infinity' : '-Infinity' }
+    if (Object.is(v, -0)) return { $number: '-0' }
+    return v
+  }
+  if (typeof v === 'bigint') return { $bigint: v.toString() }
+  if (typeof v === 'string' && !v.isWellFormed()) {
+    return { $utf16: [...Array(v.length)].map((_, i) => v.charCodeAt(i)) }
+  }
+  if (Array.isArray(v)) return v.map(encode)
+  if (v && typeof v === 'object') {
+    const out = {}
+    for (const k of Object.keys(v)) out[k] = encode(v[k])
+    return out
+  }
+  return v
+}
+
 // decode turns the wire markers back into JavaScript values.
 const decode = v => {
   if (Array.isArray(v)) return v.map(decode)
@@ -254,10 +277,10 @@ for (const name of %EXPORTS%) {
       try {
         return decode(fast(name, args[0]))
       } catch (e) {
-        return decode(raw(name, JSON.stringify(args))) // fall back for a payload the fast path cannot hold
+        return decode(raw(name, JSON.stringify(encode(args)))) // fall back for a payload the fast path cannot hold
       }
     }
-    return decode(raw(name, JSON.stringify(args)))
+    return decode(raw(name, JSON.stringify(encode(args))))
   }
 }
 export default port
@@ -275,8 +298,19 @@ const crateSupport = `// Typed entry points for the WebAssembly module, generate
 package port
 
 import (
-%MATH%%STRCONV%	"unsafe"
+%MATH%%STRCONV%	"fmt"
+	"unsafe"
 )
+
+// portCall answers an export through the registry, which every crate has: the generated WebAssembly
+// module must compile for a port written in the scaffold's own shape as well as for a typed one.
+func portCall(name string, args []any) (any, error) {
+	fn, ok := Registry[name]
+	if !ok {
+		return nil, fmt.Errorf("not ported: %s", name)
+	}
+	return fn(args)
+}
 
 // bytesAt reads n bytes at a pointer without copying: the bytes live in this module's memory.
 func bytesAt(ptr, n uint32) string {
@@ -296,20 +330,16 @@ func supportFor(exports []Export) string {
 		name := exportName(e.Name)
 		switch {
 		case len(e.Params) == 1 && e.Params[0] == "string" && isNumber(e.Returns):
-			fmt.Fprintf(&b, `// Wasm%sStringNumber answers %s(string) with a number, calling the typed port directly.
+			fmt.Fprintf(&b, `// Wasm%sStringNumber answers %s(string) with a number.
 func Wasm%sStringNumber(ptr, n uint32) float64 {
-	v, err := %s(bytesAt(ptr, n))
-	if err != nil {
-		return math.NaN()
-	}
-	return v
+	%s
 }
 
-`, name, e.Name, name, e.Name)
+`, name, e.Name, name, typedCall(e.Name, "bytesAt(ptr, n)", "stringNumber", "string"))
 		case len(e.Params) == 1 && e.Params[0] == "string" && isText(e.Returns):
 			fmt.Fprintf(&b, `// Wasm%sStringText answers %s(string) with a string, quoted into out.
 func Wasm%sStringText(ptr, n uint32, out []byte) uint32 {
-	v, err := %s(bytesAt(ptr, n))
+	v, err := portCall(%q, []any{bytesAt(ptr, n)})
 	if err != nil {
 		q := strconv.AppendQuote(out[:0], err.Error())
 		return uint32(len(q))
@@ -325,16 +355,12 @@ func Wasm%sStringText(ptr, n uint32, out []byte) uint32 {
 `, name, e.Name, name, e.Name)
 		case len(e.Params) == 2 && e.Params[0] == "number" && e.Params[1] == "number" &&
 			isNumber(e.Returns):
-			fmt.Fprintf(&b, `// Wasm%sNumberNumber answers %s(number, number) with a number, calling the typed port directly.
+			fmt.Fprintf(&b, `// Wasm%sNumberNumber answers %s(number, number) with a number.
 func Wasm%sNumberNumber(a, b float64) float64 {
-	v, err := %s(a, b)
-	if err != nil {
-		return math.NaN()
-	}
-	return v
+	%s
 }
 
-`, name, e.Name, name, e.Name)
+`, name, e.Name, name, typedCall(e.Name, "a, b", "numberNumber", "number"))
 		}
 	}
 	return b.String()
@@ -502,4 +528,19 @@ func directMap(exports []Export) string {
 	}
 	b.WriteString("}")
 	return b.String()
+}
+
+// portStyle says whether the crate's port declares a typed function for an export, which is what the
+// fast path calls, or only the registry entry every scaffold produces.
+var portStyle = map[string]bool{}
+
+// typedCall writes the body of a wrapper: a direct call when the port declares that function, and the
+// registry otherwise. The registry always exists, so the generated file compiles for every crate; a
+// crate that types its port gets the version that measured 53 ns a call.
+func typedCall(export, args, shape, first string) string {
+	if portStyle[export] {
+		return fmt.Sprintf("v, err := %s(%s)\n\tif err != nil {\n\t\treturn math.NaN()\n\t}\n\treturn v", export, args)
+	}
+	return fmt.Sprintf("v, err := portCall(%q, []any{%s})\n\tif err != nil {\n\t\treturn math.NaN()\n\t}\n\tf, ok := v.(float64)\n"+
+		"\tif !ok {\n\t\treturn math.NaN()\n\t}\n\treturn f", export, args)
 }

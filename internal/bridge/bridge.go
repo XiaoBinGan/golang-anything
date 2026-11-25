@@ -262,6 +262,29 @@ function start() {
   return child
 }
 
+// encode is the inverse: a call carrying -0, NaN, Infinity, undefined, a bigint or a lone surrogate has
+// to reach the port as itself. JSON.stringify([-0]) is "[0]", so the marker has to be written here.
+function encode(v) {
+  if (v === undefined) return { $undefined: true }
+  if (typeof v === 'number') {
+    if (Number.isNaN(v)) return { $number: 'NaN' }
+    if (!Number.isFinite(v)) return { $number: v > 0 ? 'Infinity' : '-Infinity' }
+    if (Object.is(v, -0)) return { $number: '-0' }
+    return v
+  }
+  if (typeof v === 'bigint') return { $bigint: v.toString() }
+  if (typeof v === 'string' && !v.isWellFormed()) {
+    return { $utf16: [...Array(v.length)].map((_, i) => v.charCodeAt(i)) }
+  }
+  if (Array.isArray(v)) return v.map(encode)
+  if (v && typeof v === 'object') {
+    const out = {}
+    for (const k of Object.keys(v)) out[k] = encode(v[k])
+    return out
+  }
+  return v
+}
+
 // decode turns the markers back into JS values: NaN, ±Infinity, -0, a lone surrogate, a bigint.
 function decode(v) {
   if (Array.isArray(v)) return v.map(decode)
@@ -285,7 +308,7 @@ function decode(v) {
 
 function ask(name, args) {
   if (addon) {
-    const reply = JSON.parse(addon.answer(name, JSON.stringify(args ?? [])))
+    const reply = JSON.parse(addon.answer(name, JSON.stringify(encode(args ?? []))))
     if (reply.error) return Promise.reject(new Error(reply.error))
     if (reply.panic) return Promise.reject(new Error('Rust panic: ' + reply.panic))
     return Promise.resolve(decode(reply.ok))
@@ -303,7 +326,7 @@ function ask(name, args) {
       if (reply.panic) return reject(new Error('Rust panic: ' + reply.panic))
       resolve(decode(reply.ok))
     })
-    proc.stdin.write(JSON.stringify({ name, args }) + '\n')
+    proc.stdin.write(JSON.stringify({ name, args: encode(args) }) + '\n')
   })
 }
 
@@ -338,7 +361,7 @@ port.callSync = (name, ...args) => {
     if (text === null) throw new Error('go-anything: ' + name + ' failed')
     return decode(JSON.parse(text))
   }
-  const reply = JSON.parse(addon.answer(name, JSON.stringify(args)))
+  const reply = JSON.parse(addon.answer(name, JSON.stringify(encode(args))))
   if (reply.error) throw new Error(reply.error)
   if (reply.panic) throw new Error('Rust panic: ' + reply.panic)
   return decode(reply.ok)
