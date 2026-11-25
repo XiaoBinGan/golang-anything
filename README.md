@@ -968,3 +968,29 @@ real  0m59.566s        # 全新 clone，第一次跑
 `contract.sh` 现在多一条规则：**重新生成每个 crate 后，`git diff` 必须为空**。因为它一加上就报出三份
 陈旧文件——`port-rs/answer.go` 缺 `Undefined` 标记，两份 `index.cjs` 还内联着 44 轮已搬走的线协议代码。
 负向对照：往 `answer.go` 里加一行注释提交 → `FAIL generated files: stale committed copies in testdata/sample/port-rs`。
+
+## 用官方 MCP 客户端跑一遍（第 48 轮）
+
+之前只用 `printf` 拼 JSON-RPC 测过 `mcp`。这轮装了 `@modelcontextprotocol/sdk`，用**真正的客户端**
+连上来：它做 `initialize`、`notifications/initialized`、`tools/list`、`tools/call`，并按 schema 校验。
+
+立刻抓到三个问题：
+
+| 问题 | 现象 |
+| --- | --- |
+| **`doctor` 不是工具** | CLI 有 27 个命令，MCP 只暴露 7 个；`doctor`、`check`、`bench`、`enable`/`disable`、`clean`、`refresh`、`shadow-report` 全缺 |
+| **`"required": null` 让整个工具列表被拒** | 无参数工具的 `required` 是 nil slice，序列化成 `null`；SDK 按 JSON Schema 校验，直接拒绝**整张表** |
+| **没有任何检查盯着这两件事** | 我手拼的 JSON-RPC 从不校验 schema |
+
+修法：
+
+1. 新增 8 个工具，**全部委托给已存在的命令**（`mcp.SetCommands` + 捕获 stdout），而不是写第二份实现——
+   否则就是本项目反复付账的那种漂移；
+2. `obj()` 里 nil 变空数组；
+3. `internal/mcp/mcp_test.go` 加两条：每个工具的 schema 必须是客户端能接受的样子；CLI 有的命令必须是工具。
+
+```sh
+$ node scripts/mcp-client.mjs .        # 需要 npm i @modelcontextprotocol/sdk
+15 tools: analyze, map, diff, gate, record, fuzz, doctor, check, bench, shadow-report, enable, disable, clean, refresh, profile
+ok   analyze … ok   check … ok   clean … ok   unknown tool → isError
+```

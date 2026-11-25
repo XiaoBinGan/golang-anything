@@ -134,3 +134,45 @@ func TestAHugeRequestDoesNotEndTheStream(t *testing.T) {
 		t.Errorf("the request after it was lost: %+v", replies[1])
 	}
 }
+
+// A client validates the tool list against the schema it advertises. "required": null came back from a
+// nil slice in the one tool that takes no arguments, and the official SDK rejected the whole list.
+func TestEveryToolSchemaIsWhatAClientExpects(t *testing.T) {
+	for _, tool := range tools() {
+		if tool.Name == "" || tool.Description == "" {
+			t.Errorf("a tool has no name or no description: %+v", tool)
+		}
+		if tool.InputSchema["type"] != "object" {
+			t.Errorf("%s: inputSchema.type is %v", tool.Name, tool.InputSchema["type"])
+		}
+		required, ok := tool.InputSchema["required"].([]string)
+		if !ok {
+			t.Errorf("%s: required is %T, and a client expects an array", tool.Name, tool.InputSchema["required"])
+			continue
+		}
+		props, ok := tool.InputSchema["properties"].(map[string]any)
+		if !ok {
+			t.Errorf("%s: properties is %T", tool.Name, tool.InputSchema["properties"])
+			continue
+		}
+		// Every required argument must be described, or a client cannot build the call.
+		for _, key := range required {
+			if _, ok := props[key]; !ok {
+				t.Errorf("%s requires %q but does not describe it", tool.Name, key)
+			}
+		}
+	}
+}
+
+// The tools the CLI implements are delegated to it, so both front ends answer with the same code.
+func TestTheDelegatedToolsAreTheCommands(t *testing.T) {
+	names := map[string]bool{}
+	for _, tool := range tools() {
+		names[tool.Name] = true
+	}
+	for _, want := range []string{"check", "doctor", "bench", "shadow-report", "enable", "disable", "clean", "refresh"} {
+		if !names[want] {
+			t.Errorf("%s is a command but not a tool", want)
+		}
+	}
+}

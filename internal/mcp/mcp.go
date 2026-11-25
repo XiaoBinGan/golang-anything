@@ -117,6 +117,65 @@ func tools() []tool {
 			}, "crate"),
 		},
 		{
+			Name: "doctor",
+			Description: "Check the machine: the toolchain, the parser, node, and whether a Go program " +
+				"builds. Answers every check with what it found, not a verdict.",
+			InputSchema: obj(map[string]any{}),
+		},
+		{
+			Name: "check",
+			Description: "Replay the recorded cases through the wrapper a caller actually uses (the " +
+				"in-process addon, or the pipe). The driver answering is `gate`; this is the other path.",
+			InputSchema: obj(map[string]any{
+				"crate": str("crate folder made by scaffold"),
+			}, "crate"),
+		},
+		{
+			Name: "bench",
+			Description: "Time the port against the original on the recorded cases, per function and as " +
+				"a geometric mean.",
+			InputSchema: obj(map[string]any{
+				"crate": str("crate folder made by scaffold"),
+			}, "crate"),
+		},
+		{
+			Name:        "shadow-report",
+			Description: "Read the differences shadow.cjs logged while the original ran in production.",
+			InputSchema: obj(map[string]any{
+				"crate": str("crate folder made by scaffold"),
+			}, "crate"),
+		},
+		{
+			Name: "enable",
+			Description: "Point the original at the port: writes the block that makes the unit call the " +
+				"Go port instead of itself. `disable` puts the file back byte for byte.",
+			InputSchema: obj(map[string]any{
+				"crate": str("crate folder made by scaffold"),
+			}, "crate"),
+		},
+		{
+			Name:        "disable",
+			Description: "Remove the block enable wrote, restoring the original file exactly.",
+			InputSchema: obj(map[string]any{
+				"crate": str("crate folder made by scaffold"),
+			}, "crate"),
+		},
+		{
+			Name:        "clean",
+			Description: "Remove what the tool generated in a crate folder, leaving port.go and cases.jsonl.",
+			InputSchema: obj(map[string]any{
+				"crate": str("crate folder made by scaffold"),
+			}, "crate"),
+		},
+		{
+			Name: "refresh",
+			Description: "Regenerate the binding for a crate whose port.go was edited: the driver, the " +
+				"wrapper and the answers are rewritten, the work is kept.",
+			InputSchema: obj(map[string]any{
+				"crate": str("crate folder made by scaffold"),
+			}, "crate"),
+		},
+		{
 			Name: "profile",
 			Description: "Run a workload under node --cpu-prof and answer the hottest functions by self " +
 				"time, each mapped to the unit it belongs to. Says what is worth porting first.",
@@ -130,6 +189,11 @@ func tools() []tool {
 }
 
 func obj(props map[string]any, required ...string) map[string]any {
+	// A nil slice marshals to null, and a client that validates the schema rejects "required": null — the
+	// official SDK did, for the one tool that takes no arguments.
+	if required == nil {
+		required = []string{}
+	}
 	return map[string]any{"type": "object", "properties": props, "required": required}
 }
 
@@ -269,6 +333,13 @@ func handle(req request, log io.Writer) (response, bool) {
 }
 
 // callTool runs one tool and answers text: JSON for a plan, a verdict sentence for the gate.
+// commands holds the tools the CLI implements. main fills it, so the tool and the command are the same
+// code: `go-anything check` and tools/call "check" cannot drift apart.
+var commands = map[string]func(map[string]any) (string, error){}
+
+// SetCommands installs the delegated tools.
+func SetCommands(m map[string]func(map[string]any) (string, error)) { commands = m }
+
 func callTool(name string, raw json.RawMessage, log io.Writer) (string, error) {
 	var args map[string]any
 	if len(raw) > 0 {
@@ -384,6 +455,15 @@ func callTool(name string, raw json.RawMessage, log io.Writer) (string, error) {
 			return "", err
 		}
 		return jsonText(rep)
+	}
+	// A tool the CLI already implements runs through it: the two front ends share one implementation, so a
+	// fix in `check` cannot land in the command and miss the tool.
+	if run, ok := commands[name]; ok {
+		out, err := run(args)
+		if err != nil {
+			return "", err
+		}
+		return out, nil
 	}
 	return "", fmt.Errorf("unknown tool %q", name)
 }

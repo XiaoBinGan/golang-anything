@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -1410,7 +1411,68 @@ func exportNames(u analyze.Unit) []string {
 
 // runMCP serves the protocol; nothing but frames may be written to stdout.
 func runMCP() error {
+	// The tools that already exist as commands are wired to those commands: the same code answers both
+	// front ends, so a fix cannot land in one and miss the other.
+	mcp.SetCommands(map[string]func(map[string]any) (string, error){
+		"check": func(a map[string]any) (string, error) {
+			return captured(func() error { return runCheck([]string{str(a, "crate")}) })
+		},
+		"doctor": func(a map[string]any) (string, error) {
+			return captured(func() error { return runDoctor(nil) })
+		},
+		"bench": func(a map[string]any) (string, error) {
+			return captured(func() error { return runBench([]string{str(a, "crate")}) })
+		},
+		"shadow-report": func(a map[string]any) (string, error) {
+			return captured(func() error { return runShadow([]string{str(a, "crate")}, true) })
+		},
+		"enable": func(a map[string]any) (string, error) {
+			return captured(func() error { return runEnable([]string{str(a, "crate")}) })
+		},
+		"disable": func(a map[string]any) (string, error) {
+			return captured(func() error { return runDisable([]string{str(a, "crate")}) })
+		},
+		"clean": func(a map[string]any) (string, error) {
+			return captured(func() error { return runClean([]string{str(a, "crate")}) })
+		},
+		"refresh": func(a map[string]any) (string, error) {
+			return captured(func() error { return runRefresh([]string{str(a, "crate")}) })
+		},
+	})
 	return mcp.Serve(os.Stdin, os.Stdout, os.Stderr)
+}
+
+// captured runs a command with stdout redirected, so a tool answers with the command's own output. The
+// alternative — a second implementation of what the command does — is the drift this project keeps paying
+// for, so the redirect is the cheaper honesty.
+func captured(run func() error) (string, error) {
+	r, w, err := os.Pipe()
+	if err != nil {
+		return "", err
+	}
+	saved := os.Stdout
+	os.Stdout = w
+	done := make(chan string, 1)
+	go func() {
+		var b strings.Builder
+		io.Copy(&b, r)
+		done <- b.String()
+	}()
+	runErr := run()
+	os.Stdout = saved
+	w.Close()
+	out := <-done
+	r.Close()
+	if runErr != nil {
+		return "", runErr
+	}
+	return out, nil
+}
+
+// str reads a string argument by name, or "" when it is absent.
+func str(args map[string]any, key string) string {
+	v, _ := args[key].(string)
+	return v
 }
 
 // runSetup registers the MCP server with the coding agents found on this machine.
