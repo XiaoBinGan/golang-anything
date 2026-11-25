@@ -212,11 +212,19 @@ PY
 expect_fail "doccheck notices a stated count that the code no longer has" $?
 cp /tmp/negative-parity.md PARITY.md
 
-# 11. perf: no rig, no numbers.
+# 11. the startup axis only means something when it measures the fast build. A cgo binary in its place adds
+#     ~0.15 ms and reads as a regression in the tool; that happened twice, so the guard has a control.
+cp bin/go-anything /tmp/negative-fast-build 2>/dev/null || true
+CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" -o bin/go-anything .
+./scripts/perf.sh >/dev/null 2>&1
+expect_fail "perf refuses a cgo build in the fast binary's place" $?
+cp /tmp/negative-fast-build bin/go-anything 2>/dev/null || ./scripts/build.sh bin >/dev/null 2>&1
+
+# 12. perf: no rig, no numbers.
 RUST_ANYTHING=/nonexistent ./scripts/perf.sh >/dev/null 2>&1
 expect_fail "perf refuses a missing rig" $?
 
-# 12. npm install: a loader that answers a hard-coded wrong value, built from a patched template.
+# 13. npm install: a loader that answers a hard-coded wrong value, built from a patched template.
 cp internal/pkg/pkg.go /tmp/negative-pkg.go
 python3 - internal/pkg/pkg.go <<'PY2'
 import sys

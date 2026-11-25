@@ -18,4 +18,11 @@ CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o "$out/go-anything" .
 # read TypeScript. One source, two builds, no separate helper to keep in step.
 CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" -o "$out/go-anything-cgo" .
 
+# The fast binary has to actually be the fast one. Copying a cgo build over it adds ~0.15 ms of startup
+# and looks like a regression in the tool rather than a mistake in the shell — it happened twice.
+if ! go version -m "$out/go-anything" 2>/dev/null | grep -q 'CGO_ENABLED=0'; then
+  echo "build.sh: $out/go-anything was not built without cgo; startup measurements will lie" >&2
+  exit 1
+fi
+
 echo "built $out/go-anything (no cgo, 2.4 ms startup) and $out/go-anything-cgo (parser)"

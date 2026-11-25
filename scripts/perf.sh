@@ -23,6 +23,14 @@ OUT=${OUT:-/tmp/perf.txt}
 
 # A missing rig gives a traceback or a table of zeroes, and both read like a measurement. Refuse instead:
 # the numbers are only worth printing when both sides are there and both crates answer.
+# The startup axis compares the fast build. A cgo build left in place by hand adds ~0.15 ms and reads as a
+# regression: CI never catches it because nothing builds over it there, and the shell does.
+if ! go version -m "$GO" 2>/dev/null | grep -q "CGO_ENABLED=0"; then
+  echo "perf: $GO is not the no-cgo build; the startup axis would measure the wrong binary" >&2
+  echo "      run ./scripts/build.sh first" >&2
+  exit 2
+fi
+
 for needed in "$RUST_ANYTHING" "$RUST_CRATE/cases.jsonl" "$GO_CRATE/cases.jsonl" "$GO_CGO"; do
   if [ ! -e "$needed" ]; then
     echo "perf: nothing to measure — $needed is not there" >&2
@@ -42,7 +50,7 @@ fi
 export GO_ANYTHING_PARSE=${GO_ANYTHING_PARSE:-$GO_CGO}
 
 python3 - "$GO" "$RUST_ANYTHING" "$GO_CRATE" "$RUST_CRATE" "$ROUNDS" <<'PY' | tee "$OUT"
-import subprocess, sys, time, statistics, os, resource
+import subprocess, sys, time, statistics, os, resource, random
 
 go, rust, go_crate, rust_crate, rounds = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], int(sys.argv[5])
 
@@ -61,7 +69,12 @@ def interleaved(pairs):
             got[name].append(v)
     return {k: statistics.median(v) for k, v in got.items()}
 
+try:
+    load = os.getloadavg()[0]
+except OSError:
+    load = float("nan")
 print("== startup, one spawn, median of %d rounds ==" % rounds)
+print(f"  (load average {load:.2f}: the paired interval is what to read, not the medians)")
 # Wall time on a busy machine measures the machine: the process-spawn floor moves by a millisecond between
 # runs, and an early version of this axis reported +0.07 ms one day and +1.3 ms another for the same
 # binaries. CPU time of the child does not move with load, so it decides the axis and wall time is printed
@@ -73,18 +86,35 @@ def cpu_ms(cmd):
     return ((after.ru_utime - before.ru_utime) + (after.ru_stime - before.ru_stime)) * 1000
 
 pairs = [("go-anything --help", [go, "--help"]), ("rust-anything --help", [rust, "--help"])]
+samples = max(rounds * 6, 40)
 wall = {name: [] for name, _ in pairs}
 cpu = {name: [] for name, _ in pairs}
-for _ in range(rounds * 3):
-    for name, cmd in pairs:
+diffs = []
+for _ in range(samples):
+    round_cpu = {}
+    # Random order inside each round: measuring one tool first every time gives it the colder cache, and
+    # with a gap of a tenth of a millisecond that bias is bigger than the gap.
+    order = pairs[:]
+    random.shuffle(order)
+    for name, cmd in order:
         wall[name].append(ms(cmd)[0])
-        cpu[name].append(cpu_ms(cmd))
+        round_cpu[name] = cpu_ms(cmd)
+        cpu[name].append(round_cpu[name])
+    diffs.append(round_cpu[pairs[0][0]] - round_cpu[pairs[1][0]])
 for name, _ in pairs:
     print(f"  {name:24} cpu {statistics.median(cpu[name]):5.2f} ms   wall {statistics.median(wall[name]):5.2f} ms")
-g, r = statistics.median(cpu["go-anything --help"]), statistics.median(cpu["rust-anything --help"])
-print(f"  {'cpu difference':24} {g - r:+5.2f} ms ({'slower' if g > r else 'faster'} by "
-      f"{abs(g - r) / r * 100:.1f}%)")
 
+# Paired differences with a bootstrap interval, because the medians alone move by half a millisecond with
+# the load on the machine and the gap being decided is smaller than that.
+def bootstrap_ci(xs, n=4000):
+    meds = sorted(statistics.median([random.choice(xs) for _ in xs]) for _ in range(n))
+    return meds[int(0.025 * n)], meds[int(0.975 * n)]
+
+lo, hi = bootstrap_ci(diffs)
+med = statistics.median(diffs)
+verdict = "the intervals overlap zero: not distinguishable" if lo < 0 < hi else (
+    "slower" if med > 0 else "faster")
+print(f"  {'paired difference':24} {med:+5.3f} ms   95% CI [{lo:+.3f}, {hi:+.3f}]  -> {verdict}")
 print()
 print("== record, cases per second, both writing their own cases ==")
 def cases_of(path):

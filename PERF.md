@@ -27,7 +27,7 @@ GO_ANYTHING_PARSE=bin/go-anything-cgo ./scripts/perf.sh
 | record 一个单元（墙钟） | 142 ms（917 例） | **66 ms（145 例）** | **快 2.1 倍** ✅ |
 | record 每例成本 | 155 µs | 458 µs | 慢 3 倍（例数不同，`cases/s` 偏向生成更多的一方） |
 | diff 吞吐 | 18,090 cases/s | **26,208 cases/s** | **每例快 45%**；墙钟 50.7 ms → **6.9 ms（7.3 倍）** ✅ |
-| 启动 `--help`（CPU 时间） | 1.61 ms | 1.77 ms | **慢 5–11%**，见下面「启动这一轴」的更正 |
+| 启动 `--help`（CPU 时间，配对 40+ 次） | 1.92–1.96 ms | 2.11–2.18 ms | **点估计慢 0.11–0.18 ms，95% CI 跨零 → 分辨不出** |
 | `analyze` 真实仓库（7,390 个 .ts） | 42.0 s | **8.46 s** | **快 5.0 倍** ✅ |
 
 ## 逐项测量
@@ -325,3 +325,38 @@ cpu difference          +0.15 ms (slower by 9.5%)
 
 `cp /tmp/go-anything bin/go-anything` 覆盖了 `build.sh` 产出的**非 cgo** 二进制——而 cgo 版本启动多 ~1.6 ms。
 第 55 轮第一次测出「4.0 ms vs 2.7 ms」就是这个原因，不是工具变慢了。**测之前先 `./scripts/build.sh bin`。**
+
+## 7. 启动这一轴：把两处浪费找出来之后（第 60 轮之后）
+
+「慢 0.15–0.25 ms」这个结论里有两块是可以去掉的，去掉之后**点估计仍是 +0.11–0.18 ms，但 95% CI 跨零**。
+
+### 7a. 二进制里带着整个 crypto 栈
+
+`record` 和 `enable` 用 `crypto/sha256` 给源文件算指纹——这不是密码学，是「稳定短 id」。它把
+`crypto/internal/fips140`、`sha3`、`sha256` 全拉进了一个从不做密码学的 CLI。换成 FNV-1a
+（`internal/fingerprint`）后：
+
+```
+go list -deps . | grep -c crypto      # 之前 12，现在 0
+init 合计                              # 之前 0.185 ms，现在 ~0.19 ms（剩下的全是 stdlib：os/syscall/godebug）
+```
+
+### 7b. 「快二进制」里放的是 cgo 构建（我自己的坑，踩了两次）
+
+`cp <cgo 构建> bin/go-anything` 会覆盖 `build.sh` 的非 cgo 产物，启动多 ~0.15 ms。现在：
+
+* `scripts/build.sh` 构建后**校验** `go version -m` 里有 `CGO_ENABLED=0`，否则直接失败；
+* `scripts/perf.sh` 在测之前校验同一个条件，不满足就 `exit 2`；
+* `make negative` 第 15 条：把 cgo 构建放到快二进制的位置，`perf` 必须拒绝。
+
+### 7c. 三者的分解（同一轮随机顺序、各 50 次、CPU 时间）
+
+| 二进制 | 中位数 |
+| --- | ---: |
+| 2 KB 的 Go 程序（只打印） | 1.89–1.96 ms |
+| 我们的全部 import，`main` 只打印一行 | 1.92–1.97 ms |
+| **go-anything `--help`（非 cgo，当前）** | **2.07–2.18 ms** |
+| rust-anything `--help` | 1.93–2.04 ms |
+
+Go 的进程底价本身就**比 rust-anything 快**；我们多出来的 0.1–0.2 ms 是自己的初始化与代码。剩下这 0.1 ms
+要赢得靠拆「分发器 + 引擎」，代价是每条真命令多一次进程启动——这个取舍见 [FINAL.md](FINAL.md)。

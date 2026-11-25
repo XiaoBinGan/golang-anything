@@ -7,10 +7,9 @@
 package switched
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/xiaobingan/go-anything/internal/fingerprint"
 	"os"
 	"path/filepath"
 	"sort"
@@ -316,8 +315,8 @@ func tightenConsts(text string, names []string) string {
 
 // loosenedPath is where the record of changed declarations lives: next to the crate, not in the source.
 func loosenedPath(crateDir, unitPath string) string {
-	sum := sha256.Sum256([]byte(unitPath))
-	return filepath.Join(crateDir, "work", "enabled-"+hex.EncodeToString(sum[:6])+".json")
+	sum := fingerprint.Of([]byte(unitPath))
+	return filepath.Join(crateDir, "work", "enabled-"+sum[:6]+".json")
 }
 
 func writeLoosened(crateDir, unitPath string, names []string) error {

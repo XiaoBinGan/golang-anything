@@ -8,10 +8,9 @@ package record
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/xiaobingan/go-anything/internal/fingerprint"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -309,8 +308,7 @@ func Run(opts Options) (Summary, error) {
 	if err != nil {
 		return Summary{}, err
 	}
-	sum := sha256.Sum256(raw)
-	fingerprint := hex.EncodeToString(sum[:8])
+	fingerprint := fingerprint.Of(raw)
 	meta := map[string]any{"unit": opts.Unit.ID, "sha256": fingerprint, "throws": throws}
 	if err := os.WriteFile(filepath.Join(opts.CrateDir, "recorded-from.json"), mustJSON(meta), 0o644); err != nil {
 		return Summary{}, err
@@ -544,8 +542,7 @@ func FingerprintOf(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	sum := sha256.Sum256(raw)
-	return hex.EncodeToString(sum[:8]), nil
+	return fingerprint.Of(raw), nil
 }
 
 var _ = ts.Param{} // the type table above is what makes a Param useful; keep the import honest
