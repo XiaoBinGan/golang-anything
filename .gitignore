@@ -66,3 +66,14 @@ testdata/markers/go-ports/*/wasm_support.go
 testdata/markers/go-ports/*/cmd/portwasm/
 testdata/*/go-ports/*/package/
 testdata/sample/*/package/
+testdata/realworld5/go-ports/*/addon.node
+testdata/realworld5/go-ports/*/answer.go
+testdata/realworld5/go-ports/*/*.dylib
+testdata/realworld5/go-ports/*/*.h
+testdata/realworld5/go-ports/*/index.cjs
+testdata/realworld5/go-ports/*/port.py
+testdata/realworld5/go-ports/*/portctl
+testdata/realworld5/go-ports/*/work/
+testdata/realworld5/go-ports/*/shadow.cjs
+testdata/realworld5/go-ports/*/shadow.jsonl
+testdata/realworld5/go-ports/*/resolve*.mjs

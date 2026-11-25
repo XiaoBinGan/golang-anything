@@ -1,0 +1,8 @@
+{
+  "schema": "go-anything/port@1",
+  "unit": "src/domain/jsonPointer.ts",
+  "crate": "github.com/xiaobingan/go-anything/testdata/realworld5/go-ports/jp-go",
+  "files": ["src/domain/jsonPointer.ts"],
+  "exports": [{"name":"escapeJsonPointerToken","params":["string"],"returns":"string","line":2,"throw_lines":[],"blocked":""},{"name":"unescapeJsonPointerToken","params":["string"],"returns":"string","line":6,"throw_lines":[],"blocked":""},{"name":"jsonPointerSyntaxProblem","params":["string"],"returns":"\"missing-slash\" | \"invalid-escape\" | null","line":10,"throw_lines":[],"blocked":""},{"name":"jsonPointerTokens","params":["string"],"returns":"string[]","line":19,"throw_lines":[],"blocked":""}],
+  "wire": "json"
+}

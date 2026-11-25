@@ -778,3 +778,26 @@ ready 6,092 → 5,954      blocked 1,859 → 1,997
 
 **为什么重要**：之前 5,954 个「ready」里混着这些；一个人从 `Start here` 挑一个出来，
 很可能挑到根本过不了桥的东西。现在他先看到的是这张表。
+
+## 第九个 crate：RFC 6901 指针（端到端复跑，第 40 轮）
+
+`testdata/realworld5/`：`src/domain/jsonPointer.ts` 四个函数，来自 `rea`。
+走的是完整链：record 128 例 → 手写端口 → gate → check → fuzz → shadow → enable → disable。
+
+```
+gate    128/128 ✅
+check   128/128 经进程内 addon ✅
+fuzz    160/160（seed 11）
+shadow  20 次真实调用，0 处不一致 ✅
+enable  → 从原式路径调用 jsonPointerTokens("/a/b") 得到 ["a","b"] ✅
+disable → 字节一致（sha 相同）✅
+```
+
+### 它挖出的两个 bug
+
+| bug | 现象 |
+| --- | --- |
+| **`pointer.slice(1)` 在 Go 里是切字节** | `jsonPointerTokens("中文 字")` 得到损坏的首个 token——JS 按 UTF-16 码元切，Go 按字节切。**是记录用例抓到的** |
+| **单字符串快路径跳过了标记** | `answer1` 直接 `json.Marshal(v)`，`[]uint16` 变成 `[[97],[98]]`：`gate`（驱动）通过、`check`（桥）31 条不一致、`shadow` 4 条 |
+
+第二个尤其值得记：**同一份端口，驱动答对、桥答错**——正是 40 轮前设计 `check` 就是为了抓这类。

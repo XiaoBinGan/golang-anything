@@ -11,3 +11,9 @@
 //
 // PERF.md in the repository root has the numbers and how they were taken.
 package fastbridge
+
+//
+// One rule for all three: whatever the entry point, the reply goes through the crate's Answer, so the
+// markers a value needs are written. The fast paths exist to skip work, not to skip correctness — the
+// one-string path used to marshal the raw value and answered [[97],[98]] for a port that returns code
+// units, while the driver answered ["a","b"].
