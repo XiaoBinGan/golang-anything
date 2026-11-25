@@ -10,7 +10,7 @@
 | rust-anything 的 26 条命令 | **26/26** | [PARITY.md](PARITY.md) 逐行；`scripts/doccheck.sh` 核对命令集与文档一致 |
 | 自创命令 | **4**（`scaffold`/`check`/`wasm`/`shadow-report`） | 数字由脚本算，不是记的 |
 | 真实代码移植 | **9 个 crate**，其中 5 个来自真实仓库 | `./scripts/matrix.sh` |
-| 录制用例 | 1,138 条 | 同上 |
+| 录制用例 | 1,141 条 | 同上 |
 | MCP 工具 | **15 个**（8 个委托给同名命令） | 官方 SDK 客户端 `scripts/mcp-client.mjs` |
 | 文档与代码一致 | 命令集、工具数、doctor 检查项 | `scripts/doccheck.sh` |
 
