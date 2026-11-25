@@ -709,12 +709,18 @@ func buildFast(dir, nodeInclude string) error {
 
 // manifest is what the CLI needs from go-anything.json.
 type manifest struct {
-	Crate   string `json:"crate"`
-	Unit    string `json:"unit"`
-	Exports []struct {
-		Name    string `json:"name"`
-		Blocked string `json:"blocked"`
-	} `json:"exports"`
+	Crate   string   `json:"crate"`
+	Unit    string   `json:"unit"`
+	Exports []export `json:"exports"`
+}
+
+// export is one manifest entry: what the bridge carries and what shape it has.
+type export struct {
+	Name       string   `json:"name"`
+	Params     []string `json:"params"`
+	Returns    string   `json:"returns"`
+	Blocked    string   `json:"blocked"`
+	ThrowLines []int    `json:"throw_lines"`
 }
 
 // Names lists the exports the bridge carries.
@@ -1448,7 +1454,16 @@ func runWasm(args []string) error {
 	if err != nil {
 		return err
 	}
-	files, err := wasmbridge.Run(wasmbridge.Options{CrateDir: dir, Crate: m.Crate, Exports: m.Names()})
+	var typed []wasmbridge.Export
+	for _, e := range m.Exports {
+		if e.Blocked != "" {
+			continue
+		}
+		typed = append(typed, wasmbridge.Export{Name: e.Name, Params: e.Params, Returns: e.Returns})
+	}
+	files, err := wasmbridge.Run(wasmbridge.Options{
+		CrateDir: dir, Crate: m.Crate, Exports: m.Names(), Typed: typed,
+	})
 	if err != nil {
 		return err
 	}

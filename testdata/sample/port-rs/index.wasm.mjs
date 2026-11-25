@@ -102,9 +102,30 @@ function fast(name, arg) {
   return JSON.parse(decoder.decode(view().subarray(scratch + 65536, scratch + 65536 + len)))
 }
 
-const port = { raw }
+// Direct entries: a generated export per signature, so a call is one function call into the module
+// with no registry lookup, no boxing and no Marshal.
+const DIRECT = {
+  "count": arg => {
+    const area = argView()
+    const written = encoder.encodeInto(arg, area)
+    if (written.read !== arg.length) return decode(raw("count", JSON.stringify([arg])))
+    const v = exports.go_Count(scratch, written.written)
+    if (Number.isNaN(v)) { const r = raw("count", JSON.stringify([arg])); return decode(r) }
+    return v
+  },
+  "ratio": (a, b) => {
+    const v = exports.go_Ratio_num(a, b)
+    if (Number.isNaN(v)) return decode(raw("ratio", JSON.stringify([a, b])))
+    return v
+  },
+}
+
+const port = { raw, direct: Object.keys(DIRECT).length > 0 }
 for (const name of ["rangeOf", "words", "count", "ratio"]) {
   port[name] = (...args) => {
+    if (DIRECT[name] && args.length === 1 && typeof args[0] === 'string') {
+      return DIRECT[name](args[0])
+    }
     if (args.length === 1 && typeof args[0] === 'string' && call1) {
       try {
         return decode(fast(name, args[0]))

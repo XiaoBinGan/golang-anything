@@ -69,28 +69,27 @@ node scripts/floor/wasm-floor.mjs          # 进程内 wasm 调用
 是「命令模块」，它靠 `_start` 初始化，任何 `//go:wasmexport` 在初始化前调用都会 abort（`notInitialized`）。
 加上 `-buildmode=c-shared` 得到的是 **reactor 模块**，真实的 Go 代码——字符串、`utf16.Encode`、分配——全部可用。
 
-修正后的四条架构与实测：
+**修正后的架构与实测（本轮把「类型化直调」也做出来了）：**
 
-| 架构 | 每次调用 | 真实 Go 代码 | 结论 |
-| --- | ---: | --- | --- |
-| 共享内存 ring（JS↔JS 最好情况） | 182–210 ns | 可以 | 比 napi 慢 2.5 倍，弃 |
-| **wasip1 reactor：叶子函数** | **18.2 ns** | 仅叶子 | 比 napi 快 4 倍（纯字节循环） |
-| **wasip1 reactor：分配型端口** | 121 ns | 可以 | 仍比 napi 快 1.6 倍（一次 `utf16.Encode`） |
-| wasip1 reactor + JSON 信封（本工具现状） | 750–780 ns | 可以 | 慢在信封，不在 wasm |
-| js/wasm 回调（Go 调度器） | 10,260 ns | 可以 | 慢 140 倍，弃 |
-| cgo + N-API（现状默认） | 215–250 ns | 可以 | 落后 2.9 倍 |
+| 架构 | 每次调用 | 对比 rust-anything 的 72 ns |
+| --- | ---: | --- |
+| 共享内存 ring（JS↔JS 最好情况） | 182–210 ns | 慢 2.5 倍，弃 |
+| wasip1 reactor + 叶子端口 | 18.2 ns | 快 4 倍（纯字节循环） |
+| **wasip1 reactor + 类型化直调（本工具现在）** | **51–55 ns** | **快 24%** ✅ |
+| wasip1 reactor + JSON 信封（上一版） | 750–780 ns | 慢 10 倍 |
+| cgo + N-API（默认口径） | 215–250 ns | 慢 2.9 倍 |
+| js/wasm 回调 | 10,260 ns | 慢 140 倍，弃 |
 
-**分解 780 ns 花在哪（实测）**：
+三次连续测量：0.053 / 0.053 / 0.051 µs；同一进程里 rust-anything 的 napi 是 0.072 µs。
 
-```
-go_call1（wasm 调用 + 注册表查找 + []any 装箱 + json.Marshal + 拷贝）  0.51 µs
-+ JSON.parse(reply)                                             0.04 µs
-+ TextEncoder.encode(arg)                                       0.15 µs
-```
+**它是怎么降下来的**：三条改动，每一步都独立测过——
 
-**结论：wasm 这条路是通的，慢的是我们自己包的那层。** 叶子端口 18 ns、带一次分配的端口 121 ns，
-都低于 napi 的 73 ns——前提是调用别经过 `Registry` + `[]any` + `json.Marshal` 这层信封。
-下一步就是生成**按签名直调**的导出（`go_count(ptr, len) float64`），把 0.51 µs 压到 ~50 ns。
+1. `-buildmode=c-shared`（reactor 而不是命令模块）：真实 Go 代码才能在导出里跑；
+2. 按签名生成直调导出 `go_Count(ptr, len) float64`：去掉注册表查找与 JSON；
+3. **端口的签名本身改成类型化**（`func Count(text string) (float64, error)`，由生成的适配器接到注册表）：
+   去掉 `[]any{...}` 装箱与 `any` 类型断言——这一步把 194 ns 压到 53 ns。
+
+209 条录制用例经 wasm 回放全部一致（`check` 走 N-API 也是 609/609）。
 
 复现脚本：`scripts/floor/ring-floor.mjs`、`scripts/floor/wasm-floor.mjs`；
 真实端口：`go-anything wasm <crate>` → `node testdata/sample/port-rs/index.wasm.mjs`。

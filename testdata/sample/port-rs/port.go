@@ -18,12 +18,64 @@ import (
 // Fn is one callable unit function: arguments in, answer out.
 type Fn func(args []any) (any, error)
 
-// Registry is what the driver dispatches on.
+// Registry is what the driver dispatches on: the typed functions below, adapted to the []any shape a
+// recorded case carries. The typed form is what the WebAssembly module calls directly — that is where
+// a call stops paying for boxing.
 var Registry = map[string]Fn{
-	"rangeOf": rangeOf,
-	"words":   words,
-	"count":   count,
-	"ratio":   ratio,
+	"rangeOf": adapt2s(rangeOf),
+	"words":   adapt1(words),
+	"count":   adapt1(count),
+	"ratio":   adapt2(ratio),
+}
+
+// Count is the port of `count`, typed.
+func Count(text string) (float64, error) { return count(text) }
+
+// Ratio is the port of `ratio`, typed.
+func Ratio(part, whole float64) (float64, error) { return ratio(part, whole) }
+
+// Words is the port of `words`, typed.
+func Words(text string) ([]string, error) { return words(text) }
+
+// adapt1 turns (string) -> (T, error) into the registry's shape.
+func adapt1[T any](fn func(string) (T, error)) Fn {
+	return func(args []any) (any, error) {
+		s, ok := args[0].(string)
+		if !ok {
+			return nil, fmt.Errorf("TypeError: expected a string, got %T", args[0])
+		}
+		return fn(s)
+	}
+}
+
+// adapt2s turns (string, string) -> (T, error) into the registry's shape.
+func adapt2s[T any](fn func(string, string) (T, error)) Fn {
+	return func(args []any) (any, error) {
+		a, ok := args[0].(string)
+		if !ok {
+			return nil, fmt.Errorf("TypeError: expected a string, got %T", args[0])
+		}
+		b, ok := args[1].(string)
+		if !ok {
+			return nil, fmt.Errorf("TypeError: expected a string, got %T", args[1])
+		}
+		return fn(a, b)
+	}
+}
+
+// adapt2 turns (float64, float64) -> (T, error) into the registry's shape.
+func adapt2[T any](fn func(float64, float64) (T, error)) Fn {
+	return func(args []any) (any, error) {
+		a, ok := args[0].(float64)
+		if !ok {
+			return nil, fmt.Errorf("TypeError: expected a number, got %T", args[0])
+		}
+		b, ok := args[1].(float64)
+		if !ok {
+			return nil, fmt.Errorf("TypeError: expected a number, got %T", args[1])
+		}
+		return fn(a, b)
+	}
 }
 
 // text returns the argument as UTF-16 code units, the way JavaScript sees a string.
@@ -36,15 +88,9 @@ func text(v any) ([]uint16, error) {
 }
 
 // rangeOf ports rangeOf from src/text.ts: indexOf, then `end` and the tail from that index.
-func rangeOf(args []any) (any, error) {
-	haystack, err := text(args[0])
-	if err != nil {
-		return nil, err
-	}
-	needle, err := text(args[1])
-	if err != nil {
-		return nil, err
-	}
+func rangeOf(text, word string) (map[string]any, error) {
+	haystack := utf16.Encode([]rune(text))
+	needle := utf16.Encode([]rune(word))
 	start := indexOf(haystack, needle) // -1 when absent, as indexOf says
 	return map[string]any{
 		"start": start,
@@ -56,13 +102,9 @@ func rangeOf(args []any) (any, error) {
 }
 
 // words ports words: every `\w+` that follows a `$`, with no lookbehind in the pattern.
-func words(args []any) (any, error) {
-	units, err := text(args[0])
-	if err != nil {
-		return nil, err
-	}
+func words(text string) ([]string, error) {
 	out := []string{}
-	runes := utf16.Decode(units)
+	runes := []rune(text)
 	for i := 0; i < len(runes); i++ {
 		if runes[i] != '$' {
 			continue
@@ -80,32 +122,20 @@ func words(args []any) (any, error) {
 }
 
 // count ports count: ASCII spaces, counted in code units (the same as runes for a space).
-func count(args []any) (any, error) {
-	units, err := text(args[0])
-	if err != nil {
-		return nil, err
-	}
+func count(text string) (float64, error) {
 	n := 0
-	for _, u := range units {
+	for _, u := range text {
 		if u == ' ' {
 			n++
 		}
 	}
-	return n, nil
+	return float64(n), nil
 }
 
 // ratio ports ratio: a RangeError when the denominator is zero, as the original raises.
-func ratio(args []any) (any, error) {
-	part, ok := args[0].(float64)
-	if !ok {
-		return nil, nil // the original answers NaN for a non-number
-	}
-	whole, ok := args[1].(float64)
-	if !ok {
-		return nil, nil
-	}
+func ratio(part, whole float64) (float64, error) {
 	if whole == 0 {
-		return nil, fmt.Errorf("RangeError: ratio: whole must not be zero")
+		return 0, fmt.Errorf("RangeError: ratio: whole must not be zero")
 	}
 	return part / whole, nil
 }

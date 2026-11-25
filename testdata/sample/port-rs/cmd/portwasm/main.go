@@ -42,6 +42,22 @@ func goCall(nameLen uint32, argsLen uint32) uint32 {
 	return uint32(len(reply))
 }
 
+//go:wasmexport go_Count
+//
+// count(string) -> number, direct: no registry lookup, no boxing of the reply.
+func goCount(ptr uint32, n uint32) float64 {
+	return port.WasmCountStringNumber(ptr, n)
+}
+
+//go:wasmexport go_Ratio_num
+//
+// ratio(number, number) -> number, direct.
+func goRatioNum(a float64, b float64) float64 {
+	return port.WasmRatioNumberNumber(a, b)
+}
+
+
+
 //go:wasmexport go_call1
 //
 // The one-string call: the argument is the string itself, not JSON, and the reply is the value's JSON
