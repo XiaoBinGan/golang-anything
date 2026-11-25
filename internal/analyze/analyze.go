@@ -91,6 +91,21 @@ var skipDir = map[string]bool{
 	"rust": true, "port": true, "go-anything": true,
 }
 
+// Reasons tallies, per blocking reason, how many exports stay in the original. A plan for a real
+// repository is thousands of units long; the tally is what a person reads first, because it says which
+// shapes the bridge cannot carry rather than which file they are in.
+func (r *Report) Reasons() map[string]int {
+	out := map[string]int{}
+	for _, u := range r.Units {
+		for _, e := range u.Exports {
+			if e.Blocked != "" {
+				out[e.Blocked]++
+			}
+		}
+	}
+	return out
+}
+
 // Run analyzes root.
 func Run(root string) (*Report, error) {
 	abs, err := filepath.Abs(root)
@@ -227,7 +242,17 @@ func unitOf(rel string, f *ts.File) Unit {
 		if e.Blocked == "" {
 			for _, what := range append([]string{e.Returns}, paramTypes(e.Params)...) {
 				if kind := unbridgeableKind(what); kind != "" {
-					e.Blocked = "carries a " + kind + ": it has no JSON form"
+					switch kind {
+					case "Iterable", "AsyncIterable", "Generator", "AsyncGenerator":
+						// A generator is lazy: it answers nothing until it is pulled, and the bridge has no
+						// way to pull.
+						e.Blocked = "carries " + article(kind) + " " + kind + ": it is lazy, and the bridge cannot pull"
+					case "Readable", "Writable", "Duplex", "Transform":
+						// A stream of bytes is a long-lived object, not a value.
+						e.Blocked = "carries " + article(kind) + " " + kind + ": a stream is not a value"
+					default:
+						e.Blocked = "carries " + article(kind) + " " + kind + ": it has no JSON form"
+					}
 					break
 				}
 			}
@@ -511,6 +536,13 @@ func paramTypes(params []ts.Param) []string {
 // a Map does not.
 func unbridgeableKind(t string) string {
 	t = strings.TrimSpace(t)
+	for _, kind := range []string{"Iterable", "AsyncIterable", "Generator", "AsyncGenerator",
+		"Readable", "Writable", "Duplex", "Transform"} {
+		if strings.HasPrefix(t, kind+"<") || t == kind || strings.Contains(t, "<"+kind+"<") ||
+			strings.Contains(t, " "+kind+"<") || strings.Contains(t, "| "+kind) {
+			return kind
+		}
+	}
 	for _, kind := range []string{"Map", "Set", "WeakMap", "WeakSet"} {
 		if strings.HasPrefix(t, kind+"<") || strings.HasPrefix(t, kind+" |") || t == kind ||
 			strings.HasPrefix(t, "readonly "+kind+"<") || strings.Contains(t, " "+kind+"<") {
@@ -521,4 +553,13 @@ func unbridgeableKind(t string) string {
 		return "symbol"
 	}
 	return ""
+}
+
+// article picks "a" or "an" for a type name, so a reason reads like a sentence.
+func article(kind string) string {
+	switch kind[0] {
+	case 'A', 'E', 'I', 'O', 'U':
+		return "an"
+	}
+	return "a"
 }

@@ -757,3 +757,24 @@ ready 6,092 → 5,954      blocked 1,859 → 1,997
 
 `canCarry` 是递归判断：原始值、数组、日期、Map/Set、TypedArray、原型为 `Object.prototype` 的普通对象可以过；
 类实例不行。
+
+## `analyze` 会说清楚「什么过不了桥，为什么」（第 39 轮）
+
+真实仓库（2,969 个单元）跑一遍，输出顶部现在是这样一张表：
+
+| Reason | Exports |
+| --- | ---: |
+| is async: the call would have to cross asynchronously | 1,231 |
+| is generic: the bridge carries concrete types only | 242 |
+| is a generator | 191 |
+| takes a function: a callback cannot cross the bridge | 172 |
+| returns a Promise: the bridge answers in one turn | 103 |
+| carries a Map: it has no JSON form | 25 |
+| carries an Iterable: it is lazy, and the bridge cannot pull | 23 |
+| carries a WeakMap / Set / Readable / Generator / Writable | 15 / 12 / 5 / 4 / 2 |
+
+本轮新增：`Generator` / `AsyncIterable` / `Iterable`（惰性，桥没法 pull）与 `Readable` / `Writable`
+（流不是值）。ready 5,954 → **5,925**。
+
+**为什么重要**：之前 5,954 个「ready」里混着这些；一个人从 `Start here` 挑一个出来，
+很可能挑到根本过不了桥的东西。现在他先看到的是这张表。

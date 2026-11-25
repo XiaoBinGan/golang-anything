@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
+	"sort"
 	"strings"
 	"time"
 
@@ -205,6 +206,28 @@ func runAnalyze(args []string) error {
 	}
 	if len(rep.StartHere) > 0 {
 		fmt.Printf("\nStart here: %s\n", strings.Join(rep.StartHere, ", "))
+	}
+	// What cannot be ported, and why, before a thousand per-file sections: this is the list a person
+	// acts on when the repository is large.
+	if reasons := rep.Reasons(); len(reasons) > 0 {
+		type row struct {
+			why string
+			n   int
+		}
+		rows := make([]row, 0, len(reasons))
+		for why, n := range reasons {
+			rows = append(rows, row{why, n})
+		}
+		sort.Slice(rows, func(i, j int) bool {
+			if rows[i].n != rows[j].n {
+				return rows[i].n > rows[j].n
+			}
+			return rows[i].why < rows[j].why
+		})
+		fmt.Printf("\n## Why exports stay behind\n\n| Reason | Exports |\n| --- | ---: |\n")
+		for _, r := range rows {
+			fmt.Printf("| %s | %d |\n", r.why, r.n)
+		}
 	}
 	for _, u := range rep.Units {
 		if len(u.Exports) == 0 {

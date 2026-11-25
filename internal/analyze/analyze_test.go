@@ -170,3 +170,32 @@ func paramList(params []ts.Param) string {
 	}
 	return strings.Join(parts, ", ")
 }
+
+// A generator is lazy and a stream is long-lived: the bridge answers in one turn, so neither can cross.
+func TestLazyAndStreamingReturnsAreBlocked(t *testing.T) {
+	cases := []struct{ returns, want string }{
+		{"Generator<void, Thing>", "Generator"},
+		{"AsyncIterable<Buffer>", "AsyncIterable"},
+		{"Iterable<string>", "Iterable"},
+		{"Readable", "Readable"},
+		{"Result<Iterable<Candidate>, Failure>", "Iterable"},
+	}
+	for _, c := range cases {
+		unit := exportNamed(t, "make", c.returns, nil)
+		if !strings.Contains(unit.Blocked, c.want) {
+			t.Errorf("%s: %q does not mention %s", c.returns, unit.Blocked, c.want)
+		}
+	}
+}
+
+// The tally is what a person reads first on a repository with thousands of units.
+func TestTheReasonsTallyCountsEveryBlockedExport(t *testing.T) {
+	rep := &Report{Units: []Unit{
+		{Exports: []Export{{Blocked: "is a generator"}, {Blocked: "is a generator"}, {}}},
+		{Exports: []Export{{Blocked: "carries a Map: it has no JSON form"}}},
+	}}
+	got := rep.Reasons()
+	if got["is a generator"] != 2 || got["carries a Map: it has no JSON form"] != 1 || len(got) != 2 {
+		t.Errorf("tally: %+v", got)
+	}
+}
