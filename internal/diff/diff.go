@@ -146,7 +146,7 @@ func runDriver(crateDir string) ([]cases.Case, error) {
 	cmd.Dir = abs
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("the port's driver failed: %w", err)
+		return nil, fmt.Errorf("the port's driver failed: %w%s", err, goHint(err))
 	}
 	return cases.Read(out)
 }
@@ -341,4 +341,19 @@ func (o Outcome) Markdown() string {
 		fmt.Fprintf(&b, "- kept in the original: %s\n", strings.Join(o.Missing, ", "))
 	}
 	return b.String()
+}
+
+// goHint adds the fix for the one toolchain problem this repository's own machine had: a GOROOT from
+// one Go installation with a binary from another.
+func goHint(err error) string {
+	out, _ := exec.Command("go", "env", "GOROOT").Output()
+	root := strings.TrimSpace(string(out))
+	if root == "" {
+		return ""
+	}
+	if _, statErr := os.Stat(filepath.Join(root, "pkg", "tool")); statErr != nil {
+		return " (go env GOROOT is " + root + ", which has no tool chain: install Go and set GOROOT to the " +
+			"installation the `go` binary came from, e.g. export GOROOT=$(brew --prefix go)/libexec)"
+	}
+	return ""
 }

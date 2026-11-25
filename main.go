@@ -22,6 +22,7 @@ import (
 	"github.com/xiaobingan/go-anything/internal/fastbridge"
 	"github.com/xiaobingan/go-anything/internal/fuzz"
 	"github.com/xiaobingan/go-anything/internal/mapdoc"
+	"github.com/xiaobingan/go-anything/internal/mcp"
 	"github.com/xiaobingan/go-anything/internal/pkg"
 	"github.com/xiaobingan/go-anything/internal/profile"
 	"github.com/xiaobingan/go-anything/internal/record"
@@ -58,6 +59,8 @@ const usage = `go-anything: port a codebase into Go, one unit at a time.
   go-anything app replay <repo> --command CMD    run another build against the recorded cases
   go-anything profile  <repo> --command CMD       run a workload under the profiler and rank hot functions
   go-anything go       <repo> --command CMD       profile, pick the hottest unit, and hand it over
+  go-anything mcp                                serve the Model Context Protocol on stdin/stdout
+  go-anything setup    [--agent A] [--print]      register this tool with coding agents
 
 A crate is a folder this tool made. It holds go-anything.json, cases.jsonl, port.go and cmd/godriver.
 `
@@ -117,6 +120,10 @@ func main() {
 		err = runProfile(os.Args[2:])
 	case "go":
 		err = runGo(os.Args[2:])
+	case "mcp":
+		err = runMCP()
+	case "setup":
+		err = runSetup(os.Args[2:])
 	case "-h", "--help", "help":
 		fmt.Print(usage)
 		return
@@ -1236,4 +1243,100 @@ func exportNames(u analyze.Unit) []string {
 		}
 	}
 	return out
+}
+
+// runMCP serves the protocol; nothing but frames may be written to stdout.
+func runMCP() error {
+	return mcp.Serve(os.Stdin, os.Stdout, os.Stderr)
+}
+
+// runSetup registers the MCP server with the coding agents found on this machine.
+func runSetup(args []string) error {
+	fs := flag.NewFlagSet("setup", flag.ExitOnError)
+	agent := fs.String("agent", "all", "claude, cursor, codex, or all")
+	print := fs.Bool("print", false, "only print the configuration")
+	fs.Parse(args)
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	cfg := map[string]any{
+		"mcpServers": map[string]any{
+			"go-anything": map[string]any{"command": exe, "args": []string{"mcp"}},
+		},
+	}
+	raw, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	if *print {
+		fmt.Println(string(raw))
+		return nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	type target struct{ name, path string }
+	targets := []target{
+		{"claude", filepath.Join(home, ".claude.json")},
+		{"cursor", filepath.Join(home, ".cursor", "mcp.json")},
+	}
+	var wrote []string
+	for _, t := range targets {
+		if *agent != "all" && *agent != t.name {
+			continue
+		}
+		if *agent == "all" {
+			// Only touch an agent that is already installed: writing a config for a tool that is not
+			// here is clutter, not setup.
+			dir := filepath.Dir(t.path)
+			if _, err := os.Stat(dir); err != nil {
+				continue
+			}
+		}
+		if err := mergeServers(t.path, cfg); err != nil {
+			return fmt.Errorf("%s: %w", t.name, err)
+		}
+		wrote = append(wrote, t.name+" ("+t.path+")")
+	}
+	if *agent == "codex" {
+		return fmt.Errorf("codex reads TOML at ~/.codex/config.toml: add this by hand:\n%s", raw)
+	}
+	if len(wrote) == 0 {
+		fmt.Println("No agent configuration found. Print the block and paste it where your agent keeps MCP servers:")
+		fmt.Println(string(raw))
+		return nil
+	}
+	for _, w := range wrote {
+		fmt.Printf("Registered go-anything with %s\n", w)
+	}
+	return nil
+}
+
+// mergeServers adds the server to an agent's JSON config without touching its other keys.
+func mergeServers(path string, cfg map[string]any) error {
+	existing := map[string]any{}
+	if raw, err := os.ReadFile(path); err == nil {
+		if err := json.Unmarshal(raw, &existing); err != nil {
+			return fmt.Errorf("%s is not JSON: %w", path, err)
+		}
+	}
+	servers, _ := existing["mcpServers"].(map[string]any)
+	if servers == nil {
+		servers = map[string]any{}
+	}
+	mine, _ := cfg["mcpServers"].(map[string]any)
+	for k, v := range mine {
+		servers[k] = v
+	}
+	existing["mcpServers"] = servers
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	out, err := json.MarshalIndent(existing, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, append(out, '\n'), 0o644)
 }

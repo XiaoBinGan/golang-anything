@@ -127,9 +127,26 @@ Next: fill in go-ports/text-go/port.go, then `go-anything gate go-ports/text-go`
 profile → 选单元 → scaffold → record → 包装器串成一条。刚生成的那个 crate 直接 `gate` 通过 609/609、
 `build --fast` 后 `check` 609/609 经进程内 addon——这条链在本轮实测过。
 
+## mcp / setup：给 agent 用
+
+```sh
+$ printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' \
+    '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | go-anything mcp
+initialize → {'name': 'go-anything', 'version': '0.5.0'}
+tools → ['analyze', 'map', 'diff', 'gate', 'record', 'fuzz', 'profile']
+
+$ go-anything setup --print          # 只打印，不写
+$ go-anything setup                  # 注册进已安装 agent 的配置
+Registered go-anything with claude (~/.claude.json)
+```
+
+协议行为都按规范：通知不回包（客户端按位置读流）、未知方法回 `-32601`、非 JSON 回 `-32700`、
+**工具自己出错**回 `isError` 内容而不是协议错误（agent 能读到原因）。`setup` 只增删自己的键，
+重复执行幂等。
+
 ## 与 rust-anything 的能力对齐
 
-见 [PARITY.md](PARITY.md)：26 条命令的逐项状态。**已实现 21 条**（`analyze` `scaffold/bridge` `record` `build` `diff` `bench` `clean` `gate` `map` `doctor` `enable` `disable` `shadow` `fuzz` `refresh` `report` `package` `app record` `app replay` `profile` `go`，外加三条自创的 `check` `fast` `shadow-report`），5 条待做（`app front-door/wire/lift`、`setup/mcp`）。
+见 [PARITY.md](PARITY.md)：26 条命令的逐项状态。**已实现 23 条**（`analyze` `scaffold/bridge` `record` `build` `diff` `bench` `clean` `gate` `map` `doctor` `enable` `disable` `shadow` `fuzz` `refresh` `report` `package` `app record` `app replay` `profile` `go` `setup` `mcp`，外加三条自创的 `check` `fast` `shadow-report`），3 条待做（`app front-door` `app wire` `app lift`）。
 
 ## 性能：进程内桥 0.73 µs/次
 
