@@ -66,6 +66,10 @@ for name, cmd, crate in (
     record.append((name, statistics.median(got), n))
 for name, v, n in record:
     print(f"  {name:24} {v:7.1f} ms   {n:5d} cases   {n/(v/1000):9,.0f} cases/s   {v/n*1000:5.1f} µs/case")
+# The two tools do not produce the same number of cases, so cases/s flatters whichever one writes more.
+# Wall time for the same unit is the number a person waits for, and it is printed above it.
+print("  (the case counts differ by design: this is a paired walk plus a bounded cross product, not the")
+print("   full cross product, so compare the wall time for the unit rather than cases per second)")
 
 print()
 print("== diff, both passing, on each tool's own crate ==")
