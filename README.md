@@ -194,7 +194,8 @@ $ ./frontdoor --version
 | --- | ---: |
 | rust-anything napi（对照） | 73 ns |
 | 共享内存 ring（JS↔JS 最好情况） | 182 ns → **赢不了，没写** |
-| **进程内 wasm**（`//go:wasmexport`） | **8.2 ns** → 有 8.9 倍余量 |
+| **wasip1 叶子导出** | **18.1 ns**，但真实字符串工作崩溃 |
+| js/wasm 回调（Go 调度器） | 10,260 ns → 慢 140 倍，弃 |
 | cgo + napi（现在） | 215 ns |
 
 复现：`node scripts/floor/ring-floor.mjs`、`node scripts/floor/wasm-floor.mjs`。
