@@ -6,13 +6,13 @@
   ],
   "license": "MIT",
   "main": "index.cjs",
-  "name": "uleb-port",
+  "name": "evidence-port",
   "optionalDependencies": {
-    "uleb-port-darwin-arm64": "1.0.0",
-    "uleb-port-darwin-x64": "1.0.0",
-    "uleb-port-linux-x64-gnu": "1.0.0",
-    "uleb-port-linux-arm64-gnu": "1.0.0",
-    "uleb-port-win32-x64-msvc": "1.0.0"
+    "evidence-port-darwin-arm64": "1.0.0",
+    "evidence-port-darwin-x64": "1.0.0",
+    "evidence-port-linux-x64-gnu": "1.0.0",
+    "evidence-port-linux-arm64-gnu": "1.0.0",
+    "evidence-port-win32-x64-msvc": "1.0.0"
   },
   "version": "1.0.0"
 }

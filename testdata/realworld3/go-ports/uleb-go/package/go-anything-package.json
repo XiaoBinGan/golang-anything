@@ -1,6 +1,6 @@
 {
   "out": "/Users/supre/Documents/tmp/go-anything/testdata/realworld3/go-ports/uleb-go/package",
-  "name": "uleb-port",
+  "name": "evidence-port",
   "version": "1.0.0",
   "shape": "library",
   "platforms": [

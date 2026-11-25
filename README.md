@@ -537,3 +537,30 @@ $ GOROOT=/nonexistent go-anything doctor
 MISS go builds a program  go: cannot find GOROOT directory: /nonexistent
      fix: the go binary and its GOROOT disagree: set GOROOT to the installation the binary came from
 ```
+
+## 一条命令验证全部主张
+
+```sh
+./scripts/build.sh bin && ./scripts/evidence.sh
+```
+
+```
+== capability: every crate gates and answers through a real bridge ==
+port-rs  181  ok addon  3.91x faster      uleb-go  229  ok addon  1.11x faster
+util-go   56  ok addon  1.65x slower      jadx-go    2  ok addon  11.17x faster
+format-go 28  ok addon 107.90x faster     byteToHex-go / shellQuote-go  1.49x faster
+PASS  every crate gates and answers through a real bridge
+== app ==      PASS  recorded a real CLI / PASS 5/5 replay identically
+== mcp ==      PASS  four replies for four requests / PASS passed:true over the protocol
+== package ==  PASS laid out package/ / PASS installed package answers {"next":2,"value":128}
+== doctor ==   PASS reports the toolchain it cannot use
+== plan ==     PASS PORT-MAP.md holds only source units
+every claim above was checked and held
+```
+
+写这个脚本时自己踩了两个坑，都修了：
+
+1. **`{ … } | tee` 让失败计数丢在子 shell 里** → 脚本永远 exit 0。改成一个函数 + 重定向。
+2. **子脚本的 FAIL 没被计入** → 矩阵里坏掉的 crate 会被「every claim held」盖过去。现在解析矩阵输出计数。
+
+负向对照：把一个 crate 的端口改坏，脚本 `rc=1` 并且点名是哪一段失败。

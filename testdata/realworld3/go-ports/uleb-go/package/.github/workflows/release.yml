@@ -40,5 +40,5 @@ jobs:
           CGO_ENABLED=1 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -buildmode=c-shared -o dist/libport ./cmd/portlib
       - uses: actions/upload-artifact@v4
         with:
-          name: uleb-port-${{ matrix.npm }}
+          name: evidence-port-${{ matrix.npm }}
           path: dist/
