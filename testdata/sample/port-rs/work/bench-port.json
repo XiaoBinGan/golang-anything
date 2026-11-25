@@ -1,1 +1,1 @@
-[{"name":"count","cases":20,"ns":32.38875},{"name":"rangeOf","cases":400,"ns":131.6387039473684},{"name":"ratio","cases":169,"ns":7.063214792899409},{"name":"words","cases":20,"ns":38.391455}]
+[{"name":"count","cases":20,"ns":21.439375},{"name":"rangeOf","cases":400,"ns":129.8498962386511},{"name":"ratio","cases":169,"ns":7.118663313609467},{"name":"words","cases":20,"ns":39.2975}]

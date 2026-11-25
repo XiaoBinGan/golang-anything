@@ -4,4 +4,4 @@
 
 | Unit | Wave | Status | Exports | Crate | Cases | Last diff | Built |
 | --- | ---: | --- | ---: | --- | ---: | --- | --- |
-| `src/text.ts` | 0 | ready | 4 | `port-rs` | 636 | 636/636 | yes |
+| `src/text.ts` | 0 | ready | 4 | `port-rs` | 609 | 609/609 | yes |

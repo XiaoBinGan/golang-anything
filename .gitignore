@@ -5,3 +5,5 @@ testdata/*/rust/*/portctl
 # per-run work
 testdata/*/rust/*/work/
 testdata/*/rust/*/answers.jsonl
+testdata/*/REPORT.md
+testdata/*/card.svg
