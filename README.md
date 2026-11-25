@@ -665,3 +665,20 @@ ok   -0 as an argument  addon=true      wasm=true      stdio=true
    所以 `isNegativeZero(-0)` 在每个真实的桥上都答 `false`，只有驱动答 `true`。
 2. **`wasm` 对「脚手架形状」的端口根本编不过**：生成器调的是类型化函数，而 `scaffold` 生成的是
    `func f(args []any)`。现在走注册表（每个 crate 都有），端口若是类型化的则直接调用（保住 53 ns）。
+
+## 两个比较函数不一致（第 35 轮）
+
+`check.mjs` 与 `shadow.cjs` 各有一份 `canon`。同一组值喂给两边：
+
+| 值对 | `check.canon`（修前） | `shadow.canon` |
+| --- | --- | --- |
+| `-0` vs `0` | **判为相同（bug）** | 判为不同 ✅ |
+| `NaN` vs `null` | **判为相同（bug）** | 判为不同 ✅ |
+| `Infinity` vs `null` | **判为相同（bug）** | 判为不同 ✅ |
+| `undefined` vs `null` | **判为相同（bug）** | 判为不同 ✅ |
+
+后果是实测出来的：把 `negativeZero()` 改成返回 `0`，**`gate` 与 `check` 都报全绿**——
+因为 `JSON.stringify(-0)` 是 `"0"`，而 `NaN`/`undefined` 都序列化成 `null`。
+
+现在 `check.mjs` 的 `canon` 与 `shadow.cjs` 用的是同一套标记；报错也从 `want 0, got 0` 改成
+`want -0, got 0`。`internal/canon_test.go` 直接跑**生成脚本里的那段代码**，不相同就失败。

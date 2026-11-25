@@ -874,12 +874,39 @@ const decode = v => {
 
 // canon sorts keys: a Go map marshals alphabetically, and JSON.stringify is order-sensitive, so a
 // deep compare has to normalise both sides first.
+// canon sorts keys and spells the values JSON cannot carry, so two answers compare as values. It has to
+// match what the Go side treats as a value: JSON.stringify(-0) is "0", and NaN and undefined both
+// stringify to null, so a port that returned 0 where the original returned -0 used to pass.
 const canon = v => {
   if (Array.isArray(v)) return '[' + v.map(canon).join(',') + ']'
+  if (typeof v === 'number') {
+    if (Number.isNaN(v)) return '"$NaN"'
+    if (v === Infinity) return '"$Infinity"'
+    if (v === -Infinity) return '"$-Infinity"'
+    if (Object.is(v, -0)) return '"$-0"'
+    return JSON.stringify(v)
+  }
+  if (typeof v === 'bigint') return JSON.stringify('$bigint:' + v.toString())
+  if (v === undefined) return '"$undefined"'
   if (v && typeof v === 'object') {
     return '{' + Object.keys(v).sort().map(k => JSON.stringify(k) + ':' + canon(v[k])).join(',') + '}'
   }
-  return JSON.stringify(v === undefined ? null : v)
+  return JSON.stringify(v)
+}
+
+// show spells a value the way a person can tell apart: -0 is not 0, NaN is not null.
+const show = v => {
+  if (v === undefined) return 'undefined'
+  if (typeof v === 'number') {
+    if (Number.isNaN(v)) return 'NaN'
+    if (Object.is(v, -0)) return '-0'
+    if (!Number.isFinite(v)) return String(v)
+    return String(v)
+  }
+  if (typeof v === 'bigint') return v.toString() + 'n'
+  if (Array.isArray(v)) return '[' + v.map(show).join(',') + ']'
+  if (v && typeof v === 'object') return '{' + Object.keys(v).sort().map(k => k + ':' + show(v[k])).join(',') + '}'
+  return JSON.stringify(v)
 }
 
 const inProcess = port.inProcess === true
@@ -896,7 +923,9 @@ for (const c of cases) {
     // The recorded answer carries wire markers too: decode before comparing.
     const want = decode(c.ok)
     if (canon(got) === canon(want)) matched++
-    else if (bad.length < 5) bad.push({ fn: c.fn, args: c.args, want, got })
+    // A mismatch has to be readable: "want 0, got 0" is what a -0 against 0 looks like when the values
+    // are printed the ordinary way.
+    else if (bad.length < 5) bad.push({ fn: c.fn, args: c.args, want: show(want), got: show(got) })
   } catch (e) {
     if (c.error && String(e.message).split(':')[0] === c.error.split(':')[0]) matched++
     else if (bad.length < 5) bad.push({ fn: c.fn, args: c.args, want: c.error, got: String(e.message) })
