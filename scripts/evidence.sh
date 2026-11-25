@@ -97,6 +97,15 @@ else
   pass "doctor reports the toolchain it cannot use"
 fi
 
+section "contract: every shared rule still has its proof"
+contract=$("$(dirname "$0")/contract.sh" 2>&1)
+if printf '%s\n' "$contract" | grep -q 'lost their proof'; then
+  fail "a rule in CONTRACT.md lost its proof"
+  printf '%s\n' "$contract" | grep FAIL | head -3
+else
+  pass "every shared rule from CONTRACT.md is still held"
+fi
+
 section "plan: the tool's own output is not a unit"
 if grep -q "resolve-hook" testdata/realworld3/PORT-MAP.md 2>/dev/null; then
   fail "PORT-MAP.md lists a generated helper"

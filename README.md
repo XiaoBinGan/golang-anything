@@ -911,3 +911,32 @@ const want = ORIGINAL[fn](...args)   // 原式抛错 → 整个包装炸掉，�
 2. **桥返回的错误类型名读错** —— 从 Go 回来的错误是普通 `Error`，`constructor.name` 是 `"Error"`，会把正确的端口判成错的。现在按消息前缀读（`JadxInterruption: …`）。
 
 两条负向对照都跑过：端口不抛 → 2/4 不一致；抛错类型不同 → 2/4 不一致且点名 `the error type differs`。
+
+## 契约是可执行的（第 46 轮）
+
+前三轮（43/44/45）都在做同一件事：**把「同一逻辑两处实现」收敛成一处**。这轮把它写成
+[CONTRACT.md](CONTRACT.md) —— 每条规则写清楚「曾经出过什么事」，然后变成可跑的检查：
+
+```sh
+$ ./scripts/contract.sh
+== one implementation per rule ==
+ok    the generator pool is the only list of characters
+ok    pool: every structural character is reachable in both generators
+ok    jswire: decode, encode and canon are the only copies
+ok    jswire: the helpers behave in both module forms
+ok    diff: one call key, used by fuzz too
+ok    analyze: a callback, a Promise, a Map and an iterator all stay behind
+== both paths, per crate ==
+ok    matrix: every crate gates, checks through the addon, and can be timed
+every rule in CONTRACT.md still has something holding it
+```
+
+三条负向对照都跑过：
+
+| 破坏 | 谁抓到 |
+| --- | --- |
+| 把 `canon` 抄回 `shadow.go` | `FAIL  jswire: … only copies` |
+| 某 crate 没建 addon | `FAIL  matrix: … fell back to the pipe` |
+| 从 `pool` 删掉 `/` | `FAIL  pool: … reachable in both generators` |
+
+它已并入 `scripts/evidence.sh`，所以每次「一条命令验证全部主张」都会顺带验证这份契约还在。
