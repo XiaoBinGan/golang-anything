@@ -157,11 +157,25 @@ cp /tmp/negative-jadx.go "$jadx/port.go"
 "$GO" build --fast "$jadx" >/dev/null 2>&1
 rm -f "$jadx/shadow.jsonl"
 
-# 8. perf: no rig, no numbers.
+# 8. the documents: a command that --help prints and README does not name must be reported. A doc is a
+#    claim, and an out-of-date one is the cheapest lie a project can tell.
+cp README.md /tmp/negative-readme.md
+python3 - README.md <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s = s.replace('`shadow-report`', 'shadow-report')
+open(p, 'w').write(s)
+PY
+./scripts/doccheck.sh >/dev/null 2>&1
+expect_fail "doccheck notices a command missing from README" $?
+cp /tmp/negative-readme.md README.md
+
+# 9. perf: no rig, no numbers.
 RUST_ANYTHING=/nonexistent ./scripts/perf.sh >/dev/null 2>&1
 expect_fail "perf refuses a missing rig" $?
 
-# 9. npm install: a loader that answers a hard-coded wrong value, built from a patched template.
+# 10. npm install: a loader that answers a hard-coded wrong value, built from a patched template.
 cp internal/pkg/pkg.go /tmp/negative-pkg.go
 python3 - internal/pkg/pkg.go <<'PY2'
 import sys

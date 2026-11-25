@@ -32,6 +32,8 @@ check "analyze: a callback, a Promise, a Map and an iterator all stay behind" \
 # scripts/negative.sh, and the rule here is that the script exists and says it can fail.
 check "the checks themselves can fail (make negative)" grep -q 'expect_fail' "$ROOT/scripts/negative.sh"
 
+check "the documents match the tool" ./scripts/doccheck.sh
+
 # The committed answer.go, index.cjs and cmd/portctl are generated: if regenerating them changes the tree,
 # the committed copies are stale and a reader is looking at code the tool no longer writes.
 stale=""

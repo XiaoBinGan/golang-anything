@@ -44,3 +44,25 @@ shadow  → 真实调用，原式与端口并排
 - 陈旧证据：`diff` 复用旧的 driver 二进制 → 编不过的端口报「every case matches」
 
 **结论**：靠记忆和自觉不够，靠测试和单一实现才够。
+
+## 五、每个结论都要能被推翻（`scripts/negative.sh`）
+
+一份不能变红的检查是装饰。`make negative` 逐条把下面这些弄坏，**14 条都必须返回非零**：
+
+| 弄坏什么 | 谁必须抓到 |
+| --- | --- |
+| 端口原样返回输入 | `matrix` |
+| 把 `canon` 抄回 `shadow.go` | `contract` |
+| 往 `cases.jsonl` 塞一条不成立的用例 | `evidence` |
+| 桥的 `encode` 丢掉 `-0` | `check`（而 `gate` 必须仍然通过，证明两条路径是分开的） |
+| 驱动的 `mark` 丢掉 `-0` | `gate` |
+| wasm 包装的 `encode` 丢 `-0` | `allbridges` |
+| pipe 二进制把参数丢掉 | `allbridges` |
+| addon 里编译进去的 `mark` 丢符号 | `allbridges` |
+| 端口答错（shadow 在跑） | `shadow-report` |
+| 端口不再抛错 | `shadow-report` |
+| README 里少写一个命令 | `doccheck` |
+| 缺 rust-anything 一侧的 rig | `perf`（拒绝测量） |
+| loader 返回写死的错答案 | `npm-install-check` |
+
+**用法**：改完任何一处共享逻辑，先跑 `make negative`——它比 `make check` 更能说明你没改坏东西。

@@ -1149,3 +1149,25 @@ pipe: 6/6 agree with the wasm bridge
 
 「重新生成后 `git diff` 必须为空」这条规则只跑了 `bridge`，而 `portlib` 是 `build --fast` 写的——
 八个 crate 的副本还停在 40 轮之前的代码。规则现在也跑 `build --fast`（`wasm` 除外，它不逐字节可复现）。
+
+## 文档也是主张（第 54 轮）
+
+`PARITY.md` 写着「26/26 + **3** 条自创（`check`、`fast`/`wasm`、`shadow-report`）」。用工具自己算一遍：
+
+```
+$ ./scripts/doccheck.sh
+ok    every command in --help is in PARITY.md and README.md
+      invented (not in rust-anything): check scaffold shadow-report wasm
+      commands: --help says 26, PARITY states 26/26
+ok    every MCP tool is named in README.md
+the documents match the tool
+```
+
+**实际是 4 条，不是 3 条**——`scaffold` 也是一条自创命令，文档漏了它。
+
+`doccheck.sh` 现在并入 `contract.sh`，负向对照也有一条：把 README 里任何一处 `` `shadow-report` `` 改成不带反引号 →
+`FAIL undocumented commands: shadow-report(readme)`。
+
+### `make negative` 现在 14 条
+
+见 [CONTRACT.md](CONTRACT.md) 第五节：每条结论都有对应的「弄坏它，谁必须抓到」。

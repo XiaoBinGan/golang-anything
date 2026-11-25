@@ -2,7 +2,9 @@
 
 目标：**全部 26 条命令对齐**，并在性能上超过它（桥接单次调用、diff/record 吞吐、工具启动）。
 
-**当前：26/26 对齐 + 3 条自创（`check`、`fast`/`wasm`、`shadow-report`）。**
+**当前：26/26 对齐 + 4 条 rust-anything 没有的命令（`scaffold`、`check`、`wasm`、`shadow-report`）。**
+
+这个数字由 `scripts/doccheck.sh` 算出来并核对，不是记着的：它取 `--help` 的命令集合减去 PARITY 左列的集合。
 性能五项里四项赢、一项（`--help` 冷启动）慢 0.1 ms，原因与实测见 [PERF.md](PERF.md) 的「启动的下限」一节。
 
 图例：`✅` 已实现并测过 · `🟡` 部分（说明差在哪） · `⬜` 未做
