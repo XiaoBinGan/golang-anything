@@ -1,0 +1,2 @@
+{"fn":"throwIfJadxInterrupted","args":[{"$abortSignal":{"aborted":false,"reason":null}}],"ok":{"$undefined":true}}
+{"fn":"throwIfJadxInterrupted","args":[{"$abortSignal":{"aborted":true,"reason":{}}}],"error":"JadxInterruption: Android operation interrupted"}

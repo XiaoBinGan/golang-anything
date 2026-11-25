@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/xiaobingan/go-anything/internal/cases"
+	"github.com/xiaobingan/go-anything/internal/nodeflags"
 )
 
 // Options is one bench run.
@@ -241,8 +242,8 @@ func Run(opts Options) (Result, error) {
 		return Result{}, err
 	}
 	origOut := filepath.Join(work, "bench-original.json")
-	cmd := exec.Command("node", "--experimental-strip-types", "--no-warnings=ExperimentalWarning",
-		script, unitPath, casesPath, origOut, fmt.Sprint(minMS), fmt.Sprint(repeat))
+	cmd := exec.Command("node", append(nodeflags.Args(),
+		script, unitPath, casesPath, origOut, fmt.Sprint(minMS), fmt.Sprint(repeat))...)
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return Result{}, fmt.Errorf("timing the original: %w", err)

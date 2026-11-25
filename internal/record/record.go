@@ -21,6 +21,7 @@ import (
 
 	"github.com/xiaobingan/go-anything/internal/analyze"
 	"github.com/xiaobingan/go-anything/internal/cases"
+	"github.com/xiaobingan/go-anything/internal/nodeflags"
 	"github.com/xiaobingan/go-anything/internal/ts"
 )
 
@@ -43,6 +44,14 @@ const table = {
     [], [0], [127], [128, 1], [255, 255, 255, 127], [0x80, 0x80, 0x80, 0x80, 0x08],
     [1, 2, 3, 4, 5, 6, 7, 8], [0xff, 0x00, 0xff, 0x00],
   ],
+  // AbortSignal: an argument a real function cannot be exercised without. The aborted one carries a
+  // reason, because that is what the throw is built from.
+  signal: (() => {
+    const idle = new AbortController().signal
+    const stopped = new AbortController()
+    stopped.abort(new Error('interrupted by the caller'))
+    return [idle, stopped.signal]
+  })(),
   // Magnitudes stay small on purpose: a times argument of 1e9 makes the original allocate a
   // gigabyte and the recording never returns. Big values are what --inputs is for.
   number: [0, 1, 2, -1, 7, 1.5, -0.5, 1e6, -1e6, 0.1 + 0.2, 3.14159, 1 / 3, -0],
@@ -61,6 +70,10 @@ const decode = v => {
   if (Object.is(v, -0)) return { $number: '-0' }
   if (typeof v === 'bigint') return { $bigint: v.toString() }
   if (v instanceof Date) return { $date: v.toISOString() }
+  // Platform objects a caller passes in: the wire carries what the port needs to answer, not the object.
+  if (typeof AbortSignal !== 'undefined' && v instanceof AbortSignal) {
+    return { $abortSignal: { aborted: v.aborted, reason: v.aborted ? decode(v.reason) : null } }
+  }
   if (typeof v === 'string' && !v.isWellFormed()) return { $utf16: [...Array(v.length)].map((_, i) => v.charCodeAt(i)) }
   if (Array.isArray(v)) return v.map(decode)
   if (v && typeof v === 'object') {
@@ -238,9 +251,9 @@ func Run(opts Options) (Summary, error) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), limit)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "node", "--experimental-strip-types",
-		"--no-warnings=ExperimentalWarning", "--import", hooksPath, script, unitPath, out, planPath, extra,
+	args := append(nodeflags.Args(), "--import", hooksPath, script, unitPath, out, planPath, extra,
 		strings.Join(opts.Only, ","))
+	cmd := exec.CommandContext(ctx, "node", args...)
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		if ctx.Err() != nil {
@@ -330,6 +343,10 @@ func dialectType(t string) string {
 		return "string[]"
 	case t == "number[]" || t == "Array<number>":
 		return "number[]"
+	case t == "AbortSignal":
+		// A signal is a platform object: a number or a string makes the original read `.aborted` off
+		// undefined and answer like an idle signal, which proves nothing about the throwing path.
+		return "signal"
 	case t == "Uint8Array" || t == "Buffer" || t == "Readonly<Uint8Array>":
 		// A byte container is its own dialect: generating a number, a null or a string for it makes the
 		// original read properties off a value no caller would pass, and the recording proves nothing.

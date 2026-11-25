@@ -144,6 +144,11 @@ func decode(v any) any {
 			if _, ok := x["$undefined"]; ok {
 				return nil
 			}
+			if sig, ok := x["$abortSignal"].(map[string]any); ok {
+				// A platform object: the port only needs to know whether it was aborted, and why.
+				aborted, _ := sig["aborted"].(bool)
+				return AbortSignal{Aborted: aborted, Reason: sig["reason"]}
+			}
 		}
 		out := make(map[string]any, len(x))
 		for k, item := range x {
@@ -152,6 +157,12 @@ func decode(v any) any {
 		return out
 	}
 	return v
+}
+
+// AbortSignal is the part of a JavaScript AbortSignal a port can act on.
+type AbortSignal struct {
+	Aborted bool
+	Reason  any
 }
 
 // Text turns either a string or code units into UTF-16 units, the way JavaScript indexes a string.

@@ -41,3 +41,11 @@ testdata/realworld3/go-ports/*/index.cjs
 testdata/realworld3/go-ports/*/port.py
 testdata/realworld3/go-ports/*/portctl
 testdata/realworld3/go-ports/*/work/
+testdata/realworld4/go-ports/*/addon.node
+testdata/realworld4/go-ports/*/answer.go
+testdata/realworld4/go-ports/*/*.dylib
+testdata/realworld4/go-ports/*/*.h
+testdata/realworld4/go-ports/*/index.cjs
+testdata/realworld4/go-ports/*/port.py
+testdata/realworld4/go-ports/*/portctl
+testdata/realworld4/go-ports/*/work/

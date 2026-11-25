@@ -16,6 +16,7 @@ import (
 
 	"github.com/xiaobingan/go-anything/internal/cases"
 	"github.com/xiaobingan/go-anything/internal/diff"
+	"github.com/xiaobingan/go-anything/internal/nodeflags"
 	"github.com/xiaobingan/go-anything/internal/record"
 )
 
@@ -139,8 +140,8 @@ func Run(opts Options) (Result, error) {
 		return Result{}, err
 	}
 	origOut := filepath.Join(work, "fuzz-original.jsonl")
-	cmd := exec.Command("node", "--experimental-strip-types", "--no-warnings=ExperimentalWarning",
-		"--import", hooksPath, script, filepath.Join(root, m.Unit), callsPath, origOut)
+	args := append(nodeflags.Args(), "--import", hooksPath, script, filepath.Join(root, m.Unit), callsPath, origOut)
+	cmd := exec.Command("node", args...)
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return Result{}, fmt.Errorf("answering on the original: %w", err)

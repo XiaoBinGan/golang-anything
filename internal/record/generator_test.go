@@ -103,3 +103,25 @@ func TestAByteContainerGetsBytes(t *testing.T) {
 		}
 	}
 }
+
+// A unit that extends Error with `constructor(readonly reason: unknown)` is ordinary TypeScript, and
+// stripping types refuses it: ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX. The transform flag loads it.
+func TestParameterPropertiesLoad(t *testing.T) {
+	if _, err := exec.LookPath("node"); err != nil {
+		t.Skip("node is not on PATH")
+	}
+	crate, unit := writeRepo(t,
+		"export class Stop extends Error {\n"+
+			"  constructor(readonly reason: unknown) { super('stop') }\n}\n\n"+
+			"export const stopWith = (reason: string): string => { throw new Stop(reason) }\n",
+		analyze.Export{
+			Name:       "stopWith",
+			Params:     []ts.Param{{Name: "reason", Type: "string"}},
+			Returns:    "string",
+			Line:       6,
+			ThrowLines: []int{6},
+		})
+	if _, err := Run(Options{CrateDir: crate, Unit: unit}); err != nil {
+		t.Fatalf("a parameter property must load: %v", err)
+	}
+}
