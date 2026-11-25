@@ -1,0 +1,21 @@
+{
+  "out": "/Users/supre/Documents/tmp/go-anything/testdata/markers/go-ports/markers-go/package",
+  "name": "mk",
+  "version": "1.0.0",
+  "shape": "library",
+  "platforms": [
+    "darwin-arm64",
+    "darwin-x64",
+    "linux-x64-gnu",
+    "linux-arm64-gnu",
+    "win32-x64-msvc"
+  ],
+  "files": [
+    ".github/workflows/release.yml",
+    "README.md",
+    "go.mod",
+    "index.cjs",
+    "pack.mjs",
+    "package.json"
+  ]
+}

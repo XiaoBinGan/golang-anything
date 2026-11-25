@@ -682,3 +682,16 @@ ok   -0 as an argument  addon=true      wasm=true      stdio=true
 
 现在 `check.mjs` 的 `canon` 与 `shadow.cjs` 用的是同一套标记；报错也从 `want 0, got 0` 改成
 `want -0, got 0`。`internal/canon_test.go` 直接跑**生成脚本里的那段代码**，不相同就失败。
+
+## `package` 现在能真正装起来（第 35 轮）
+
+之前 `package` 生成的 npm 主包会去 `require('<name>-<platform>')`，但**没有任何东西生成那个平台包**——
+工作流只上传编译产物，用户拿到的是装不上的东西。
+
+现在多生成一个 `pack.mjs`：
+
+```sh
+node pack.mjs darwin-arm64 dist/     # 把一个平台产物组装成 <name>-darwin-arm64/
+```
+
+实测：组装出的包放进 `node_modules` 后 `require('mk').negativeZero()` 返回 **-0**（而不是 0）。

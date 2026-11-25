@@ -1,0 +1,12 @@
+{
+  "name": "mk-darwin-arm64",
+  "version": "1.0.0",
+  "description": "The mk port of a library, built for darwin-arm64",
+  "license": "MIT",
+  "main": "index.cjs",
+  "files": [
+    "addon.node",
+    "index.cjs",
+    "libport.dylib"
+  ]
+}
