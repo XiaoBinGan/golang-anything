@@ -1123,3 +1123,29 @@ pipe: 6/6 agree with the wasm bridge
 
 顺带一条经验：**修复源码不足以恢复**——addon 里是编译进去的副本，控制脚本必须重新 `build --fast`，
 否则它报的是自己留下的残留（第一次跑就撞上了，`FAIL allbridges does not recover`）。
+
+## `shadow` 的负向对照（第 53 轮）
+
+之前 `shadow` 只有正常流量测试。现在 `make negative` 里两条：
+
+| 破坏 | 结果 |
+| --- | --- |
+| 端口答错（`escapeJsonPointerToken` 不转义） | `shadow-report reports an answer that differs (exit 1)` |
+| 端口不再抛错（`throwIfJadxInterrupted` 短路） | `shadow-report reports a throw the port stopped making (exit 1)` |
+
+`make negative` 现在 **13 条，全红**。
+
+### 我这轮自己的两个测量错误
+
+两次都以为工具没反应，其实是我测错了：
+
+1. 用 `jsonPointerTokens` 去验「`escapeJsonPointerToken` 被弄坏」——**这条路径根本不经过它**；
+2. `./bin/go-anything shadow-report $C | tail -2; echo rc=$?` —— 测到的是 `tail` 的退出码，不是工具的。
+   换成直接测，`rc=1` 本来是对的。
+
+**验证负向对照本身也要小心**：一次是打偏了目标，一次是量错了对象。
+
+### 顺带：八份 `cmd/portlib/main.go` 是陈旧的
+
+「重新生成后 `git diff` 必须为空」这条规则只跑了 `bridge`，而 `portlib` 是 `build --fast` 写的——
+八个 crate 的副本还停在 40 轮之前的代码。规则现在也跑 `build --fast`（`wasm` 除外，它不逐字节可复现）。
