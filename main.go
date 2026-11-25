@@ -20,6 +20,7 @@ import (
 	"github.com/xiaobingan/go-anything/internal/bridge"
 	"github.com/xiaobingan/go-anything/internal/diff"
 	"github.com/xiaobingan/go-anything/internal/fastbridge"
+	"github.com/xiaobingan/go-anything/internal/frontdoor"
 	"github.com/xiaobingan/go-anything/internal/fuzz"
 	"github.com/xiaobingan/go-anything/internal/mapdoc"
 	"github.com/xiaobingan/go-anything/internal/mcp"
@@ -116,6 +117,8 @@ func main() {
 		err = runPackage(os.Args[2:])
 	case "app":
 		err = runApp(os.Args[2:])
+	case "front-door":
+		err = runFrontDoor(os.Args[2:])
 	case "profile":
 		err = runProfile(os.Args[2:])
 	case "go":
@@ -1339,4 +1342,92 @@ func mergeServers(path string, cfg map[string]any) error {
 		return err
 	}
 	return os.WriteFile(path, append(out, '\n'), 0o644)
+}
+
+// runFrontDoor scaffolds the front door, wires a port into it, or lifts the fallback away.
+func runFrontDoor(args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("front-door takes `new`, `wire` or `lift`")
+	}
+	what := args[0]
+	fs := flag.NewFlagSet("front-door "+what, flag.ExitOnError)
+	original := fs.String("original", "", "the program to fall back to; taken from the recording when empty")
+	name := fs.String("name", "", "binary name; defaults to the repository folder")
+	out := fs.String("out", "", "output folder; defaults to <repo>/go-app")
+	key := fs.String("command", "", "for wire: the recorded command, e.g. \"--count\"")
+	portModule := fs.String("port", "", "for wire: import path of the port crate")
+	portFunc := fs.String("call", "", "for wire: the port function that answers the command")
+	fs.Parse(args[1:])
+	switch what {
+	case "new":
+		if fs.NArg() != 1 {
+			return fmt.Errorf("front-door new takes one repository root")
+		}
+		res, err := frontdoor.Scaffold(frontdoor.Options{
+			Repo: fs.Arg(0), Original: *original, Name: *name, Out: *out,
+		})
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Front door for `%s` in %s (%d recorded commands):\n", res.Original, res.Dir, len(res.Commands))
+		for _, f := range res.Files {
+			fmt.Printf("  %s\n", f)
+		}
+		fmt.Println("Next: `go-anything front-door wire --command … --port … --call … <dir>`, then build it.")
+		return nil
+	case "wire":
+		given := false
+		fs.Visit(func(f *flag.Flag) {
+			if f.Name == "command" {
+				given = true
+			}
+		})
+		if fs.NArg() != 1 || !given || *portFunc == "" {
+			return fmt.Errorf("front-door wire needs --command and --call, and one front door folder")
+		}
+		if *portModule == "" {
+			// Default to `<front door module>/portstore`: the wiring is inside this module, and a
+			// path from outside it does not compile without a go.mod change.
+			raw, err := os.ReadFile(filepath.Join(fs.Arg(0), "go.mod"))
+			if err != nil {
+				return fmt.Errorf("%s is not a front door: %w", fs.Arg(0), err)
+			}
+			module := moduleOf(string(raw))
+			if module == "" {
+				return fmt.Errorf("pass --port: %s/go.mod has no module line", fs.Arg(0))
+			}
+			*portModule = module + "/portstore"
+		}
+		path, err := frontdoor.Wire(fs.Arg(0), *key, handlerName(*key), "", *portModule, *portFunc)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Wired %q to %s.%s in %s\n", *key, *portModule, *portFunc, path)
+		return nil
+	case "lift":
+		if fs.NArg() != 1 {
+			return fmt.Errorf("front-door lift takes one front door folder")
+		}
+		path, err := frontdoor.Lift(fs.Arg(0))
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Lifted: %s no longer carries the original.\n", path)
+		return nil
+	}
+	return fmt.Errorf("front-door takes `new`, `wire` or `lift`, not %q", what)
+}
+
+// handlerName turns a command key into a Go identifier the wire step can name.
+func handlerName(key string) string {
+	var b strings.Builder
+	for _, r := range key {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+		}
+	}
+	if b.Len() == 0 {
+		return "run"
+	}
+	return "run" + strings.ToUpper(b.String()[:1]) + b.String()[1:]
 }

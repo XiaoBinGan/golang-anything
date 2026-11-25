@@ -57,6 +57,9 @@ type Options struct {
 	Runs int
 	// Timeout bounds one run.
 	Timeout time.Duration
+	// Aliases are paths that mean "the program" in the recorded output: a front door passes a
+	// fallback through to the original, which prints its own path, and the recording has <prog>.
+	Aliases []string
 }
 
 // Outcome is what a record or replay produced.
@@ -158,6 +161,10 @@ func Replay(opts Options) (Outcome, error) {
 	if err != nil {
 		return Outcome{}, fmt.Errorf("nothing recorded here: run `go-anything app record %s` first", opts.Repo)
 	}
+	aliases := append([]string{}, opts.Aliases...)
+	if ev, err := Recorded(repo); err == nil && ev.Original != "" {
+		aliases = append(aliases, ev.Original)
+	}
 	var cases []Case
 	if err := json.Unmarshal(raw, &cases); err != nil {
 		return Outcome{}, err
@@ -169,7 +176,7 @@ func Replay(opts Options) (Outcome, error) {
 	started := time.Now()
 	out := Outcome{Cases: len(cases), Dir: dir}
 	for _, want := range cases {
-		got, err := run1(bin, append(append([]string{}, opts.Args...), want.Argv...), want, opts.Timeout)
+		got, err := run1(bin, append(append([]string{}, opts.Args...), want.Argv...), want, opts.Timeout, aliases...)
 		if err != nil {
 			return Outcome{}, err
 		}
@@ -183,8 +190,8 @@ func Replay(opts Options) (Outcome, error) {
 	return out, nil
 }
 
-// run1 runs one case.
-func run1(bin string, argv []string, in Case, timeout time.Duration) (Case, error) {
+// run1 runs one case; aliases are extra paths that mean the same program to the output.
+func run1(bin string, argv []string, in Case, timeout time.Duration, aliases ...string) (Case, error) {
 	if timeout <= 0 {
 		timeout = 30 * time.Second
 	}
@@ -221,10 +228,17 @@ func run1(bin string, argv []string, in Case, timeout time.Duration) (Case, erro
 		// The program's own path leaks into usage messages ("Usage of /abs/path"): normalise it, or
 		// every replay of a different build fails on its location instead of its behaviour.
 		prog := "<prog>"
+		out, errOut := stdout.String(), stderr.String()
+		for _, alias := range append([]string{bin}, aliases...) {
+			if alias == "" {
+				continue
+			}
+			out = strings.ReplaceAll(out, alias, prog)
+			errOut = strings.ReplaceAll(errOut, alias, prog)
+		}
 		return Case{
 			Name: in.Name, Argv: argv, Stdin: in.Stdin, Env: in.Env,
-			Exit: exit, Stdout: strings.ReplaceAll(stdout.String(), bin, prog),
-			Stderr: strings.ReplaceAll(stderr.String(), bin, prog),
+			Exit: exit, Stdout: out, Stderr: errOut,
 		}, nil
 	}
 }
@@ -298,6 +312,35 @@ func resolve(command string) (string, error) {
 		return "", fmt.Errorf("%s is not on PATH: pass --command with a path", command)
 	}
 	return path, nil
+}
+
+// Evidence is what a recording says: the original's path and the cases it ran.
+type Evidence struct {
+	Original string `json:"original"`
+	Cases    []Case `json:"cases"`
+}
+
+// Recorded reads a repository's recording, for the commands that build on it.
+func Recorded(repo string) (Evidence, error) {
+	dir := filepath.Join(repo, Dir)
+	raw, err := os.ReadFile(filepath.Join(dir, "cases.json"))
+	if err != nil {
+		return Evidence{}, fmt.Errorf("nothing recorded here: run `go-anything app record %s` first", repo)
+	}
+	var cases []Case
+	if err := json.Unmarshal(raw, &cases); err != nil {
+		return Evidence{}, err
+	}
+	out := Evidence{Cases: cases}
+	if raw, err := os.ReadFile(filepath.Join(dir, "meta.json")); err == nil {
+		var meta struct {
+			Command string `json:"command"`
+		}
+		if json.Unmarshal(raw, &meta) == nil {
+			out.Original = meta.Command
+		}
+	}
+	return out, nil
 }
 
 // Markdown is the table record and replay print.

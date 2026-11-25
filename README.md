@@ -144,9 +144,33 @@ Registered go-anything with claude (~/.claude.json)
 **工具自己出错**回 `isError` 内容而不是协议错误（agent 能读到原因）。`setup` 只增删自己的键，
 重复执行幂等。
 
+## front-door / wire / lift：让 Go 接管入口
+
+```sh
+$ go-anything front-door new --name textcli <repo>      # 6 条录制命令
+$ go-anything front-door wire --command "--count a b  c" --call count go-app
+$ cd go-app && go build -o frontdoor .
+
+$ GO_ANYTHING_TRACE=/tmp/t.txt ./frontdoor "--count a b  c"
+3                                    # 走 Go
+$ GO_ANYTHING_TRACE=/tmp/t.txt ./frontdoor --version
+textcli 0.3.1                        # 转给原程序
+{"command":"--count a b  c","fallback":false}
+{"command":"--version","fallback":true}
+
+$ go-anything front-door lift go-app
+go-anything: 1 of 6 commands are wired: wire the rest, or keep the fallback   ← 不许提前收工
+# 全部接管后：
+$ go-anything front-door lift go-app && cd go-app && go build -o frontdoor .
+$ ./frontdoor --version
+{"args":[],"port":"echo"}            # 纯 Go，原程序已不在
+```
+
+`lift` 会连 `os/exec` 的 import 一起删掉——否则编不过（这条是实测撞出来的）。
+
 ## 与 rust-anything 的能力对齐
 
-见 [PARITY.md](PARITY.md)：26 条命令的逐项状态。**已实现 23 条**（`analyze` `scaffold/bridge` `record` `build` `diff` `bench` `clean` `gate` `map` `doctor` `enable` `disable` `shadow` `fuzz` `refresh` `report` `package` `app record` `app replay` `profile` `go` `setup` `mcp`，外加三条自创的 `check` `fast` `shadow-report`），3 条待做（`app front-door` `app wire` `app lift`）。
+见 [PARITY.md](PARITY.md)：26 条命令的逐项状态。**26 条全部对齐**（`analyze` `scaffold/bridge` `record` `build` `diff` `bench` `clean` `gate` `map` `doctor` `enable` `disable` `shadow` `fuzz` `refresh` `report` `package` `app record` `app replay` `app front-door` `app wire` `app lift` `profile` `go` `setup` `mcp`），外加三条自创的 `check` `fast` `shadow-report`。
 
 ## 性能：进程内桥 0.73 µs/次
 

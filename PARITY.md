@@ -25,16 +25,16 @@
 | 17 | `package` | `package` | ✅ | 三种形态（library / cli / service）：npm 主包 + 每平台子包 + Go module + Dockerfile + GitHub Actions；重跑只替换上次写的文件 |
 | 18 | `app record` | `app record` | ✅ | 黑盒跑整程序（argv/stdin/env 进，stdout/stderr/exit 出），每例跑两次以识别不稳定输出 |
 | 19 | `app replay` | `app replay` | ✅ | 任意构建回放；自动把程序路径替换成 `<prog>`，所以换路径不等于是行为变化 |
-| 20 | `app front-door` | — | ⬜ | 生成接管入口的 Go 二进制 |
-| 21 | `app wire` | — | ⬜ | 把命令交给某个单元的端口 |
-| 22 | `app lift` | — | ⬜ | fallback 归零后变成纯 Go 应用 |
+| 20 | `app front-door` | `front-door new` | ✅ | 生成接管入口的 Go 二进制：录制到的命令按 argv 分发，接管的走 Go，其余原样转给原程序（可 `GO_ANYTHING_TRACE` 计数） |
+| 21 | `app wire` | `front-door wire` | ✅ | 把某条录制命令接到端口的某个函数；未录制的命令拒绝（没有证据） |
+| 22 | `app lift` | `front-door lift` | ✅ | 全部命令接管后才允许：删掉 fallback 分支与其 import，变成纯 Go 应用 |
 | 23 | `setup` / `mcp` | `setup` + `mcp` | ✅ | `mcp` 是 JSON-RPC over stdio：7 个工具（analyze/map/diff/gate/record/fuzz/profile）；`setup` 把服务器注册进已装 agent 的配置，只加自己的键 |
 | 24 | `map` | `map` | ✅ | 写 `PORT-MAP.md`：每个单元、它的 crate、用例数、上次 diff、是否已构建 |
 | 25 | `doctor` | `doctor` | ✅ | 检查 go/node/python3/cgo/Node 是否自带类型剥离，并给修复命令 |
 | 26 | — | `check` | ✅ 额外 | 用真正被调用的那条桥（addon 或 stdio）回放全部用例 |
 | 27 | — | `fast` | ✅ 额外 | 只构建进程内桥 |
 
-**当前：26 条里 23 条已实现（含 3 条自创：`check` `fast` `shadow-report`），3 条待做。**
+**当前：26 条里 26 条已实现（含 3 条自创：`check` `fast` `shadow-report`）。**
 
 ## 性能（本机 macOS arm64，Node 22.22，Go 1.26）
 
