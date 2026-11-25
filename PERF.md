@@ -94,6 +94,33 @@ node scripts/floor/wasm-floor.mjs          # 进程内 wasm 调用
 复现脚本：`scripts/floor/ring-floor.mjs`、`scripts/floor/wasm-floor.mjs`；
 真实端口：`go-anything wasm <crate>` → `node testdata/sample/port-rs/index.wasm.mjs`。
 
+## 1c. 启动：把 cgo 挪出快路径（本轮）
+
+一台机器上先量出「Go 空程序」的下界：**2.0 ms**（1.1 MB，无 cgo）。然后把每一层加回去：
+
+| 变体 | 启动 | 说明 |
+| --- | ---: | --- |
+| `/usr/bin/true` | 1.26 ms | 进程创建下界 |
+| Go 空程序（无 cgo） | 2.00 ms | Go 运行时下界 |
+| **go-anything（无 cgo 构建）** | **2.42 ms** | 只比空程序多 0.4 ms |
+| go-anything（cgo 构建） | 3.24–3.28 ms | cgo 固定 +1.2 ms |
+| rust-anything | 2.26–2.35 ms | 对照 |
+
+**cgo 的 1.2 ms 是固定成本**：一个只 `import "C"`、`main` 里 `C.malloc(1)` 的最小程序就要 3.19 ms
+（空程序 2.0 ms）。所以做法不是优化，而是**把 cgo 挪出快路径**：
+
+- 工具本体用 `CGO_ENABLED=0` 构建 → 2.42 ms
+- 解析器（tree-sitter，必须 cgo）编成**同一个程序的第二个构建**（`go-anything-cgo`），
+  只在需要 parse 的命令里以 `go-anything __parse` 子进程启动，JSON 行协议
+- 两条构建共享全部源码，没有需要同步的 sidecar
+
+代价：`analyze` 6.92 ms vs 4.09 ms（多一次进程启动 + 0.55 MB 交接）。`--help`、`gate`、`diff`、
+`check`、`app replay` 这些不 parse 的命令全部拿到 2.42 ms。
+
+**诚实结论**：启动这一轴是**互有胜负**——不 parse 的命令我们持平（2.42 vs 2.35），
+parse 的命令我们慢 1.7 倍（6.92 vs 4.09）。要两头都赢，得把 tree-sitter 换成纯 Go 的 TS 解析器，
+那是另一个工程。
+
 ## 2. record 吞吐（同一个单元，各自生成的 crate）
 
 | 实现 | 用例数 | 中位耗时 | 吞吐 |

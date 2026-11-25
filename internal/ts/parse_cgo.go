@@ -1,9 +1,7 @@
-// Package ts reads TypeScript and JavaScript with tree-sitter: the declarations a bridge can carry,
-// the parameter and return types, and the calls that usually cost a rewrite its correctness.
-//
-// Regexes were the prototype's parser and they were wrong in a way that mattered: without types the
-// generator fed numbers to string parameters, and every one of those cases was noise the port had to
-// reproduce. This file is the answer to that.
+//go:build cgo
+
+// The parse: tree-sitter, and everything that walks its nodes. Without cgo this file is not compiled
+// and Parse/ParseSource come from parser_stub.go instead.
 package ts
 
 import (
@@ -16,77 +14,6 @@ import (
 	"github.com/smacker/go-tree-sitter/typescript/tsx"
 	"github.com/smacker/go-tree-sitter/typescript/typescript"
 )
-
-// Param is one parameter, with the type the source declares.
-type Param struct {
-	Name     string `json:"name"`
-	Type     string `json:"type"`     // "any" when the source does not say
-	Optional bool   `json:"optional"` // `a?: T` or a default
-	Rest     bool   `json:"rest"`     // `...rest: T[]`
-}
-
-// Fn is one callable a bridge can carry.
-type Fn struct {
-	Name      string  `json:"name"`
-	Params    []Param `json:"params"`
-	Returns   string  `json:"returns"`
-	Line      int     `json:"line"`
-	EndLine   int     `json:"end_line"`
-	Async     bool    `json:"async,omitempty"`
-	Generator bool    `json:"generator,omitempty"`
-	Method    bool    `json:"method,omitempty"`
-	Receiver  string  `json:"receiver,omitempty"` // the class, for a static method
-	// ThrowLines are the lines of `throw` statements: each needs a recorded failing case.
-	ThrowLines []int `json:"throw_lines,omitempty"`
-	// Generic marks a declaration with type parameters, which a bridge cannot carry as-is.
-	Generic bool `json:"generic,omitempty"`
-}
-
-// Import is one ES import, kept for the wave order.
-type Import struct {
-	Specifier string `json:"specifier"`
-	Dynamic   bool   `json:"dynamic,omitempty"`
-	Line      int    `json:"line"`
-}
-
-// Risk is one suspicious construct, with the line that raised it.
-type Risk struct {
-	Kind string `json:"kind"`
-	Line int    `json:"line"`
-	Code string `json:"code"`
-}
-
-// File is one parsed source file.
-type File struct {
-	Path    string   `json:"path"`
-	Loc     int      `json:"loc"`
-	Fns     []Fn     `json:"fns"`
-	Imports []Import `json:"imports"`
-	Risks   []Risk   `json:"risks"`
-	ParseOK bool     `json:"parse_ok"`
-}
-
-// Lang picks the grammar.
-type Lang string
-
-const (
-	TypeScript Lang = "typescript"
-	TSX        Lang = "tsx"
-	JavaScript Lang = "javascript"
-)
-
-// LangOf picks a grammar from a file name, and reports whether it knows the language.
-func LangOf(path string) (Lang, bool) {
-	switch {
-	case strings.HasSuffix(path, ".tsx"), strings.HasSuffix(path, ".jsx"):
-		return TSX, true
-	case strings.HasSuffix(path, ".ts"), strings.HasSuffix(path, ".mts"), strings.HasSuffix(path, ".cts"):
-		return TypeScript, true
-	case strings.HasSuffix(path, ".js"), strings.HasSuffix(path, ".mjs"), strings.HasSuffix(path, ".cjs"):
-		return JavaScript, true
-	}
-	return "", false
-}
 
 func language(l Lang) *sitter.Language {
 	switch l {

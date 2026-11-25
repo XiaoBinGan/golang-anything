@@ -374,6 +374,7 @@ func Run(opts Options) ([]string, error) {
 		quoted[i] = fmt.Sprintf("%q", name)
 	}
 	js := strings.ReplaceAll(wrapper, "%EXPORTS%", "["+strings.Join(quoted, ", ")+"]")
+	js = strings.ReplaceAll(js, "REPLACE_OFFSET", fmt.Sprint(ReplyOffset))
 	js = strings.ReplaceAll(js, "%DIRECT_MAP%", directMap(opts.Typed))
 	js = strings.ReplaceAll(js, "%REPLY_OFFSET%", fmt.Sprint(ReplyOffset))
 	wrapperPath := filepath.Join(dir, "index.wasm.mjs")
@@ -490,7 +491,7 @@ func directMap(exports []Export) string {
     if (written.read !== arg.length) return decode(raw(%q, JSON.stringify([arg])))
     const len = exports.go_%s_text(scratch, written.written)
     if (len === 0) return decode(raw(%q, JSON.stringify([arg])))
-    return JSON.parse(decoder.decode(view().subarray(scratch + %REPLY_OFFSET%, scratch + %REPLY_OFFSET% + len)))
+    return JSON.parse(decoder.decode(view().subarray(scratch + REPLACE_OFFSET, scratch + REPLACE_OFFSET + len)))
   },
 `, e.Name, e.Name, name, e.Name)
 		}

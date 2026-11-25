@@ -24,6 +24,7 @@ import (
 	"github.com/xiaobingan/go-anything/internal/fuzz"
 	"github.com/xiaobingan/go-anything/internal/mapdoc"
 	"github.com/xiaobingan/go-anything/internal/mcp"
+	"github.com/xiaobingan/go-anything/internal/parsehelper"
 	"github.com/xiaobingan/go-anything/internal/pkg"
 	"github.com/xiaobingan/go-anything/internal/profile"
 	"github.com/xiaobingan/go-anything/internal/record"
@@ -69,6 +70,12 @@ A crate is a folder this tool made. It holds go-anything.json, cases.jsonl, port
 `
 
 func main() {
+	// A cgo build of this tool answers parse requests itself: that is what makes the fast build's
+	// sidecar free — it is the same program, started for one thing.
+	if len(os.Args) > 1 && os.Args[1] == "__parse" {
+		parsehelper.Serve()
+		return
+	}
 	if len(os.Args) < 2 {
 		fmt.Fprint(os.Stderr, usage)
 		os.Exit(2)

@@ -13,3 +13,4 @@ testdata/**/work/
 testdata/**/shadow.jsonl
 go-anything
 scripts/floor/probe.wasm
+bin/
