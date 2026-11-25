@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/xiaobingan/go-anything/internal/analyze"
+	"github.com/xiaobingan/go-anything/internal/pool"
 	"github.com/xiaobingan/go-anything/internal/ts"
 )
 
@@ -126,54 +127,17 @@ func TestParameterPropertiesLoad(t *testing.T) {
 	}
 }
 
-// The string table had no punctuation that changes what a function does. A port of shellQuote that
-// dropped the quote escaping passed every case until "it's" was in the table.
+// The strings a case is generated from live in internal/pool: this test reads the same list the recorder
+// writes, so it cannot pass while the generated table lacks a character. A port of shellQuote that
+// dropped the quote escaping passed every case until "it's" was in the table, and escapeJsonPointerToken
+// was recorded 64 times with no "/" or "~" in any argument.
 func TestTheStringTableHasLoadBearingPunctuation(t *testing.T) {
-	for _, want := range []string{"'", "\\", "\"", "|", ";"} {
-		found := false
-		for _, v := range driverStrings(t) {
-			if strings.Contains(v, want) {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("no value in the string table contains %q", want)
+	values := strings.Join(pool.Values(), "\u0000")
+	for _, want := range []string{"'", "\\", "\"", "|", ";", "/", "~", "a/b/c", "~0~1"} {
+		if !strings.Contains(values, want) {
+			t.Errorf("no value in the pool contains %q", want)
 		}
 	}
-}
-
-// driverStrings reads the string table out of the recorder source: the table lives in the JavaScript the
-// tool generates, so the test reads the same text the generator writes.
-func driverStrings(t *testing.T) []string {
-	t.Helper()
-	body, err := os.ReadFile("record.go")
-	if err != nil {
-		t.Fatal(err)
-	}
-	text := string(body)
-	at := strings.Index(text, "string: [")
-	if at < 0 {
-		t.Fatal("the string table is not where the test expects it")
-	}
-	end := strings.Index(text[at:], "],")
-	if end < 0 {
-		t.Fatal("the string table does not end where the test expects it")
-	}
-	table := text[at : at+end]
-	var out []string
-	for _, line := range strings.Split(table, "\n") {
-		for _, piece := range strings.Split(line, ",") {
-			piece = strings.TrimSpace(piece)
-			for _, quote := range []string{"'", `"`} {
-				if strings.HasPrefix(piece, quote) && strings.HasSuffix(piece, quote) && len(piece) >= 2 {
-					out = append(out, piece[1:len(piece)-1])
-					break
-				}
-			}
-		}
-	}
-	return out
 }
 
 // An answer that is a class instance carries its behaviour in its prototype, and JSON keeps only the
@@ -198,24 +162,5 @@ func TestAnAnswerThatIsAClassInstanceIsNotRecorded(t *testing.T) {
 	}
 	if sum.Cases != 0 {
 		t.Errorf("%d cases recorded for an answer JSON cannot carry", sum.Cases)
-	}
-}
-
-// The string table has to carry the characters a function's job is made of. escapeJsonPointerToken was
-// recorded 64 times with no "~" and no "/" in any argument, so a port that returned its input unchanged
-// passed the gate.
-func TestTheStringTableHasStructuralCharacters(t *testing.T) {
-	values := driverStrings(t)
-	for _, want := range []string{"/", "~", "a/b/c", "~0~1"} {
-		found := false
-		for _, v := range values {
-			if v == want || strings.Contains(v, want) {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("no value in the string table contains %q", want)
-		}
 	}
 }
