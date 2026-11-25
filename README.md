@@ -1193,3 +1193,23 @@ ok    the bridge probe refuses a dead fast path (exit 1)
 
 （写这条控制时我自己踩了一次：`sed` 把 `detectPortStyle(dir)` 注释掉之后，我用了一个**在注释之前**复制的备份去「恢复」，
 结果真正撤掉的是修复本身。控制脚本因此第一次报 `FAIL the bridge probe does not pass after restoring`——这就是它该做的事。）
+
+## 逐行核对 PARITY（第 57 轮）
+
+`PARITY.md` 说「26/26 对齐」。逐行读下去，有三行是**过期**的：
+
+| 行 | 文档说的 | 实际 |
+| --- | --- | --- |
+| 23 `mcp` | **7 个工具** | **15 个**（48 轮起委托 CLI 命令） |
+| 25 `doctor` | 检查 go/node/python3/cgo/类型剥离 | **七项**，还包括「能否真的编译一个程序」和「解析器在哪」 |
+| 26 `check` | 回放全部用例 | 每例**跑两遍**（标记一次、解码值一次） |
+
+`doccheck.sh` 现在还会核对**文档里写的数字**：
+
+```
+ok    PARITY.md states the 15 MCP tools the code has
+ok    doctor runs the seven checks PARITY.md lists
+```
+
+负向对照：把「15 个工具」改回「7 个」→ `FAIL PARITY.md says 7 MCP tools, the code has 15`。
+`make negative` 现在 **16 条**。

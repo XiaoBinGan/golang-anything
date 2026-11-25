@@ -67,6 +67,29 @@ else
   fail "MCP tools not in README.md:$missing_tool"
 fi
 
+# 5. the counts PARITY states have to be the counts the code has: the tool list grew from seven to
+#    fifteen in round 48 and the document said seven for nine rounds.
+tools=$(sed -n 's/.*Name: *"\([a-z-]*\)".*/\1/p' internal/mcp/mcp.go | sort -u | wc -l | tr -d ' ')
+stated_tools=$(grep -o '\*\*[0-9]* 个工具\*\*' PARITY.md | grep -o '[0-9]*' | head -1)
+if [ -z "$stated_tools" ]; then
+  fail "PARITY.md does not state how many MCP tools there are"
+elif [ "$stated_tools" != "$tools" ]; then
+  fail "PARITY.md says $stated_tools MCP tools, the code has $tools"
+else
+  pass "PARITY.md states the $tools MCP tools the code has"
+fi
+
+# 6. the doctor checks it lists have to be the checks doctor runs
+doctor_checks=$(GO_ANYTHING_PARSE=$PWD/bin/go-anything-cgo "$GO" doctor 2>&1 | grep -cE '^(ok|MISS)')
+stated_doctor=$(grep -o '七项' PARITY.md | head -1)
+if [ "$doctor_checks" -ne 7 ]; then
+  fail "doctor runs $doctor_checks checks; PARITY.md and this script both say seven"
+elif [ -z "$stated_doctor" ]; then
+  fail "PARITY.md does not say how many checks doctor runs"
+else
+  pass "doctor runs the seven checks PARITY.md lists"
+fi
+
 echo
 if [ "$failures" -eq 0 ]; then
   echo "the documents match the tool"

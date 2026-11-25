@@ -195,11 +195,25 @@ else
   printf 'skip  the bridge probe needs the rust rig (RUST_ANYTHING, RUST_CRATE)\n'
 fi
 
-# 10. perf: no rig, no numbers.
+# 10. the counts in PARITY: a document that states a number the code no longer has. The tool list grew
+#     from seven to fifteen and the line said seven for nine rounds.
+cp PARITY.md /tmp/negative-parity.md
+python3 - PARITY.md <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s = s.replace('**15 个工具**', '**7 个工具**')
+open(p, 'w').write(s)
+PY
+./scripts/doccheck.sh >/dev/null 2>&1
+expect_fail "doccheck notices a stated count that the code no longer has" $?
+cp /tmp/negative-parity.md PARITY.md
+
+# 11. perf: no rig, no numbers.
 RUST_ANYTHING=/nonexistent ./scripts/perf.sh >/dev/null 2>&1
 expect_fail "perf refuses a missing rig" $?
 
-# 11. npm install: a loader that answers a hard-coded wrong value, built from a patched template.
+# 12. npm install: a loader that answers a hard-coded wrong value, built from a patched template.
 cp internal/pkg/pkg.go /tmp/negative-pkg.go
 python3 - internal/pkg/pkg.go <<'PY2'
 import sys
