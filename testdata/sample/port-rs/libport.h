@@ -89,6 +89,8 @@ extern "C" {
 
 extern int go_answer_into(char* name, int nameLen, char* args, int argsLen, char* out, int outCap);
 extern int go_answer_str(char* name, int nameLen, char* arg, int argLen, char* out, int outCap);
+extern int go_answer_batch(char* req, int reqLen, char* out, int outCap);
+extern int go_numbers(char* name, int nameLen, char* blob, int blobLen, unsigned int* lens, int count, double* out);
 extern void go_free(char* p);
 
 #ifdef __cplusplus

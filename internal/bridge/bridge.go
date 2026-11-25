@@ -293,6 +293,39 @@ port.callSync = (name, ...args) => {
   if (reply.panic) throw new Error('Rust panic: ' + reply.panic)
   return decode(reply.ok)
 }
+// callMany answers N calls of the same export in one crossing: the fixed cost of leaving the runtime
+// is paid once, so the per-call cost inside a batch is a fraction of a single call's.
+port.callMany = (name, list) => {
+  if (!addon || !addon.answerBatch) {
+    throw new Error('callMany needs the in-process addon: run go-anything build --fast')
+  }
+  const out = addon.answerBatch(list.map(() => name), list)
+  if (out === null) throw new Error('go-anything: batch failed')
+  return out.map(text => decode(JSON.parse(text)))
+}
+// callNumbers answers a batch of one-string calls that return a number, through typed buffers: the
+// arguments go in as one UTF-8 blob plus a length table, the answers come back as a Float64Array.
+// Nothing is marshalled and no string is created per call, which is what a tight loop needs.
+port.callNumbers = (name, texts) => {
+  if (!addon || !addon.numbers) {
+    throw new Error('callNumbers needs the in-process addon: run go-anything build --fast')
+  }
+  const encoder = new TextEncoder()
+  const blobs = texts.map(t => encoder.encode(t))
+  let total = 0
+  for (const b of blobs) total += b.length
+  const blob = new Uint8Array(total)
+  const lens = new Uint32Array(texts.length)
+  let at = 0
+  blobs.forEach((b, i) => {
+    blob.set(b, at)
+    at += b.length
+    lens[i] = b.length
+  })
+  const out = addon.numbers(name, blob, lens)
+  if (out === null) throw new Error('go-anything: ' + name + ' failed on a batch')
+  return out // Float64Array; NaN marks a call that raised
+}
 port.inProcess = !!addon
 port.call = ask
 port.close = () => {
