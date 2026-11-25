@@ -49,3 +49,5 @@ testdata/realworld4/go-ports/*/index.cjs
 testdata/realworld4/go-ports/*/port.py
 testdata/realworld4/go-ports/*/portctl
 testdata/realworld4/go-ports/*/work/
+testdata/realworld3/go-ports/*/shadow.jsonl
+testdata/*/go-ports/*/shadow.jsonl

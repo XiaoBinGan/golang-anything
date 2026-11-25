@@ -14,6 +14,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/xiaobingan/go-anything/internal/record"
 )
 
 // Options is one shadow generation.
@@ -86,6 +88,16 @@ const wrap = fn => (...args) => {
   return want
 }
 
+// The original is TypeScript: registering the resolver first means './foo.js' finds 'foo.ts', which is
+// how the project it came from spells its imports.
+const { register } = require('node:module')
+const { pathToFileURL } = require('node:url')
+try {
+  register(pathToFileURL(path.join(__dirname, 'resolve.mjs')))
+} catch (e) {
+  if (!String(e && e.message).includes('resolve.mjs')) throw e
+}
+
 const ORIGINAL = require(ORIGINAL_PATH)
 const ORIGINAL_THROWS = null
 
@@ -132,6 +144,10 @@ func Run(opts Options) (string, error) {
 	text = strings.ReplaceAll(text, "FUNCTIONS", "["+strings.Join(names, ", ")+"]")
 	path := filepath.Join(dir, "shadow.cjs")
 	if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
+		return "", err
+	}
+	// The same resolver record uses: a shadowed unit loads exactly the way it recorded.
+	if _, err := record.WriteResolver(dir); err != nil {
 		return "", err
 	}
 	return path, nil

@@ -7,6 +7,8 @@
 package switched
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -98,8 +100,16 @@ func Enable(opts Options) (string, error) {
 	}
 	block := render(opts, names, filepath.ToSlash(rel), text, filepath.Base(crateDir))
 	on := insert(text, block)
+	// `export const f = () => …` cannot be reassigned: the binding has to become mutable first, and the
+	// block records which declarations it changed so `disable` can put them back.
+	on, changed := loosenConsts(on, names)
 	if err := os.WriteFile(path, []byte(on), 0o644); err != nil {
 		return "", err
+	}
+	if len(changed) > 0 {
+		if err := writeLoosened(crateDir, path, changed); err != nil {
+			return "", err
+		}
 	}
 	return path, nil
 }
@@ -120,9 +130,12 @@ func Disable(crateDir, unit, crate string) (string, bool, error) {
 	if !ok {
 		return path, false, nil
 	}
+	// Put back the `const` the block had to loosen, so the file is what it was before.
+	off = tightenConsts(off, readLoosened(crateDir, path))
 	if err := os.WriteFile(path, []byte(off), 0o644); err != nil {
 		return "", false, err
 	}
+	clearLoosened(crateDir, path)
 	return path, true, nil
 }
 
@@ -258,3 +271,66 @@ func UnitOf(crateDir string) (string, error) {
 	}
 	return m.Unit, nil
 }
+
+// loosenConsts turns `export const <name> =` into `export let <name> =` for the exports a block
+// reassigns, and answers which ones it changed. A function declaration is already assignable.
+func loosenConsts(text string, names []string) (string, []string) {
+	var changed []string
+	for _, name := range names {
+		for _, prefix := range []string{"export const " + name + " ", "export const " + name + "="} {
+			at := strings.Index(text, prefix)
+			if at < 0 {
+				continue
+			}
+			// Only the declaration, not a mention of the name in a comment or a string.
+			lineStart := strings.LastIndexByte(text[:at], '\n') + 1
+			if strings.TrimSpace(text[lineStart:at]) != "" {
+				continue
+			}
+			text = text[:at] + "export let " + text[at+len("export const "):]
+			changed = append(changed, name)
+			break
+		}
+	}
+	return text, changed
+}
+
+// tightenConsts is the reverse: `export let <name> =` back to `export const <name> =`.
+func tightenConsts(text string, names []string) string {
+	for _, name := range names {
+		text = strings.Replace(text, "export let "+name+" ", "export const "+name+" ", 1)
+	}
+	return text
+}
+
+// loosenedPath is where the record of changed declarations lives: next to the crate, not in the source.
+func loosenedPath(crateDir, unitPath string) string {
+	sum := sha256.Sum256([]byte(unitPath))
+	return filepath.Join(crateDir, "work", "enabled-"+hex.EncodeToString(sum[:6])+".json")
+}
+
+func writeLoosened(crateDir, unitPath string, names []string) error {
+	path := loosenedPath(crateDir, unitPath)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	body, err := json.Marshal(names)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, body, 0o644)
+}
+
+func readLoosened(crateDir, unitPath string) []string {
+	body, err := os.ReadFile(loosenedPath(crateDir, unitPath))
+	if err != nil {
+		return nil
+	}
+	var names []string
+	if json.Unmarshal(body, &names) != nil {
+		return nil
+	}
+	return names
+}
+
+func clearLoosened(crateDir, unitPath string) { os.Remove(loosenedPath(crateDir, unitPath)) }

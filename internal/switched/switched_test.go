@@ -106,3 +106,52 @@ func TestOnlySwitchesTheNamedExports(t *testing.T) {
 		t.Errorf("--only count did not switch count:\n%s", text)
 	}
 }
+
+// The modern spelling is `export const f = () => …`, and a block that assigns to it throws
+// "Assignment to constant variable" the moment the module loads. Enable has to loosen the declaration,
+// and disable has to put the original text back exactly.
+func TestAConstExportCanBeSwitchedAndRestored(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, "uleb-go")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"index.cjs", "addon.node"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(""), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	manifest := `{"unit":"src/unit.ts","crate":"example.com/x/uleb-go","exports":[{"name":"read"}]}`
+	if err := os.WriteFile(filepath.Join(dir, "go-anything.json"), []byte(manifest), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	src := "// A const arrow, the way most TypeScript is written today.\nexport const read = (n: number): number => n\n"
+	path := filepath.Join(root, "src", "unit.ts")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := Enable(Options{CrateDir: dir, Unit: "src/unit.ts", Exports: []string{"read"}}); err != nil {
+		t.Fatal(err)
+	}
+	on, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(on), "export let read =") {
+		t.Errorf("the declaration was not loosened, so the block cannot assign to it:\n%s", on)
+	}
+	if _, removed, err := Disable(dir, "src/unit.ts", ""); err != nil || !removed {
+		t.Fatalf("disable: %v %v", err, removed)
+	}
+	off, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(off) != src {
+		t.Errorf("disable did not restore the original:\nwant %q\ngot  %q", src, string(off))
+	}
+}
