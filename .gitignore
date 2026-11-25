@@ -9,3 +9,5 @@ testdata/*/REPORT.md
 testdata/*/card.svg
 testdata/*/work/
 testdata/*/rust/*/work/
+testdata/**/work/
+testdata/**/shadow.jsonl
