@@ -126,7 +126,11 @@ func Disable(crateDir, unit, crate string) (string, bool, error) {
 	if err != nil {
 		return "", false, err
 	}
-	off, ok := remove(string(raw), crateName)
+	off, ok, truncated := removeChecked(string(raw), crateName)
+	if truncated {
+		return "", false, fmt.Errorf("%s has the opening marker for %s but not the closing one: "+
+			"the block was edited by hand, so nothing was removed", path, crateName)
+	}
 	if !ok {
 		return path, false, nil
 	}
@@ -197,22 +201,29 @@ func insert(text, block string) string {
 
 // remove takes the block out and returns the text with the same bytes it had before `insert`.
 func remove(text, crate string) (string, bool) {
+	out, ok, _ := removeChecked(text, crate)
+	return out, ok
+}
+
+// removeChecked also reports a half-removed block: an opening marker without its closing one means the
+// file was edited by hand, and saying "nothing to remove" would send a person looking in the wrong place.
+func removeChecked(text, crate string) (string, bool, bool) {
 	open := markOpen(crate)
 	close := markClose(crate)
 	start := strings.Index(text, open)
 	if start < 0 {
-		return text, false
+		return text, false, false
 	}
 	end := strings.Index(text[start:], close)
 	if end < 0 {
-		return text, false
+		return text, false, true
 	}
 	end = start + end + len(close)
 	// Take the trailing newline with it, or every disable leaves one more blank line behind.
 	if end < len(text) && text[end] == '\n' {
 		end++
 	}
-	return text[:start] + text[end:], true
+	return text[:start] + text[end:], true, false
 }
 
 // planRoot walks up from the crate until the unit's file is under a parent.

@@ -595,3 +595,15 @@ every claim above was checked and held
 **坦白一处**：这轮我一度以为发现了并发竞态，其实是**我自己的 shell 用错了**——
 `cd X && a & b &` 里 `cd` 只对第一个后台子 shell 生效，第二个在原来的目录里跑。
 改成绝对路径的脚本后，8 轮压测 0 失败。工具没错，测试写错了。
+
+## 大仓库与手工编辑（第 31 轮）
+
+| 场景 | 结果 |
+| --- | --- |
+| `map` 在 `rea`（7,390 个 `.ts`，2,969 个单元） | **8.8 s**，写出 5,951 行的 `PORT-MAP.md` |
+| `report` 在一个真实 crate 上（含 bench + SVG） | 229/229、`card.svg` 840×240 合法 |
+| `enable` 后**用户加了一行代码**再 `disable` | 用户那行保留，`let` 还原成 `const`，其余字节一致 |
+| `enable` 后**用户改了被宽松化的那行**（加注释）再 `disable` | 注释保留，声明还原 |
+| `enable` 后**用户删掉结束标记**再 `disable` | 拒绝并说明：`has the opening marker … but not the closing one: the block was edited by hand, so nothing was removed`；块后代码**没有被吞掉** |
+
+最后一条之前只说「没有开启过」，会让人找错地方。

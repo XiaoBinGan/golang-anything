@@ -155,3 +155,39 @@ func TestAConstExportCanBeSwitchedAndRestored(t *testing.T) {
 		t.Errorf("disable did not restore the original:\nwant %q\ngot  %q", src, string(off))
 	}
 }
+
+// A hand-edited block — the opening marker without its closing one — must not be removed silently, and
+// must not take the code after it along. "Nothing to remove" would send a person looking in the wrong
+// place.
+func TestATruncatedBlockIsReportedNotRemoved(t *testing.T) {
+	dir, path := crate(t, "src/unit.ts")
+	if _, err := Enable(Options{CrateDir: dir, Unit: "src/unit.ts", Exports: []string{"pad"}}); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(string(raw), "\n")
+	var kept []string
+	for _, line := range lines {
+		if strings.HasPrefix(line, "// <<< go-anything") {
+			continue
+		}
+		kept = append(kept, line)
+	}
+	edited := strings.Join(kept, "\n") + "\nexport const after = 1\n"
+	if err := os.WriteFile(path, []byte(edited), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := Disable(dir, "src/unit.ts", ""); err == nil {
+		t.Fatal("a truncated block must be reported")
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(after), "export const after = 1") {
+		t.Errorf("the code after the block was taken with it:\n%s", after)
+	}
+}
