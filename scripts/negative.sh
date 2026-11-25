@@ -6,6 +6,9 @@
 # believe `make check`.
 set -uo pipefail
 
+# The toolchain this machine actually has: see scripts/env.sh.
+. "$(dirname "$0")/env.sh"
+
 GO=${GO:-./bin/go-anything}
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT" || exit 1

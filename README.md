@@ -1213,3 +1213,33 @@ ok    doctor runs the seven checks PARITY.md lists
 
 负向对照：把「15 个工具」改回「7 个」→ `FAIL PARITY.md says 7 MCP tools, the code has 15`。
 `make negative` 现在 **16 条**。
+
+## 环境也是前提（第 58 轮）
+
+在一台**没有导出 `GOROOT`** 的 shell 里跑 `make negative`，**7 条控制假通过**：
+
+```
+compile: version "go1.22.5" does not match go tool version "go1.26.2"
+FAIL  allbridges notices a pipe that answers without arguments exited 0
+...
+7 check(s) cannot fail
+```
+
+两个原因：
+
+1. 这台机器上 Go 1.22 与 1.26 并存，`go` 与 `GOROOT` 不一致时的报错看起来像**仓库坏了**；
+2. `PATH` 里没有 `node` 时，那些要跑 JavaScript 的控制**什么也没跑**，于是「没有差异」=「通过」。
+
+修法：`scripts/env.sh`，每个检查脚本开头都 source 它——
+
+* 找一个**自洽**的 Go（`$root/bin/go env GOROOT` 等于 `$root`），brew 的 `libexec` 也认；
+* 缺 node 时**直接停**并说明，而不是让控制假通过。
+
+```sh
+$ env -u GOROOT PATH=/usr/bin:/bin ./scripts/negative.sh; echo $?
+go-anything: node is required by the checks in this folder.
+  Put it on PATH, or set REQUIRE_NODE=0 for the ones that do not need it.
+2
+```
+
+同一条命令在正常环境下 `rc=0`（16 条全红）。

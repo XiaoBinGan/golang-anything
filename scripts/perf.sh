@@ -10,6 +10,9 @@
 # binary in $RUST_ANYTHING, and its crate in $RUST_CRATE.
 set -uo pipefail
 
+# The toolchain this machine actually has: see scripts/env.sh.
+. "$(dirname "$0")/env.sh"
+
 GO=${GO:-./bin/go-anything}
 GO_CGO=${GO_CGO:-./bin/go-anything-cgo}
 RUST_ANYTHING=${RUST_ANYTHING:-/tmp/ra-39/target/release/rust-anything}

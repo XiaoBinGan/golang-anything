@@ -3,6 +3,9 @@
 # holds. A rule whose proof no longer exists is a rule that quietly stopped being true.
 set -uo pipefail
 
+# The toolchain this machine actually has: see scripts/env.sh.
+. "$(dirname "$0")/env.sh"
+
 GO=${GO:-./bin/go-anything}
 ROOT=${ROOT:-.}
 failures=0

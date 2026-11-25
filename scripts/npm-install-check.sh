@@ -5,6 +5,9 @@
 #   ./scripts/npm-install-check.sh <crate>
 set -uo pipefail
 
+# The toolchain this machine actually has: see scripts/env.sh.
+. "$(dirname "$0")/env.sh"
+
 CRATE=${1:-testdata/realworld5/go-ports/jp-go}
 NAME=${NAME:-jp}
 VERSION=${VERSION:-1.0.0}

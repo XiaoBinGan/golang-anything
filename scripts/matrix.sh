@@ -6,6 +6,9 @@
 # has been ported by hand; nothing here is skipped to make the table look better.
 set -uo pipefail
 
+# The toolchain this machine actually has: see scripts/env.sh.
+. "$(dirname "$0")/env.sh"
+
 GO=${GO:-./bin/go-anything}
 GO_CGO=${GO_CGO:-./bin/go-anything-cgo}
 OUT=${OUT:-/tmp/matrix.txt}

@@ -4,6 +4,9 @@
 # something someone remembered to update.
 set -uo pipefail
 
+# The toolchain this machine actually has: see scripts/env.sh.
+. "$(dirname "$0")/env.sh"
+
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT" || exit 1
 GO=${GO:-./bin/go-anything}

@@ -6,6 +6,9 @@
 # run is a failure too: "skipped" would let a broken install look green.
 set -uo pipefail
 
+# The toolchain this machine actually has: see scripts/env.sh.
+. "$(dirname "$0")/env.sh"
+
 GO=${GO:-./bin/go-anything}
 GO_CGO=${GO_CGO:-./bin/go-anything-cgo}
 export GO_ANYTHING_PARSE=${GO_ANYTHING_PARSE:-$GO_CGO}

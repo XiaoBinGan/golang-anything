@@ -47,22 +47,30 @@ shadow  → 真实调用，原式与端口并排
 
 ## 五、每个结论都要能被推翻（`scripts/negative.sh`）
 
-一份不能变红的检查是装饰。`make negative` 逐条把下面这些弄坏，**14 条都必须返回非零**：
+一份不能变红的检查是装饰。`make negative` 逐条把下面这些弄坏，**每一条都必须返回非零**（现在 16 条）：
 
-| 弄坏什么 | 谁必须抓到 |
-| --- | --- |
-| 端口原样返回输入 | `matrix` |
-| 把 `canon` 抄回 `shadow.go` | `contract` |
-| 往 `cases.jsonl` 塞一条不成立的用例 | `evidence` |
-| 桥的 `encode` 丢掉 `-0` | `check`（而 `gate` 必须仍然通过，证明两条路径是分开的） |
-| 驱动的 `mark` 丢掉 `-0` | `gate` |
-| wasm 包装的 `encode` 丢 `-0` | `allbridges` |
-| pipe 二进制把参数丢掉 | `allbridges` |
-| addon 里编译进去的 `mark` 丢符号 | `allbridges` |
-| 端口答错（shadow 在跑） | `shadow-report` |
-| 端口不再抛错 | `shadow-report` |
-| README 里少写一个命令 | `doccheck` |
-| 缺 rust-anything 一侧的 rig | `perf`（拒绝测量） |
-| loader 返回写死的错答案 | `npm-install-check` |
+| # | 弄坏什么 | 谁必须抓到 |
+| ---: | --- | --- |
+| 1 | 端口原样返回输入 | `matrix` |
+| 2 | 把 `canon` 抄回 `shadow.go` | `contract` |
+| 3 | 往 `cases.jsonl` 塞一条不成立的用例 | `evidence` |
+| 4 | 桥的 `encode` 丢掉 `-0` | `check`——并且 `gate` 必须**仍然通过**，否则两条路径是一条 |
+| 5 | 驱动的 `mark` 丢掉 `-0` | `gate` |
+| 6 | wasm 包装的 `encode` 丢 `-0` | `allbridges` |
+| 7 | pipe 二进制把参数丢掉 | `allbridges` |
+| 8 | addon 里编译进去的 `mark` 丢符号 | `allbridges` |
+| 9 | 端口答错（shadow 在跑） | `shadow-report` |
+| 10 | 端口不再抛错 | `shadow-report` |
+| 11 | README 里少写一个命令 | `doccheck` |
+| 12 | PARITY 里的数字改成旧值 | `doccheck` |
+| 13 | 用「快路径已死」的工具生成 wasm | `bridge-ab.mjs`（探针必须拒绝算它赢） |
+| 14 | 缺 rust-anything 一侧的 rig | `perf`（拒绝测量） |
+| 15 | loader 返回写死的错答案 | `npm-install-check` |
 
 **用法**：改完任何一处共享逻辑，先跑 `make negative`——它比 `make check` 更能说明你没改坏东西。
+
+## 六、环境也算前提
+
+`scripts/env.sh` 每个检查脚本都会先 source 它：找出真正可用的 Go（这台机器上 1.22 与 1.26 并存，
+`go` 与 `GOROOT` 不一致时报的是「compile: version does not match」，看起来像仓库坏了），并在缺 node
+时**直接停下并说明**——有一次缺 node，三条控制「通过」是因为什么也没跑。
