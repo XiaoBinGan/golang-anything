@@ -6,8 +6,19 @@ package port
 
 import (
 	"math"
+	"fmt"
 	"unsafe"
 )
+
+// portCall answers an export through the registry, which every crate has: the generated WebAssembly
+// module must compile for a port written in the scaffold's own shape as well as for a typed one.
+func portCall(name string, args []any) (any, error) {
+	fn, ok := Registry[name]
+	if !ok {
+		return nil, fmt.Errorf("not ported: %s", name)
+	}
+	return fn(args)
+}
 
 // bytesAt reads n bytes at a pointer without copying: the bytes live in this module's memory.
 func bytesAt(ptr, n uint32) string {
@@ -17,22 +28,30 @@ func bytesAt(ptr, n uint32) string {
 	return unsafe.String((*byte)(unsafe.Pointer(uintptr(ptr))), int(n))
 }
 
-// WasmCountStringNumber answers count(string) with a number, calling the typed port directly.
+// WasmCountStringNumber answers count(string) with a number.
 func WasmCountStringNumber(ptr, n uint32) float64 {
-	v, err := count(bytesAt(ptr, n))
+	v, err := portCall("count", []any{bytesAt(ptr, n)})
 	if err != nil {
 		return math.NaN()
 	}
-	return v
+	f, ok := v.(float64)
+	if !ok {
+		return math.NaN()
+	}
+	return f
 }
 
-// WasmRatioNumberNumber answers ratio(number, number) with a number, calling the typed port directly.
+// WasmRatioNumberNumber answers ratio(number, number) with a number.
 func WasmRatioNumberNumber(a, b float64) float64 {
-	v, err := ratio(a, b)
+	v, err := portCall("ratio", []any{a, b})
 	if err != nil {
 		return math.NaN()
 	}
-	return v
+	f, ok := v.(float64)
+	if !ok {
+		return math.NaN()
+	}
+	return f
 }
 
 

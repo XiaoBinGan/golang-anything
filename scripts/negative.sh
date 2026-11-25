@@ -74,11 +74,44 @@ sed -i '' 's|return map\[string\]any{"\$number": "-0"}|return 0.0|' "$crate/cmd/
 expect_fail "gate notices a driver that loses the sign of zero" $?
 cp /tmp/negative-driver.go "$crate/cmd/godriver/main.go"
 
-# 6. perf: no rig, no numbers.
+# 6. the three bridges, each broken on its own: allbridges.mjs must notice every one of them. A bridge
+#    nothing tests is a bridge that works until it does not.
+crate=testdata/markers/go-ports/markers-go
+"$GO" bridge "$crate" >/dev/null 2>&1
+"$GO" wasm "$crate" >/dev/null 2>&1
+"$GO" build "$crate" >/dev/null 2>&1
+"$GO" build --fast "$crate" >/dev/null 2>&1
+
+cp "$crate/index.wasm.mjs" /tmp/negative-wasm.mjs
+sed -i '' "s|if (Object.is(v, -0)) return { \$number: '-0' }||" "$crate/index.wasm.mjs"
+node scripts/allbridges.mjs "$crate" >/dev/null 2>&1
+expect_fail "allbridges notices a wasm wrapper that drops -0" $?
+cp /tmp/negative-wasm.mjs "$crate/index.wasm.mjs"
+
+cp "$crate/cmd/portctl/main.go" /tmp/negative-portctl.go
+sed -i '' 's|port.Answer(req.Name, req.Args)|port.Answer(req.Name, nil)|' "$crate/cmd/portctl/main.go"
+"$GO" build "$crate" >/dev/null 2>&1
+node scripts/allbridges.mjs "$crate" >/dev/null 2>&1
+expect_fail "allbridges notices a pipe that answers without arguments" $?
+cp /tmp/negative-portctl.go "$crate/cmd/portctl/main.go"
+"$GO" build "$crate" >/dev/null 2>&1
+
+cp "$crate/answer.go" /tmp/negative-answer.go
+sed -i '' 's|return map\[string\]any{"\$number": "-0"}|return 0.0|' "$crate/answer.go"
+"$GO" build --fast "$crate" >/dev/null 2>&1
+node scripts/allbridges.mjs "$crate" >/dev/null 2>&1
+expect_fail "allbridges notices an addon that loses the sign of zero" $?
+cp /tmp/negative-answer.go "$crate/answer.go"
+# The addon carries the compiled copy of answer.go: rebuilding is part of putting the crate back, and a
+# control that forgets it reports its own leftover as a failure of the check.
+"$GO" build --fast "$crate" >/dev/null 2>&1
+node scripts/allbridges.mjs "$crate" >/dev/null 2>&1 || { printf 'FAIL  allbridges does not recover\n'; failures=$((failures + 1)); }
+
+# 7. perf: no rig, no numbers.
 RUST_ANYTHING=/nonexistent ./scripts/perf.sh >/dev/null 2>&1
 expect_fail "perf refuses a missing rig" $?
 
-# 7. npm install: a loader that answers a hard-coded wrong value, built from a patched template.
+# 8. npm install: a loader that answers a hard-coded wrong value, built from a patched template.
 cp internal/pkg/pkg.go /tmp/negative-pkg.go
 python3 - internal/pkg/pkg.go <<'PY2'
 import sys

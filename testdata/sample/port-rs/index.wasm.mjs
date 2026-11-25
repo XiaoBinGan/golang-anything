@@ -36,8 +36,34 @@ const scratch = exports.go_scratch()
 const encoder = new TextEncoder()
 const decoder = new TextDecoder()
 
-// decode turns the wire markers back into JavaScript values.
-const decode = v => {
+function encode(v) {
+  if (v === undefined) return { $undefined: true }
+  if (typeof v === 'number') {
+    if (Number.isNaN(v)) return { $number: 'NaN' }
+    if (!Number.isFinite(v)) return { $number: v > 0 ? 'Infinity' : '-Infinity' }
+    if (Object.is(v, -0)) return { $number: '-0' }
+    return v
+  }
+  if (typeof v === 'bigint') return { $bigint: v.toString() }
+  // A platform object a caller passes in: an AbortSignal has no own enumerable fields, so without this
+  // branch it reached the port as {}, and a port that throws on an aborted signal looked like a port
+  // that never throws.
+  if (typeof AbortSignal !== 'undefined' && v instanceof AbortSignal) {
+    return { $abortSignal: { aborted: v.aborted, reason: v.aborted ? encode(v.reason) : null } }
+  }
+  if (typeof v === 'string' && !v.isWellFormed()) {
+    return { $utf16: [...Array(v.length)].map((_, i) => v.charCodeAt(i)) }
+  }
+  if (Array.isArray(v)) return v.map(encode)
+  if (v && typeof v === 'object') {
+    const out = {}
+    for (const k of Object.keys(v)) out[k] = encode(v[k])
+    return out
+  }
+  return v
+}
+
+function decode(v) {
   if (Array.isArray(v)) return v.map(decode)
   if (v && typeof v === 'object') {
     const keys = Object.keys(v)
@@ -130,10 +156,10 @@ for (const name of ["rangeOf", "words", "count", "ratio"]) {
       try {
         return decode(fast(name, args[0]))
       } catch (e) {
-        return decode(raw(name, JSON.stringify(args))) // fall back for a payload the fast path cannot hold
+        return decode(raw(name, JSON.stringify(encode(args)))) // fall back for a payload the fast path cannot hold
       }
     }
-    return decode(raw(name, JSON.stringify(args)))
+    return decode(raw(name, JSON.stringify(encode(args))))
   }
 }
 export default port

@@ -10,6 +10,8 @@ const dir = resolve(process.argv[2])
 const cjs = require(dir + '/index.cjs')
 const wasm = (await import(dir + '/index.wasm.mjs')).default
 
+// The three bridges, each asked directly: the addon through callSync, the pipe through GO_ANYTHING_NO_ADDON
+// (set below, in a second pass), and the wasm module on its own.
 const cases = [
   ['negativeZero', [], '-0'],
   ['loneSurrogate', [], 'lone surrogate'],
@@ -35,5 +37,25 @@ for (const [fn, args, label] of cases) {
   const show = v => v === undefined ? 'undefined' : (typeof v === 'number' && Object.is(v, -0)) ? '-0' : String(v)
   console.log(`${agree ? 'ok  ' : 'DIFF'} ${label.padEnd(18)} addon=${show(inProc)} wasm=${show(overWasm)} stdio=${show(async)}`)
 }
+// The pipe, with the addon switched off: the fallback is a real path and gets its own column.
+process.env.GO_ANYTHING_NO_ADDON = '1'
+delete require.cache[require.resolve(dir + '/index.cjs')]
+const piped = require(dir + '/index.cjs')
+let pipeBad = 0
+for (const [fn, args, label] of cases) {
+  const got = await piped.async[fn](...args)
+  const want = cjs.callSync ? null : null
+  const wantValue = wasm[fn](...args)
+  const same = (typeof got === 'number' && typeof wantValue === 'number') ? Object.is(got, wantValue)
+    : (got === undefined && wantValue === undefined) ? true
+    : JSON.stringify(got) === JSON.stringify(wantValue)
+  if (!same) {
+    pipeBad++
+    console.log(`DIFF ${label.padEnd(18)} pipe=${String(got)} wasm=${String(wantValue)}`)
+  }
+}
+console.log(`pipe: ${cases.length - pipeBad}/${cases.length} agree with the wasm bridge`)
+piped.close?.()
+bad += pipeBad
 cjs.close?.()
 process.exit(bad ? 1 : 0)

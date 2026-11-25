@@ -9,11 +9,15 @@ const { spawn } = require('node:child_process')
 const path = require('node:path')
 
 // The in-process addon comes first: a call through it costs a function call, not a pipe round trip.
+// GO_ANYTHING_NO_ADDON=1 forces the pipe, so a test can check the fallback path on a machine where the
+// addon is built — otherwise the addon is the only path anything ever runs.
 let addon = null
-try {
-  // A module-relative require resolves against this file's folder, whatever the caller's cwd is.
-  addon = require('./addon.node')
-} catch {}
+if (process.env.GO_ANYTHING_NO_ADDON !== '1') {
+  try {
+    // A module-relative require resolves against this file's folder, whatever the caller's cwd is.
+    addon = require('./addon.node')
+  } catch {}
+}
 
 const bin = process.env.GO_ANYTHING_PORTCTL || path.join(__dirname, 'portctl')
 
