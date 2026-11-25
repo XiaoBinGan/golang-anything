@@ -12,6 +12,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+
+	"github.com/xiaobingan/go-anything/internal/jswire"
 )
 
 // Options is one bridge generation.
@@ -262,49 +265,9 @@ function start() {
   return child
 }
 
-// encode is the inverse: a call carrying -0, NaN, Infinity, undefined, a bigint or a lone surrogate has
-// to reach the port as itself. JSON.stringify([-0]) is "[0]", so the marker has to be written here.
-function encode(v) {
-  if (v === undefined) return { $undefined: true }
-  if (typeof v === 'number') {
-    if (Number.isNaN(v)) return { $number: 'NaN' }
-    if (!Number.isFinite(v)) return { $number: v > 0 ? 'Infinity' : '-Infinity' }
-    if (Object.is(v, -0)) return { $number: '-0' }
-    return v
-  }
-  if (typeof v === 'bigint') return { $bigint: v.toString() }
-  if (typeof v === 'string' && !v.isWellFormed()) {
-    return { $utf16: [...Array(v.length)].map((_, i) => v.charCodeAt(i)) }
-  }
-  if (Array.isArray(v)) return v.map(encode)
-  if (v && typeof v === 'object') {
-    const out = {}
-    for (const k of Object.keys(v)) out[k] = encode(v[k])
-    return out
-  }
-  return v
-}
+%JSWIRE_ENCODE%
 
-// decode turns the markers back into JS values: NaN, ±Infinity, -0, a lone surrogate, a bigint.
-function decode(v) {
-  if (Array.isArray(v)) return v.map(decode)
-  if (v && typeof v === 'object') {
-    const keys = Object.keys(v)
-    if (keys.length === 1) {
-      if (typeof v.$number === 'string') {
-        return v.$number === 'NaN' ? NaN : v.$number === 'Infinity' ? Infinity
-          : v.$number === '-Infinity' ? -Infinity : -0
-      }
-      if (typeof v.$bigint === 'string') return BigInt(v.$bigint)
-      if (Array.isArray(v.$utf16)) return String.fromCharCode(...v.$utf16)
-      if (v.$undefined === true) return undefined
-    }
-    const out = {}
-    for (const k of keys) out[k] = decode(v[k])
-    return out
-  }
-  return v
-}
+%JSWIRE_DECODE%
 
 function ask(name, args) {
   if (addon) {
@@ -407,7 +370,11 @@ port.close = () => {
 }
 module.exports = port
 `
-	if err := os.WriteFile(filepath.Join(opts.CrateDir, "index.cjs"), []byte(fmt.Sprintf(js, quoteList(opts.Exports))), 0o644); err != nil {
+	// Fill the wire helpers before the format, not after: fmt would read "%JSWIRE" as a verb.
+	js = strings.ReplaceAll(js, "%JSWIRE_DECODE%", jswire.Decode)
+	js = strings.ReplaceAll(js, "%JSWIRE_ENCODE%", jswire.Encode)
+	body := fmt.Sprintf(js, quoteList(opts.Exports))
+	if err := os.WriteFile(filepath.Join(opts.CrateDir, "index.cjs"), []byte(body), 0o644); err != nil {
 		return nil, err
 	}
 

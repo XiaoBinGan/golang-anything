@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/xiaobingan/go-anything/internal/jswire"
 	"github.com/xiaobingan/go-anything/internal/record"
 )
 
@@ -43,22 +44,7 @@ const counters = { calls: 0, mismatches: 0, byFunction: {} }
 let warned = 0
 
 // canon sorts keys and spells the values JSON cannot carry, so the two answers compare as values.
-const canon = v => {
-  if (Array.isArray(v)) return '[' + v.map(canon).join(',') + ']'
-  if (typeof v === 'number') {
-    if (Number.isNaN(v)) return '"$NaN"'
-    if (v === Infinity) return '"$Infinity"'
-    if (v === -Infinity) return '"$-Infinity"'
-    if (Object.is(v, -0)) return '"$-0"'
-    return JSON.stringify(v)
-  }
-  if (typeof v === 'bigint') return JSON.stringify('$bigint:' + v.toString())
-  if (v === undefined) return '"$undefined"'
-  if (v && typeof v === 'object') {
-    return '{' + Object.keys(v).sort().map(k => JSON.stringify(k) + ':' + canon(v[k])).join(',') + '}'
-  }
-  return JSON.stringify(v)
-}
+%JSWIRE_CANON%
 
 const note = (fn, args, want, got, why) => {
   counters.mismatches++
@@ -140,7 +126,8 @@ func Run(opts Options) (string, error) {
 	for i, n := range opts.Exports {
 		names[i] = fmt.Sprintf("%q", n)
 	}
-	text := strings.ReplaceAll(module, "ORIGINAL_PATH", fmt.Sprintf("%q", filepath.ToSlash(rel)))
+	text := strings.ReplaceAll(module, "%JSWIRE_CANON%", jswire.Canon)
+	text = strings.ReplaceAll(text, "ORIGINAL_PATH", fmt.Sprintf("%q", filepath.ToSlash(rel)))
 	text = strings.ReplaceAll(text, "FUNCTIONS", "["+strings.Join(names, ", ")+"]")
 	path := filepath.Join(dir, "shadow.cjs")
 	if err := os.WriteFile(path, []byte(text), 0o644); err != nil {

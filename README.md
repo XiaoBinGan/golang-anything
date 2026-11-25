@@ -869,3 +869,22 @@ func JSValues() string   // 渲染成 JS 字面量，注入生成的录制脚本
 ```
 
 重录后用例数：`port-rs 253 → 328`、`shellQuote 56 → 80`、`jp-go 224 → 320`，九个 crate 全部 gate + check + addon 绿。
+
+## 一份线协议实现，四处生成（第 44 轮）
+
+`decode` / `encode` / `canon` 曾经有四份拷贝：`index.cjs`、`index.wasm.mjs`、`shadow.cjs`、`check.mjs`。
+第 35 轮就是它们漂移出的 bug：**`check` 判 `-0 == 0`，`shadow` 不判**，于是「返回 0 而不是 -0」的端口
+过了 `check` 却挂在 `shadow`。
+
+现在它们都从 `internal/jswire` 取同一份文本（`Decode` / `Encode` / `Canon`），生成时替换占位符。
+
+**测试直接在两种模块形态里跑这段代码**（CommonJS 与 ESM 各一份文件），断言：
+
+```
+canon(-0) == '"$-0"'   canon(0) == '0'   （两者必须不同）
+encode(-0) → decode → canon 与原值相同    （往返不丢）
+canon(NaN) == '"$NaN"'  而不是 'null'
+```
+
+负向对照：把 `Canon` 里的 `-0` 分支删掉 → `node` 输出 `"0|0|true|..."` → 测试立刻红。
+（我这次删错了行、删到 `Encode` 的，测试同样立刻红——两边都在网里。）

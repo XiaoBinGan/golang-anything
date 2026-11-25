@@ -24,6 +24,7 @@ import (
 	"github.com/xiaobingan/go-anything/internal/fastbridge"
 	"github.com/xiaobingan/go-anything/internal/frontdoor"
 	"github.com/xiaobingan/go-anything/internal/fuzz"
+	"github.com/xiaobingan/go-anything/internal/jswire"
 	"github.com/xiaobingan/go-anything/internal/mapdoc"
 	"github.com/xiaobingan/go-anything/internal/mcp"
 	"github.com/xiaobingan/go-anything/internal/parsehelper"
@@ -897,25 +898,7 @@ const decode = v => {
 
 // canon sorts keys: a Go map marshals alphabetically, and JSON.stringify is order-sensitive, so a
 // deep compare has to normalise both sides first.
-// canon sorts keys and spells the values JSON cannot carry, so two answers compare as values. It has to
-// match what the Go side treats as a value: JSON.stringify(-0) is "0", and NaN and undefined both
-// stringify to null, so a port that returned 0 where the original returned -0 used to pass.
-const canon = v => {
-  if (Array.isArray(v)) return '[' + v.map(canon).join(',') + ']'
-  if (typeof v === 'number') {
-    if (Number.isNaN(v)) return '"$NaN"'
-    if (v === Infinity) return '"$Infinity"'
-    if (v === -Infinity) return '"$-Infinity"'
-    if (Object.is(v, -0)) return '"$-0"'
-    return JSON.stringify(v)
-  }
-  if (typeof v === 'bigint') return JSON.stringify('$bigint:' + v.toString())
-  if (v === undefined) return '"$undefined"'
-  if (v && typeof v === 'object') {
-    return '{' + Object.keys(v).sort().map(k => JSON.stringify(k) + ':' + canon(v[k])).join(',') + '}'
-  }
-  return JSON.stringify(v)
-}
+%JSWIRE_CANON%
 
 // show spells a value the way a person can tell apart: -0 is not 0, NaN is not null.
 const show = v => {
@@ -973,7 +956,8 @@ func runCheck(args []string) error {
 	if err := os.MkdirAll(filepath.Dir(script), 0o755); err != nil {
 		return err
 	}
-	if err := os.WriteFile(script, []byte(checkScript), 0o644); err != nil {
+	text := strings.Replace(checkScript, "%JSWIRE_CANON%", jswire.Canon, 1)
+	if err := os.WriteFile(script, []byte(text), 0o644); err != nil {
 		return err
 	}
 	cmd := exec.Command("node", script, dir, filepath.Join(dir, "cases.jsonl"))

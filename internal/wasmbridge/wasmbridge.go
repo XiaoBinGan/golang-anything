@@ -18,6 +18,8 @@ import (
 	"path/filepath"
 	"strings"
 	"unicode"
+
+	"github.com/xiaobingan/go-anything/internal/jswire"
 )
 
 // Scratch is the layout both sides agree on: the caller writes the name and arguments at the base,
@@ -174,49 +176,9 @@ const scratch = exports.go_scratch()
 const encoder = new TextEncoder()
 const decoder = new TextDecoder()
 
-// encode is the inverse of decode: a call carrying -0, NaN, Infinity or undefined has to reach the port
-// as itself, and JSON.stringify([-0]) is "[0]".
-const encode = v => {
-  if (v === undefined) return { $undefined: true }
-  if (typeof v === 'number') {
-    if (Number.isNaN(v)) return { $number: 'NaN' }
-    if (!Number.isFinite(v)) return { $number: v > 0 ? 'Infinity' : '-Infinity' }
-    if (Object.is(v, -0)) return { $number: '-0' }
-    return v
-  }
-  if (typeof v === 'bigint') return { $bigint: v.toString() }
-  if (typeof v === 'string' && !v.isWellFormed()) {
-    return { $utf16: [...Array(v.length)].map((_, i) => v.charCodeAt(i)) }
-  }
-  if (Array.isArray(v)) return v.map(encode)
-  if (v && typeof v === 'object') {
-    const out = {}
-    for (const k of Object.keys(v)) out[k] = encode(v[k])
-    return out
-  }
-  return v
-}
+%JSWIRE_ENCODE%
 
-// decode turns the wire markers back into JavaScript values.
-const decode = v => {
-  if (Array.isArray(v)) return v.map(decode)
-  if (v && typeof v === 'object') {
-    const keys = Object.keys(v)
-    if (keys.length === 1) {
-      if (typeof v.$number === 'string') {
-        return v.$number === 'NaN' ? NaN : v.$number === 'Infinity' ? Infinity
-          : v.$number === '-Infinity' ? -Infinity : -0
-      }
-      if (typeof v.$bigint === 'string') return BigInt(v.$bigint)
-      if (Array.isArray(v.$utf16)) return String.fromCharCode(...v.$utf16)
-      if (v.$undefined === true) return undefined
-    }
-    const out = {}
-    for (const k of keys) out[k] = decode(v[k])
-    return out
-  }
-  return v
-}
+%JSWIRE_DECODE%
 
 // raw answers one call with the export name and an arguments array already encoded as JSON.
 function raw(name, argsJSON) {
@@ -404,6 +366,8 @@ func Run(opts Options) ([]string, error) {
 		quoted[i] = fmt.Sprintf("%q", name)
 	}
 	js := strings.ReplaceAll(wrapper, "%EXPORTS%", "["+strings.Join(quoted, ", ")+"]")
+	js = strings.ReplaceAll(js, "%JSWIRE_DECODE%", jswire.Decode)
+	js = strings.ReplaceAll(js, "%JSWIRE_ENCODE%", jswire.Encode)
 	js = strings.ReplaceAll(js, "REPLACE_OFFSET", fmt.Sprint(ReplyOffset))
 	js = strings.ReplaceAll(js, "%DIRECT_MAP%", directMap(opts.Typed))
 	js = strings.ReplaceAll(js, "%REPLY_OFFSET%", fmt.Sprint(ReplyOffset))
