@@ -6,6 +6,9 @@
 # that is started only by the commands that parse something.
 set -euo pipefail
 
+# The toolchain this machine actually has; building needs no node.
+REQUIRE_NODE=0 . "$(dirname "$0")/env.sh"
+
 out=${1:-bin}
 mkdir -p "$out"
 

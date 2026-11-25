@@ -15,7 +15,7 @@ build:
 
 # The Go half: unit tests for every package, with cgo on so the parser is the real one.
 test:
-	CGO_ENABLED=1 $(GO) test ./...
+	. ./scripts/env.sh && CGO_ENABLED=1 $(GO) test ./...
 
 # Everything the project claims, in the order a person would check it: the shared rules, then the
 # crates, then the claims about the tool as a whole.

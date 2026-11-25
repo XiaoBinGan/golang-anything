@@ -96,3 +96,10 @@ testdata/realworld3/go-ports/uleb-go/port.wasm
 testdata/realworld4/go-ports/jadx-go/port.wasm
 testdata/markers/go-ports/markers-go/port.wasm
 testdata/realworld5/go-ports/jp-go/port.wasm
+testdata/*/go-ports/*/addon.node
+testdata/sample/*/addon.node
+testdata/waves/*/*/addon.node
+testdata/realworld*/*/*/addon.node
+internal/pkg/*-darwin-*/
+internal/pkg/*-linux-*/
+internal/pkg/*-win32-*/
