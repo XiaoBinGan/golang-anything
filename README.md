@@ -452,3 +452,37 @@ disable 后 sha256 与 enable 前完全相同
 越靠近「真实工作量」赢得越多，这是这类桥的固有形状，不是没优化。
 
 `bench` 之前对带 `import` 的单元直接失败（没注册解析钩子），现在和 `record`/`fuzz` 共用同一个钩子。
+
+## 一条命令验证「能力 + 性能」
+
+```sh
+./scripts/build.sh bin && ./scripts/matrix.sh
+```
+
+```
+crate               cases   gate bridge                 speed
+port-rs               181     ok addon                  4.16x faster
+util-go                56     ok addon                  1.12x slower
+format-go              28     ok addon                  117.06x faster
+byteToHex-go           13     ok addon                  1.78x faster
+shellQuote-go          32     ok addon                  1.90x faster
+uleb-go               229     ok addon                  1.11x faster
+jadx-go                 2     ok addon                  14.09x faster
+every crate gates and answers through a real bridge
+```
+
+脚本对坏掉的 crate 报 `FAIL` 而不是跳过——这一条是它存在的理由。
+
+## 两个「绿灯说谎」的 bug（都修了）
+
+| bug | 怎么发现的 | 后果 |
+| --- | --- | --- |
+| `diff` 复用 `build` 留下的 driver，**不检查端口还能不能编译** | 故意写一个编不过的 shellQuote 端口 | 报 "every case matches"——它在用旧二进制回答 |
+| 字符串表里**没有任何标点** | 把 `shellQuote` 的引号转义删掉 | 仍然全绿，因为没生成过含 `'` 的用例 |
+
+现在：源文件比 driver 新就重建；表里有引号、反斜杠、竖线、分号，并有测试盯着它们别被删掉。
+把引号转义删掉后，`gate` 精确报 3 条：
+
+```
+- shellQuote("it's"): expected "'it'\"'\"'s'", got "'it's'"
+```
