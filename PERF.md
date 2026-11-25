@@ -148,6 +148,23 @@ go-anything   p10 2.162 ms   median 2.277 ms
 rust-anything p10 2.051 ms   median 2.207 ms
 ```
 
+**换成 CPU 时间（`RUSAGE_CHILDREN`，对调度抖动不敏感）后差距稳定下来**：
+
+| 变体 | CPU 时间 |
+| --- | ---: |
+| 只打印的 Go 程序（1.4 MB） | 1.558 ms |
+| **rust-anything** | **1.692 ms** |
+| **go-anything** | **1.768 ms** |
+
+即：比 rust-anything 多 **0.076 ms（4.5%）**，比「只打印的 Go 程序」多 0.21 ms。
+本轮为了这 0.21 ms 又试了三件事，**都没用**：
+
+| 尝试 | 结果 |
+| --- | --- |
+| 二进制大小（给打印程序塞 2.2 MB 数据凑到 3.5 MB） | 1.668 vs 1.695 ms —— **大小无关** |
+| `fmt.Fprint(usage)` → `os.Stdout.WriteString(usage)` | 1.756 vs 1.774 ms —— 噪声内 |
+| `-tags slim` 让快构建不链解析相关包 | 二进制仍 8.8 MB（import 没拆，Go 没有条件 import）；真拆需要把每个命令搬进独立包，收益上限 0.04 ms |
+
 ### 每层拆开（同法测量）
 
 | 变体 | 启动 | 相对 `/usr/bin/true` |
