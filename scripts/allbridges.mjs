@@ -4,8 +4,9 @@
 //
 // Needs the crate built three ways: `build --fast` (addon), `wasm`, and `build` (stdio binary).
 import { createRequire } from 'node:module'
+import { resolve } from 'node:path'
 const require = createRequire(import.meta.url)
-const dir = process.argv[2]
+const dir = resolve(process.argv[2])
 const cjs = require(dir + '/index.cjs')
 const wasm = (await import(dir + '/index.wasm.mjs')).default
 
