@@ -189,6 +189,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"strings"
 
 	"` + opts.Crate + `"
 )
@@ -224,6 +225,11 @@ func main() {
 	defer w.Flush()
 	enc := json.NewEncoder(w)
 	for scan.Scan() {
+		// A blank line is not a case: a recording of nothing leaves one, and failing on it turned an
+		// empty crate into "unexpected end of JSON input".
+		if len(strings.TrimSpace(scan.Text())) == 0 {
+			continue
+		}
 		var c testCase
 		if err := json.Unmarshal(scan.Bytes(), &c); err != nil {
 			fail(err)

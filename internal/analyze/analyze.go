@@ -216,6 +216,17 @@ func unitOf(rel string, f *ts.File) Unit {
 		if e.Blocked == "" && isComponent(rel, e) {
 			e.Blocked = "is a UI component: it returns markup"
 		}
+		// A callback parameter cannot cross a JSON bridge: recording it produced calls like
+		// edgeSpan("a", 0) whose only outcome was "predicate is not a function", which proves nothing.
+		// An export that needs one is a redesign, not a port.
+		if e.Blocked == "" {
+			for _, p := range e.Params {
+				if isFunctionType(p.Type) {
+					e.Blocked = "takes a function: a callback cannot cross the bridge"
+					break
+				}
+			}
+		}
 		if e.Blocked == "" {
 			u.Bridgeable++
 		}
@@ -457,4 +468,14 @@ func startHere(units []Unit) []string {
 		out = append(out, u.ID)
 	}
 	return out
+}
+
+// isFunctionType reports whether a declared type is a function or a callback.
+func isFunctionType(t string) bool {
+	t = strings.TrimSpace(t)
+	if strings.Contains(t, "=>") {
+		return true
+	}
+	// `(character: string) => boolean`, `() => void` and `() => Promise<void>` all carry "=>".
+	return strings.HasPrefix(t, "Function") || strings.Contains(t, "Function)")
 }

@@ -695,3 +695,27 @@ node pack.mjs darwin-arm64 dist/     # 把一个平台产物组装成 <name>-dar
 ```
 
 实测：组装出的包放进 `node_modules` 后 `require('mk').negativeZero()` 返回 **-0**（而不是 0）。
+
+## 高阶函数：`analyze` 现在会拒绝（第 36 轮）
+
+真实代码里有这样的单元（`rea` 的 `src/kernel/trimEdges.ts`）：
+
+```ts
+export const edgeSpan = (value: string, predicate: (character: string) => boolean) => …
+```
+
+之前 `analyze` 把它标成 **ready / bridgeable: 3**，`scaffold` 照做，`record` 生成的用例长这样：
+
+```json
+{"fn":"edgeSpan","args":["a",0],"error":"TypeError: predicate is not a function"}
+```
+
+**函数参数过不了 JSON 桥**，这些用例什么也没证明。现在：
+
+```
+edgeSpan | blocked: 'takes a function: a callback cannot cross the bridge'
+bridgeable: 0, status: blocked
+```
+
+顺带修掉一个连带 bug：全被 blocked 的 crate 只有空 `cases.jsonl`，而生成的驱动在**空行**上报
+`unexpected end of JSON input`——空 crate 变成了坏驱动。现在驱动跳过空行（有测试）。
