@@ -13,6 +13,9 @@ package wasmbridge
 
 import (
 	"fmt"
+	"go/ast"
+	goparser "go/parser"
+	"go/token"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -338,6 +341,7 @@ func Run(opts Options) ([]string, error) {
 	if err := os.MkdirAll(wasmDir, 0o755); err != nil {
 		return nil, err
 	}
+	detectPortStyle(dir)
 	src := strings.ReplaceAll(module, cratePlaceholder, opts.Crate)
 
 	support := filepath.Join(dir, "wasm_support.go")
@@ -495,8 +499,56 @@ func directMap(exports []Export) string {
 }
 
 // portStyle says whether the crate's port declares a typed function for an export, which is what the
-// fast path calls, or only the registry entry every scaffold produces.
+// fast path calls, or only the registry entry every scaffold produces. It was declared and never filled
+// for a while: every wrapper went through the registry, and the typed path that measured 53 ns a call was
+// dead code, which is why the wasm bridge measured 0.23 µs instead of 0.05.
 var portStyle = map[string]bool{}
+
+// detectPortStyle reads port.go and records which exports are declared with a typed signature. A port
+// written by hand as `func f(a, b float64) float64` gets the direct call; the scaffold's `func f(args
+// []any)` does not.
+func detectPortStyle(dir string) {
+	portStyle = map[string]bool{}
+	file, err := gofile(dir, "port.go")
+	if err != nil {
+		return
+	}
+	fset := token.NewFileSet()
+	parsed, err := goparser.ParseFile(fset, file, nil, 0)
+	if err != nil {
+		return
+	}
+	for _, decl := range parsed.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if !ok || fn.Recv != nil || !fn.Name.IsExported() {
+			continue
+		}
+		// The port's own name is lower case (rangeOf) and the typed wrapper is exported (RangeOf); the
+		// generated wrapper calls the lower-case one, so record both spellings.
+		if len(fn.Name.Name) > 0 {
+			lower := strings.ToLower(fn.Name.Name[:1]) + fn.Name.Name[1:]
+			portStyle[lower] = true
+		}
+		// The scaffold's shape is one parameter of type []any: anything else is a typed function.
+		if fn.Type.Params != nil && len(fn.Type.Params.List) == 1 {
+			if arr, ok := fn.Type.Params.List[0].Type.(*ast.ArrayType); ok && arr.Len == nil {
+				if id, ok := arr.Elt.(*ast.Ident); ok && id.Name == "any" {
+					continue
+				}
+			}
+		}
+		portStyle[fn.Name.Name] = true
+	}
+}
+
+// gofile answers the path of a file in the crate's port package.
+func gofile(dir, name string) (string, error) {
+	path := filepath.Join(dir, name)
+	if _, err := os.Stat(path); err != nil {
+		return "", err
+	}
+	return path, nil
+}
 
 // typedCall writes the body of a wrapper: a direct call when the port declares that function, and the
 // registry otherwise. The registry always exists, so the generated file compiles for every crate; a

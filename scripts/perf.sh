@@ -39,7 +39,7 @@ fi
 export GO_ANYTHING_PARSE=${GO_ANYTHING_PARSE:-$GO_CGO}
 
 python3 - "$GO" "$RUST_ANYTHING" "$GO_CRATE" "$RUST_CRATE" "$ROUNDS" <<'PY' | tee "$OUT"
-import subprocess, sys, time, statistics, os
+import subprocess, sys, time, statistics, os, resource
 
 go, rust, go_crate, rust_crate, rounds = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], int(sys.argv[5])
 
@@ -59,12 +59,28 @@ def interleaved(pairs):
     return {k: statistics.median(v) for k, v in got.items()}
 
 print("== startup, one spawn, median of %d rounds ==" % rounds)
-start = interleaved([
-    ("go-anything --help", [go, "--help"]),
-    ("rust-anything --help", [rust, "--help"]),
-])
-for k, v in start.items():
-    print(f"  {k:24} {v:6.2f} ms")
+# Wall time on a busy machine measures the machine: the process-spawn floor moves by a millisecond between
+# runs, and an early version of this axis reported +0.07 ms one day and +1.3 ms another for the same
+# binaries. CPU time of the child does not move with load, so it decides the axis and wall time is printed
+# beside it for context.
+def cpu_ms(cmd):
+    before = resource.getrusage(resource.RUSAGE_CHILDREN)
+    subprocess.run(cmd, capture_output=True)
+    after = resource.getrusage(resource.RUSAGE_CHILDREN)
+    return ((after.ru_utime - before.ru_utime) + (after.ru_stime - before.ru_stime)) * 1000
+
+pairs = [("go-anything --help", [go, "--help"]), ("rust-anything --help", [rust, "--help"])]
+wall = {name: [] for name, _ in pairs}
+cpu = {name: [] for name, _ in pairs}
+for _ in range(rounds * 3):
+    for name, cmd in pairs:
+        wall[name].append(ms(cmd)[0])
+        cpu[name].append(cpu_ms(cmd))
+for name, _ in pairs:
+    print(f"  {name:24} cpu {statistics.median(cpu[name]):5.2f} ms   wall {statistics.median(wall[name]):5.2f} ms")
+g, r = statistics.median(cpu["go-anything --help"]), statistics.median(cpu["rust-anything --help"])
+print(f"  {'cpu difference':24} {g - r:+5.2f} ms ({'slower' if g > r else 'faster'} by "
+      f"{abs(g - r) / r * 100:.1f}%)")
 
 print()
 print("== record, cases per second, both writing their own cases ==")
