@@ -400,3 +400,18 @@ gate    229/229 ✅（三种写法：整数、分数、越界）
 fuzz    50/50（seed 9）
 check   229/229 经进程内 addon
 ```
+
+## 第四个真实单元：可选参数 + 平台对象 + 抛错路径
+
+`testdata/realworld4/`：`throwIfJadxInterrupted(signal?: AbortSignal): void`——三种形状一次全占。
+
+| 缺口 | 现象 | 修法 |
+| --- | --- | --- |
+| Node 的 strip 模式不支持**参数属性**（`constructor(readonly reason: unknown)`） | 整个单元录不了：`ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX` | `nodeflags` 优先 `--experimental-transform-types`，老 node 退回 strip |
+| `AbortSignal` 参数落到 `any` 表 | 函数总表现得像「没被中断」，**抛错路径永远没被证明** | 新增 `signal` 方言（空闲 / 已中断带 reason）+ `$abortSignal` 线标记，crate 里解成可分支的类型 |
+
+```
+gate    2/2 ✅（空闲 → undefined；已中断 → JadxInterruption，抛错路径被证明）
+fuzz    20/20（seed 4）
+check   2/2 经进程内 addon
+```
