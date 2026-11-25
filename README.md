@@ -14,9 +14,37 @@ CGO_ENABLED=1 go build -o go-anything .
 ./go-anything bridge  testdata/sample/port-rs && ./go-anything build testdata/sample/port-rs
 ```
 
+## 端口真的被用起来：enable / shadow
+
+```sh
+go-anything enable testdata/sample/port-rs     # 原式末尾插入一段标记块
+# 现在 import 来的 count 走 Go：count("a b  c") === 3，String(count) 里是 callSync 包装
+go-anything disable testdata/sample/port-rs    # 移除该块，文件回到字节一致
+```
+
+```
+$ node -e 'import("./src/text.ts").then(m => console.log(m.count("a b  c")))'
+3                                     # 已切到 Go（sync 模式，签名不变）
+$ go-anything disable port-rs && cmp src/text.ts 原件   # 字节一致 ✅
+```
+
+`shadow` 是切换前的保险：同一调用跑原式与端口，**返回原式的答案**，差异写进 `shadow.jsonl`。
+
+```
+$ go-anything shadow testdata/sample/port-rs
+$ node -e 'require("./port-rs/shadow.cjs").count("pad  ")'
+go-anything shadow: count differs (the answers differ)
+2                                     # 调用方拿到的仍是原式的答案
+$ go-anything shadow-report testdata/sample/port-rs
+1 mismatch(es) recorded: count ×1
+| `count` | `["pad  "]` | `2` | `1` | the answers differ |
+```
+
+（上面这组是真发生的：我把端口改成 `i+1 < len(units)` 制造 off-by-one，shadow 立刻抓到。）
+
 ## 与 rust-anything 的能力对齐
 
-见 [PARITY.md](PARITY.md)：26 条命令的逐项状态。**已实现 10 条**（`analyze` `scaffold/bridge` `record` `build` `diff` `bench` `clean` `gate` `map` `doctor`，外加两条自创的 `check` `fast`），16 条待做（`refresh` `fuzz` `profile` `go` `enable` `disable` `report` `shadow` `package` 与 `app *` 五条、`setup/mcp`）。
+见 [PARITY.md](PARITY.md)：26 条命令的逐项状态。**已实现 13 条**（`analyze` `scaffold/bridge` `record` `build` `diff` `bench` `clean` `gate` `map` `doctor` `enable` `disable` `shadow`，外加三条自创的 `check` `fast` `shadow-report`），13 条待做（`refresh` `fuzz` `profile` `go` `report` `package` 与 `app *` 五条、`setup/mcp`）。
 
 ## 性能：进程内桥 0.73 µs/次
 

@@ -16,11 +16,11 @@
 | 8 | `fuzz` | — | ⬜ | 新种子生成未录过的输入并比对；下轮 |
 | 9 | `profile` | — | ⬜ | 跑真实负载找热点函数 |
 | 10 | `go` | — | ⬜ | 一条命令串完 profile→bridge→record→交接 |
-| 11 | `enable` | — | ⬜ | 在原式里插一段标记块，把调用切到 Go 端口 |
-| 12 | `disable` | — | ⬜ | 精确移除 `enable` 插入的那几行 |
+| 11 | `enable` | `enable` | ✅ | 在原式末尾插一段标记块，把导出重绑到 Go 端口；`--only` 选函数，`--async` 走 stdio；未构建或导出名写错直接拒绝 |
+| 12 | `disable` | `disable` | ✅ | 精确移除该块，文件回到**字节一致**（有测试断言） |
 | 13 | `report` | — | ⬜ | `REPORT.md` + `card.svg` |
 | 14 | `clean` | `clean` | ✅ | 删 `work/`、`portctl`、`cmd/gobench`，不动源码 |
-| 15 | `shadow` | — | ⬜ | 原式与端口并行跑的 drop-in 模块 |
+| 15 | `shadow` | `shadow` + `shadow-report` | ✅ | 生成 `shadow.cjs`：同一调用跑原式与端口，比对后**返回原式的答案**，差异写 `shadow.jsonl`；`shadow-report` 汇总 |
 | 16 | `gate` | `gate` | ✅ | 每例匹配 + 每个 `throw` 必须有录到的失败用例 + 导出不缺 + 不许 panic |
 | 17 | `package` | — | ⬜ | 多平台打包与 CI 工作流 |
 | 18 | `app record` | — | ⬜ | 整程序（CLI/HTTP 服务）黑盒录制 |
@@ -34,7 +34,7 @@
 | 26 | — | `check` | ✅ 额外 | 用真正被调用的那条桥（addon 或 stdio）回放全部用例 |
 | 27 | — | `fast` | ✅ 额外 | 只构建进程内桥 |
 
-**当前：26 条里 10 条已实现（含 2 条自创），16 条待做。**
+**当前：26 条里 13 条已实现（含 3 条自创：`check` `fast` `shadow-report`），13 条待做。**
 
 ## 性能（本机 macOS arm64，Node 22.22，Go 1.26）
 
@@ -65,7 +65,7 @@ Geometric mean: 1.52x faster over 4 function(s)
 
 ## 下一轮的顺序（按对“对齐 + 超越”的贡献排序）
 
-1. `enable` / `disable` / `shadow` —— 端口能在原仓库里真的被用起来，这是工具的价值闭环
+1. ~~`enable` / `disable` / `shadow`~~ —— 已完成，端口能在原仓库里真的被用起来
 2. `fuzz` —— 用新种子找录制漏掉的分歧
 3. `refresh` —— `port.go` 改了之后重生成绑定
 4. `report` + `package` —— 给别人看的结果与安装方式

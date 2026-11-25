@@ -20,6 +20,8 @@ import (
 	"github.com/xiaobingan/go-anything/internal/mapdoc"
 	"github.com/xiaobingan/go-anything/internal/record"
 	"github.com/xiaobingan/go-anything/internal/scaffold"
+	"github.com/xiaobingan/go-anything/internal/shadow"
+	"github.com/xiaobingan/go-anything/internal/switched"
 )
 
 const usage = `go-anything: port a codebase into Go, one unit at a time.
@@ -37,6 +39,10 @@ const usage = `go-anything: port a codebase into Go, one unit at a time.
   go-anything doctor                             check the runtimes a port needs
   go-anything build --fast <crate>               also build the in-process bridge (c-shared + N-API)
   go-anything check    <crate>                   replay the cases through the host wrapper (addon or stdio)
+  go-anything enable   <crate> [--only a,b] [--async]   make the original call the port
+  go-anything disable  <crate>                   take that block out again, byte for byte
+  go-anything shadow   <crate>                   write shadow.cjs: original and port side by side
+  go-anything shadow-report <crate>              summarize what shadow.cjs has seen
 
 A crate is a folder this tool made. It holds go-anything.json, cases.jsonl, port.go and cmd/godriver.
 `
@@ -74,6 +80,14 @@ func main() {
 		err = runFast(os.Args[2:])
 	case "check":
 		err = runCheck(os.Args[2:])
+	case "enable":
+		err = runEnable(os.Args[2:])
+	case "disable":
+		err = runDisable(os.Args[2:])
+	case "shadow":
+		err = runShadow(os.Args[2:], false)
+	case "shadow-report":
+		err = runShadow(os.Args[2:], true)
 	case "-h", "--help", "help":
 		fmt.Print(usage)
 		return
@@ -773,5 +787,103 @@ func runCheck(args []string) error {
 	if res.Matched != res.Total {
 		return fmt.Errorf("check: %d case(s) differ through the bridge", res.Total-res.Matched)
 	}
+	return nil
+}
+
+// runEnable inserts the block that rebinds the unit's exports to the Go port.
+func runEnable(args []string) error {
+	fs := flag.NewFlagSet("enable", flag.ExitOnError)
+	only := fs.String("only", "", "comma-separated export names to switch")
+	async := fs.Bool("async", false, "await the stdio bridge instead of calling in-process")
+	fs.Parse(args)
+	if fs.NArg() != 1 {
+		return fmt.Errorf("enable takes one crate folder")
+	}
+	dir := fs.Arg(0)
+	m, err := readManifest(dir)
+	if err != nil {
+		return err
+	}
+	var names []string
+	if *only != "" {
+		names = strings.Split(*only, ",")
+	}
+	mode := switched.Sync
+	if *async {
+		mode = switched.Async
+	}
+	path, err := switched.Enable(switched.Options{
+		CrateDir: dir, Unit: m.Unit, Crate: m.Crate, Exports: m.Names(), Mode: mode, Only: names,
+	})
+	if err != nil {
+		return err
+	}
+	on, err := switched.IsOn(dir, m.Unit, m.Crate)
+	if err != nil {
+		return err
+	}
+	if !on {
+		return fmt.Errorf("the block did not land in %s", path)
+	}
+	fmt.Printf("%s now calls the Go port (%s mode).\n", filepath.ToSlash(m.Unit), mode)
+	fmt.Printf("  %s\n", path)
+	fmt.Println("`go-anything disable` puts the file back byte for byte.")
+	return nil
+}
+
+// runDisable removes the block and says whether there was one.
+func runDisable(args []string) error {
+	fs := flag.NewFlagSet("disable", flag.ExitOnError)
+	fs.Parse(args)
+	if fs.NArg() != 1 {
+		return fmt.Errorf("disable takes one crate folder")
+	}
+	dir := fs.Arg(0)
+	m, err := readManifest(dir)
+	if err != nil {
+		return err
+	}
+	path, removed, err := switched.Disable(dir, m.Unit, m.Crate)
+	if err != nil {
+		return err
+	}
+	if !removed {
+		fmt.Printf("%s was not switched on: nothing to remove.\n", filepath.ToSlash(m.Unit))
+		return nil
+	}
+	fmt.Printf("Removed the block from %s.\n", path)
+	return nil
+}
+
+// runShadow writes the shadow module, or summarizes what it has seen.
+func runShadow(args []string, reportOnly bool) error {
+	fs := flag.NewFlagSet("shadow", flag.ExitOnError)
+	fs.Parse(args)
+	if fs.NArg() != 1 {
+		return fmt.Errorf("shadow takes one crate folder")
+	}
+	dir := fs.Arg(0)
+	if reportOnly {
+		rep, err := shadow.ReadReport(dir)
+		if err != nil {
+			return err
+		}
+		fmt.Print(rep.Markdown())
+		if rep.Lines > 0 {
+			return fmt.Errorf("shadow: %d mismatch(es) recorded", rep.Lines)
+		}
+		return nil
+	}
+	m, err := readManifest(dir)
+	if err != nil {
+		return err
+	}
+	path, err := shadow.Run(shadow.Options{CrateDir: dir, Unit: m.Unit, Exports: m.Names()})
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Wrote %s for %d export(s).\n", path, len(m.Names()))
+	fmt.Println("Require it where you require the original: it answers the original's value and logs differences.")
+	fmt.Println("`go-anything shadow-report` summarizes shadow.jsonl.")
 	return nil
 }
