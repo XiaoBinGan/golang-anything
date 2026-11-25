@@ -1,0 +1,1 @@
+[{"name":"count","cases":20,"ns":44.960625},{"name":"rangeOf","cases":400,"ns":196.1835522875817},{"name":"ratio","cases":196,"ns":7.625446428571428},{"name":"words","cases":20,"ns":40.423545}]

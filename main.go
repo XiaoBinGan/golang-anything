@@ -13,8 +13,11 @@ import (
 	"os/exec"
 
 	"github.com/xiaobingan/go-anything/internal/analyze"
+	"github.com/xiaobingan/go-anything/internal/bench"
 	"github.com/xiaobingan/go-anything/internal/bridge"
 	"github.com/xiaobingan/go-anything/internal/diff"
+	"github.com/xiaobingan/go-anything/internal/fastbridge"
+	"github.com/xiaobingan/go-anything/internal/mapdoc"
 	"github.com/xiaobingan/go-anything/internal/record"
 	"github.com/xiaobingan/go-anything/internal/scaffold"
 )
@@ -28,6 +31,12 @@ const usage = `go-anything: port a codebase into Go, one unit at a time.
   go-anything gate     <crate>                   diff, plus the checks that stop a half-done port
   go-anything build    <crate>                   build the port and the stdio bridge into one binary
   go-anything bridge   <crate>                   write the host wrappers (index.cjs, port.py)
+  go-anything bench    <crate>                   time the cases on the original and on the port
+  go-anything map      <root>                    write PORT-MAP.md: every unit, its crate, its last diff
+  go-anything clean    <crate>                   remove what this tool and go build left behind
+  go-anything doctor                             check the runtimes a port needs
+  go-anything build --fast <crate>               also build the in-process bridge (c-shared + N-API)
+  go-anything check    <crate>                   replay the cases through the host wrapper (addon or stdio)
 
 A crate is a folder this tool made. It holds go-anything.json, cases.jsonl, port.go and cmd/godriver.
 `
@@ -53,6 +62,18 @@ func main() {
 		err = runBuild(os.Args[2:])
 	case "bridge":
 		err = runBridge(os.Args[2:])
+	case "bench":
+		err = runBench(os.Args[2:])
+	case "map":
+		err = runMap(os.Args[2:])
+	case "clean":
+		err = runClean(os.Args[2:])
+	case "doctor":
+		err = runDoctor(os.Args[2:])
+	case "fast":
+		err = runFast(os.Args[2:])
+	case "check":
+		err = runCheck(os.Args[2:])
 	case "-h", "--help", "help":
 		fmt.Print(usage)
 		return
@@ -332,6 +353,8 @@ func manifestChecks(crateDir string) (map[string]int, map[string]string, error) 
 // runBuild compiles the port and the bridge into <crate>/portctl, the binary the wrappers spawn.
 func runBuild(args []string) error {
 	fs := flag.NewFlagSet("build", flag.ExitOnError)
+	fast := fs.Bool("fast", false, "also build the in-process bridge (c-shared library + N-API addon)")
+	nodeInclude := fs.String("node-include", "", "folder holding node_api.h (found automatically)")
 	fs.Parse(args)
 	if fs.NArg() != 1 {
 		return fmt.Errorf("build takes one crate folder")
@@ -353,7 +376,11 @@ func runBuild(args []string) error {
 		return err
 	}
 	fmt.Printf("Built %s (%.1f MB).\n", out, float64(info.Size())/(1<<20))
+	if *fast {
+		return buildFast(dir, *nodeInclude)
+	}
 	fmt.Println("Copy it next to index.cjs (or set GO_ANYTHING_PORTCTL) and the wrappers will use it.")
+	fmt.Println("For the in-process path, add --fast.")
 	return nil
 }
 
@@ -393,6 +420,358 @@ func runBridge(args []string) error {
 	fmt.Printf("Wrote %d files for %s (%d exports):\n", len(files), m.Unit, len(names))
 	for _, f := range files {
 		fmt.Printf("  %s\n", f)
+	}
+	return nil
+}
+
+// runBench times both sides and prints the table.
+func runBench(args []string) error {
+	fs := flag.NewFlagSet("bench", flag.ExitOnError)
+	minMS := fs.Int("min-ms", 100, "minimum measured time per function and side")
+	repeat := fs.Int("repeat", 1, "calls per case in each round")
+	fs.Parse(args)
+	if fs.NArg() != 1 {
+		return fmt.Errorf("bench takes one crate folder")
+	}
+	res, err := bench.Run(bench.Options{CrateDir: fs.Arg(0), MinMS: *minMS, Repeat: *repeat})
+	if err != nil {
+		return err
+	}
+	fmt.Print(res.Markdown())
+	return nil
+}
+
+// runMap writes PORT-MAP.md.
+func runMap(args []string) error {
+	fs := flag.NewFlagSet("map", flag.ExitOnError)
+	fs.Parse(args)
+	if fs.NArg() != 1 {
+		return fmt.Errorf("map takes one repository root")
+	}
+	text, err := mapdoc.Run(fs.Arg(0))
+	if err != nil {
+		return err
+	}
+	fmt.Print(text)
+	fmt.Println("\nWrote PORT-MAP.md.")
+	return nil
+}
+
+// runClean removes the build products and per-run work, and never touches a port's source.
+func runClean(args []string) error {
+	fs := flag.NewFlagSet("clean", flag.ExitOnError)
+	dry := fs.Bool("dry-run", false, "only say what would go")
+	fs.Parse(args)
+	if fs.NArg() != 1 {
+		return fmt.Errorf("clean takes one crate folder")
+	}
+	dir := fs.Arg(0)
+	var total int64
+	removed := 0
+	for _, name := range []string{"work", "portctl", "cmd/gobench"} {
+		path := filepath.Join(dir, filepath.FromSlash(name))
+		info, err := os.Stat(path)
+		if err != nil {
+			continue
+		}
+		size := dirSize(path)
+		total += size
+		removed++
+		fmt.Printf("%-14s %.1f MB\n", name, float64(size)/(1<<20))
+		if *dry {
+			continue
+		}
+		if err := os.RemoveAll(path); err != nil {
+			return err
+		}
+		_ = info
+	}
+	if removed == 0 {
+		fmt.Println("nothing to remove: the crate has no build products or work folder")
+		return nil
+	}
+	fmt.Printf("%d item(s), %.1f MB%s\n", removed, float64(total)/(1<<20),
+		map[bool]string{true: " (dry run)", false: " removed"}[*dry])
+	return nil
+}
+
+func dirSize(path string) int64 {
+	var total int64
+	filepath.WalkDir(path, func(p string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info, err := d.Info(); err == nil && info.Mode().IsRegular() {
+			total += info.Size()
+		}
+		return nil
+	})
+	return total
+}
+
+// runDoctor checks what a port needs on this machine, and says the command that fixes each gap.
+func runDoctor(args []string) error {
+	fs := flag.NewFlagSet("doctor", flag.ExitOnError)
+	asJSON := fs.Bool("json", false, "print the report as JSON")
+	fs.Parse(args)
+	type check struct {
+		Name    string `json:"name"`
+		OK      bool   `json:"ok"`
+		Version string `json:"version,omitempty"`
+		Note    string `json:"note,omitempty"`
+		Fix     string `json:"fix,omitempty"`
+	}
+	var checks []check
+	probe := func(name, binary string, required bool, fix string) {
+		c := check{Name: name, OK: true}
+		path, err := exec.LookPath(binary)
+		if err != nil {
+			c.OK = false
+			c.Note = "not found on PATH"
+			c.Fix = fix
+			if !required {
+				c.Note += " (optional)"
+			}
+			checks = append(checks, c)
+			return
+		}
+		out, _ := exec.Command(path, "--version").Output()
+		c.Version = strings.TrimSpace(firstLine(string(out)))
+		checks = append(checks, c)
+	}
+	probe("go", "go", true, "install Go 1.24+: https://go.dev/dl/")
+	probe("node", "node", true, "install Node 22.18+ (types strip without a flag)")
+	probe("python3", "python3", false, "only needed for the Python wrapper")
+	// Node has to strip types by itself, or record needs the flag.
+	if out, err := exec.Command("node", "-e", "process.stdout.write(process.versions.node)").Output(); err == nil {
+		major, minor := 0, 0
+		fmt.Sscanf(strings.TrimSpace(string(out)), "%d.%d", &major, &minor)
+		// Go has no tuple comparison: spell the version rule out.
+		needs := major < 22 || (major == 22 && minor < 18) || (major == 23 && minor < 6)
+		checks = append(checks, check{
+			Name: "node strips types",
+			OK:   !needs,
+			Note: strings.TrimSpace(string(out)),
+			Fix:  "record adds --experimental-strip-types itself on older Node",
+		})
+	}
+	// cgo must be on: tree-sitter is C.
+	if out, err := exec.Command("go", "env", "CGO_ENABLED").Output(); err == nil {
+		on := strings.TrimSpace(string(out)) == "1"
+		checks = append(checks, check{
+			Name: "cgo", OK: on, Note: strings.TrimSpace(string(out)),
+			Fix: "CGO_ENABLED=1 go build: the TypeScript parser is C",
+		})
+	}
+	failed := 0
+	for _, c := range checks {
+		if !c.OK {
+			failed++
+		}
+	}
+	if *asJSON {
+		b, _ := json.MarshalIndent(checks, "", "  ")
+		fmt.Println(string(b))
+		if failed > 0 {
+			return fmt.Errorf("doctor: %d check(s) failed", failed)
+		}
+		return nil
+	}
+	for _, c := range checks {
+		mark := "ok  "
+		if !c.OK {
+			mark = "MISS"
+		}
+		note := c.Note
+		if note == "" {
+			note = c.Version
+		}
+		fmt.Printf("%s %-20s %s\n", mark, c.Name, note)
+		if !c.OK && c.Fix != "" {
+			fmt.Printf("     fix: %s\n", c.Fix)
+		}
+	}
+	if failed > 0 {
+		return fmt.Errorf("doctor: %d check(s) failed", failed)
+	}
+	return nil
+}
+
+func firstLine(s string) string {
+	if i := strings.IndexByte(s, '\n'); i >= 0 {
+		return s[:i]
+	}
+	return s
+}
+
+// runFast builds only the in-process bridge.
+func runFast(args []string) error {
+	fs := flag.NewFlagSet("fast", flag.ExitOnError)
+	nodeInclude := fs.String("node-include", "", "folder holding node_api.h")
+	fs.Parse(args)
+	if fs.NArg() != 1 {
+		return fmt.Errorf("fast takes one crate folder")
+	}
+	return buildFast(fs.Arg(0), *nodeInclude)
+}
+
+// buildFast compiles the c-shared library and the N-API addon for one crate.
+func buildFast(dir, nodeInclude string) error {
+	m, err := readManifest(dir)
+	if err != nil {
+		return err
+	}
+	files, err := fastbridge.Run(fastbridge.Options{
+		CrateDir: dir, Crate: m.Crate, Exports: m.Names(), NodeInclude: nodeInclude,
+	})
+	if err != nil {
+		return err
+	}
+	for _, f := range files {
+		info, err := os.Stat(f)
+		if err != nil {
+			continue
+		}
+		if info.Mode().IsRegular() && (strings.HasSuffix(f, ".dylib") || strings.HasSuffix(f, ".so") ||
+			strings.HasSuffix(f, ".node") || strings.HasSuffix(f, ".dll")) {
+			fmt.Printf("  %s (%.1f MB)\n", filepath.Base(f), float64(info.Size())/(1<<20))
+		}
+	}
+	fmt.Println("index.cjs uses the addon when it is next to it: no pipe, one function call per call.")
+	return nil
+}
+
+// manifest is what the CLI needs from go-anything.json.
+type manifest struct {
+	Crate   string `json:"crate"`
+	Unit    string `json:"unit"`
+	Exports []struct {
+		Name    string `json:"name"`
+		Blocked string `json:"blocked"`
+	} `json:"exports"`
+}
+
+// Names lists the exports the bridge carries.
+func (m manifest) Names() []string {
+	var out []string
+	for _, e := range m.Exports {
+		if e.Blocked == "" {
+			out = append(out, e.Name)
+		}
+	}
+	return out
+}
+
+func readManifest(dir string) (manifest, error) {
+	var m manifest
+	raw, err := os.ReadFile(filepath.Join(dir, "go-anything.json"))
+	if err != nil {
+		return m, err
+	}
+	return m, json.Unmarshal(raw, &m)
+}
+
+// checkScript replays cases through the wrapper a caller would use, so the bridge itself is tested:
+// the addon and the stdio process must answer exactly what the recorded cases expect.
+const checkScript = `import { readFile } from 'node:fs/promises'
+import { createRequire } from 'node:module'
+const require = createRequire(import.meta.url)
+const port = require(process.argv[2] + '/index.cjs')
+
+const decode = v => {
+  if (v && typeof v === 'object') {
+    if (v.$number === 'NaN') return NaN
+    if (v.$number === 'Infinity') return Infinity
+    if (v.$number === '-Infinity') return -Infinity
+    if (v.$number === '-0') return -0
+    if (v.$bigint) return BigInt(v.$bigint)
+    if (Array.isArray(v.$utf16)) return String.fromCharCode(...v.$utf16)
+    if (v.$undefined) return undefined
+    if (Array.isArray(v)) return v.map(decode)
+    const out = {}
+    for (const k of Object.keys(v)) out[k] = decode(v[k])
+    return out
+  }
+  return v
+}
+
+// canon sorts keys: a Go map marshals alphabetically, and JSON.stringify is order-sensitive, so a
+// deep compare has to normalise both sides first.
+const canon = v => {
+  if (Array.isArray(v)) return '[' + v.map(canon).join(',') + ']'
+  if (v && typeof v === 'object') {
+    return '{' + Object.keys(v).sort().map(k => JSON.stringify(k) + ':' + canon(v[k])).join(',') + '}'
+  }
+  return JSON.stringify(v === undefined ? null : v)
+}
+
+const inProcess = port.inProcess === true
+const cases = (await readFile(process.argv[3], 'utf8')).split('\n').filter(Boolean).map(JSON.parse)
+let matched = 0
+const bad = []
+for (const c of cases) {
+  try {
+    const args = (c.args ?? []).map(decode)
+    const got = inProcess ? port.callSync(c.fn, ...args) : await port.call(c.fn, args)
+    // The recorded answer carries wire markers too: decode before comparing.
+    const want = decode(c.ok)
+    if (canon(got) === canon(want)) matched++
+    else if (bad.length < 5) bad.push({ fn: c.fn, args: c.args, want, got })
+  } catch (e) {
+    if (c.error && String(e.message).split(':')[0] === c.error.split(':')[0]) matched++
+    else if (bad.length < 5) bad.push({ fn: c.fn, args: c.args, want: c.error, got: String(e.message) })
+  }
+}
+console.log(JSON.stringify({ matched, total: cases.length, bad, inProcess }))
+port.close?.()
+`
+
+// runCheck runs the replay above and reports what the wrapper answered.
+func runCheck(args []string) error {
+	fs := flag.NewFlagSet("check", flag.ExitOnError)
+	fs.Parse(args)
+	if fs.NArg() != 1 {
+		return fmt.Errorf("check takes one crate folder")
+	}
+	dir, err := filepath.Abs(fs.Arg(0))
+	if err != nil {
+		return err
+	}
+	script := filepath.Join(dir, "work", "check.mjs")
+	if err := os.MkdirAll(filepath.Dir(script), 0o755); err != nil {
+		return err
+	}
+	if err := os.WriteFile(script, []byte(checkScript), 0o644); err != nil {
+		return err
+	}
+	cmd := exec.Command("node", script, dir, filepath.Join(dir, "cases.jsonl"))
+	out, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("replaying through the wrapper: %w", err)
+	}
+	var res struct {
+		Matched   int  `json:"matched"`
+		Total     int  `json:"total"`
+		InProcess bool `json:"inProcess"`
+		Bad       []struct {
+			Fn   string `json:"fn"`
+			Want any    `json:"want"`
+			Got  any    `json:"got"`
+		} `json:"bad"`
+	}
+	if err := json.Unmarshal(out, &res); err != nil {
+		return fmt.Errorf("reading the replay result: %w", err)
+	}
+	path := "stdio process"
+	if res.InProcess {
+		path = "in-process addon"
+	}
+	fmt.Printf("%d/%d cases through the %s.\n", res.Matched, res.Total, path)
+	for _, b := range res.Bad {
+		fmt.Printf("- %s: want %v, got %v\n", b.Fn, b.Want, b.Got)
+	}
+	if res.Matched != res.Total {
+		return fmt.Errorf("check: %d case(s) differ through the bridge", res.Total-res.Matched)
 	}
 	return nil
 }

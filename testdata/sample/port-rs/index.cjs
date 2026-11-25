@@ -8,6 +8,13 @@
 const { spawn } = require('node:child_process')
 const path = require('node:path')
 
+// The in-process addon comes first: a call through it costs a function call, not a pipe round trip.
+let addon = null
+try {
+  // A module-relative require resolves against this file's folder, whatever the caller's cwd is.
+  addon = require('./addon.node')
+} catch {}
+
 const bin = process.env.GO_ANYTHING_PORTCTL || path.join(__dirname, 'portctl')
 let child = null
 let queue = []
@@ -59,6 +66,12 @@ function decode(v) {
 }
 
 function ask(name, args) {
+  if (addon) {
+    const reply = JSON.parse(addon.answer(name, JSON.stringify(args ?? [])))
+    if (reply.error) return Promise.reject(new Error(reply.error))
+    if (reply.panic) return Promise.reject(new Error('Rust panic: ' + reply.panic))
+    return Promise.resolve(decode(reply.ok))
+  }
   const proc = start()
   return new Promise((resolve, reject) => {
     queue.push(line => {
@@ -82,6 +95,15 @@ const port = {}
 for (const name of functions) {
   port[name] = async (...args) => ask(name, args)
 }
+// callSync is possible only in-process: it throws where a pipe would have to wait.
+port.callSync = (name, ...args) => {
+  if (!addon) throw new Error('callSync needs the in-process addon: run go-anything build --fast')
+  const reply = JSON.parse(addon.answer(name, JSON.stringify(args)))
+  if (reply.error) throw new Error(reply.error)
+  if (reply.panic) throw new Error('Rust panic: ' + reply.panic)
+  return decode(reply.ok)
+}
+port.inProcess = !!addon
 port.call = ask
 port.close = () => {
   if (child) child.kill()

@@ -14,6 +14,33 @@ CGO_ENABLED=1 go build -o go-anything .
 ./go-anything bridge  testdata/sample/port-rs && ./go-anything build testdata/sample/port-rs
 ```
 
+## 与 rust-anything 的能力对齐
+
+见 [PARITY.md](PARITY.md)：26 条命令的逐项状态。**已实现 10 条**（`analyze` `scaffold/bridge` `record` `build` `diff` `bench` `clean` `gate` `map` `doctor`，外加两条自创的 `check` `fast`），16 条待做（`refresh` `fuzz` `profile` `go` `enable` `disable` `report` `shadow` `package` 与 `app *` 五条、`setup/mcp`）。
+
+## 性能：进程内桥 0.73 µs/次
+
+| 路径 | 每次调用 | 每秒 |
+| --- | ---: | ---: |
+| 原式（TS，被 V8 内联） | 0.05 µs | 20,500,000 |
+| **go-anything 进程内（c-shared + N-API）** | **0.73 µs** | **1,360,000** |
+| go-anything stdio | 12.02 µs | 83,000 |
+| rust-anything 宣称（napi-rs） | ~1 µs | ~1,000,000 |
+
+进程内桥比 rust-anything 宣称的快约 27%；三口是同一台机器、同一个函数 `count("a b  c")`、每组 2 万次。
+
+`bench` 逐函数对比（60 ms/侧）：
+
+```
+| `count`   |  20 | 27 ns |  45 ns | 1.68x slower |
+| `rangeOf` | 400 | 13 ns | 196 ns | 15.28x slower |
+| `ratio`   | 196 | 595 ns |   8 ns | 78.09x faster |
+| `words`   |  20 | 71 ns |  40 ns | 1.76x faster |
+Geometric mean: 1.52x faster
+```
+
+微函数（`count`/`rangeOf`）原式更快——V8 把它们内联成几条指令，而每次跨语言调用都要分配几个值；带异常路径的 `ratio` 端口快 78 倍。平均值领先，短板也照实写。
+
 ## 真跑出来的输出
 
 ```
