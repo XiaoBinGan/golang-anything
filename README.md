@@ -719,3 +719,23 @@ bridgeable: 0, status: blocked
 
 顺带修掉一个连带 bug：全被 blocked 的 crate 只有空 `cases.jsonl`，而生成的驱动在**空行**上报
 `unexpected end of JSON input`——空 crate 变成了坏驱动。现在驱动跳过空行（有测试）。
+
+## `analyze` 的第二轮收紧：Promise / Map / Set / symbol（第 37 轮）
+
+拿真实仓库（2,969 个单元、7,951 个导出）统计「被标为 ready 但其实不可移植」的形状：
+
+| 形状 | 数量 | 之前 |
+| --- | ---: | --- |
+| 返回 `Promise<T>`（箭头函数写 `: Promise<T>`，不是 `async`） | 103 | ready ❌ |
+| 参数或返回带 `Map` / `Set` / `WeakMap` / `WeakSet` | 55 | ready ❌ |
+| 返回/参数是 `symbol` | 10 | ready ❌ |
+
+收紧后：
+
+```
+ready 6,092 → 5,954      blocked 1,859 → 1,997
+新增理由：returns a Promise 103 / carries a Map 26 / Set 13 / WeakMap 15 / WeakSet 1
+```
+
+**没有一刀切**：名字以大写开头的类型（如 `SetupOptions`）不拦——它是数据接口时能作为对象过桥。
+只有在类型明确没有 JSON 形态时才拒绝。

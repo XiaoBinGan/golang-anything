@@ -216,6 +216,22 @@ func unitOf(rel string, f *ts.File) Unit {
 		if e.Blocked == "" && isComponent(rel, e) {
 			e.Blocked = "is a UI component: it returns markup"
 		}
+		// A Promise return is asynchronous work: the bridge answers in the same turn or not at all. The
+		// `async` keyword is not the only way to write one — most of the real repository declares
+		// `: Promise<T>` on an arrow.
+		if e.Blocked == "" && strings.Contains(e.Returns, "Promise") {
+			e.Blocked = "returns a Promise: the bridge answers in one turn"
+		}
+		// A Map, a Set or a symbol has no JSON form: a port would have to invent one and the recording
+		// would be comparing two different inventions.
+		if e.Blocked == "" {
+			for _, what := range append([]string{e.Returns}, paramTypes(e.Params)...) {
+				if kind := unbridgeableKind(what); kind != "" {
+					e.Blocked = "carries a " + kind + ": it has no JSON form"
+					break
+				}
+			}
+		}
 		// A callback parameter cannot cross a JSON bridge: recording it produced calls like
 		// edgeSpan("a", 0) whose only outcome was "predicate is not a function", which proves nothing.
 		// An export that needs one is a redesign, not a port.
@@ -478,4 +494,31 @@ func isFunctionType(t string) bool {
 	}
 	// `(character: string) => boolean`, `() => void` and `() => Promise<void>` all carry "=>".
 	return strings.HasPrefix(t, "Function") || strings.Contains(t, "Function)")
+}
+
+// paramTypes lists the declared types of a parameter list.
+func paramTypes(params []ts.Param) []string {
+	out := make([]string, len(params))
+	for i, p := range params {
+		out[i] = p.Type
+	}
+	return out
+}
+
+// unbridgeableKind names the reason a declared type cannot cross the wire, or "" when it can.
+//
+// Only the names that are unambiguously not data: an interface called SetupOptions crosses as an object,
+// a Map does not.
+func unbridgeableKind(t string) string {
+	t = strings.TrimSpace(t)
+	for _, kind := range []string{"Map", "Set", "WeakMap", "WeakSet"} {
+		if strings.HasPrefix(t, kind+"<") || strings.HasPrefix(t, kind+" |") || t == kind ||
+			strings.HasPrefix(t, "readonly "+kind+"<") || strings.Contains(t, " "+kind+"<") {
+			return kind
+		}
+	}
+	if t == "Symbol" || strings.HasPrefix(t, "symbol<") || t == "symbol" {
+		return "symbol"
+	}
+	return ""
 }

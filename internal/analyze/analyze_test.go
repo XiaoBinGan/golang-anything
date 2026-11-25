@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/xiaobingan/go-anything/internal/ts"
 )
 
 func TestPlanOrdersWavesAndNamesBlockedExports(t *testing.T) {
@@ -102,4 +104,69 @@ func TestACrateFolderIsNotSource(t *testing.T) {
 	if len(rep.Units) != 1 || rep.Units[0].ID != "src/unit.ts" {
 		t.Errorf("units: %+v", rep.Units)
 	}
+}
+
+// A Promise return is asynchronous work; the bridge answers in the same turn or not at all. Most of the
+// real repository writes `: Promise<T>` on an arrow rather than `async`, and analyze called all of them
+// ready.
+func TestAPromiseReturnIsBlocked(t *testing.T) {
+	unit := exportNamed(t, "fetchThing", "Promise<string>", nil)
+	if unit.Blocked == "" || !strings.Contains(unit.Blocked, "Promise") {
+		t.Errorf("a Promise return is not blocked: %q", unit.Blocked)
+	}
+	// An interface of data still crosses as an object, so a named type is not blocked for being named.
+	plain := exportNamed(t, "options", "SetupOptions", nil)
+	if plain.Blocked != "" {
+		t.Errorf("a data interface was blocked: %q", plain.Blocked)
+	}
+}
+
+// A Map, a Set or a symbol has no JSON form. So does a WeakMap in a parameter.
+func TestAContainerWithNoJSONFormIsBlocked(t *testing.T) {
+	cases := []struct {
+		name, returns string
+		params        []ts.Param
+		want          string
+	}{
+		{"counts", "Map<string, number>", nil, "Map"},
+		{"uuids", "Set<string>", nil, "Set"},
+		{"each", "void", []ts.Param{{Name: "m", Type: "WeakMap<object, string>"}}, "WeakMap"},
+		{"tag", "symbol", nil, "symbol"},
+	}
+	for _, c := range cases {
+		unit := exportNamed(t, c.name, c.returns, c.params)
+		if !strings.Contains(unit.Blocked, c.want) {
+			t.Errorf("%s(%v): %q does not mention %s", c.name, c.returns, unit.Blocked, c.want)
+		}
+	}
+}
+
+// exportNamed runs the real analysis over one synthetic export and answers its verdict.
+func exportNamed(t *testing.T, name, returns string, params []ts.Param) Export {
+	t.Helper()
+	root := t.TempDir()
+	src := "export const " + name + " = (" +
+		paramList(params) + "): " + returns + " => undefined\n"
+	if err := os.MkdirAll(filepath.Join(root, "src"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "src", "unit.ts"), []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rep, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rep.Units) != 1 || len(rep.Units[0].Exports) != 1 {
+		t.Fatalf("units: %+v", rep.Units)
+	}
+	return rep.Units[0].Exports[0]
+}
+
+func paramList(params []ts.Param) string {
+	parts := make([]string, len(params))
+	for i, p := range params {
+		parts[i] = p.Name + ": " + p.Type
+	}
+	return strings.Join(parts, ", ")
 }
