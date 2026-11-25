@@ -18,6 +18,7 @@ import (
 
 	"github.com/xiaobingan/go-anything/internal/cases"
 	"github.com/xiaobingan/go-anything/internal/nodeflags"
+	"github.com/xiaobingan/go-anything/internal/record"
 )
 
 // Options is one bench run.
@@ -241,8 +242,13 @@ func Run(opts Options) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
+	hooksPath, err := record.WriteResolver(work)
+	if err != nil {
+		return Result{}, err
+	}
 	origOut := filepath.Join(work, "bench-original.json")
 	cmd := exec.Command("node", append(nodeflags.Args(),
+		"--import", hooksPath,
 		script, unitPath, casesPath, origOut, fmt.Sprint(minMS), fmt.Sprint(repeat))...)
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {

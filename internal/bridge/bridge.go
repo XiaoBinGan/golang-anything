@@ -223,6 +223,17 @@ try {
 } catch {}
 
 const bin = process.env.GO_ANYTHING_PORTCTL || path.join(__dirname, 'portctl')
+
+// Without either the addon or the binary there is nothing to answer with, and spawning a missing file
+// raises an unhandled 'error' event instead of a sentence a person can act on.
+const { existsSync } = require('node:fs')
+if (!addon && !existsSync(bin)) {
+  throw new Error(
+    'go-anything: no bridge in ' + __dirname + '. Build one: ' +
+    'go-anything build --fast <crate> for the in-process addon (fastest), or ' +
+    'go-anything build <crate> for the stdio binary.'
+  )
+}
 let child = null
 let queue = []
 let buffer = ''
@@ -300,7 +311,23 @@ const functions = [%s]
 
 const port = {}
 for (const name of functions) {
-  port[name] = async (...args) => ask(name, args)
+  // In-process the call is synchronous, and that is the point of building the addon: a package whose
+  // functions all return promises cannot stand in for a synchronous original. The promise form stays
+  // for the pipe, where a call has to wait for an answer.
+  port[name] = addon
+    ? (...args) => {
+        try {
+          return port.callSync(name, ...args)
+        } catch (e) {
+          // A port that throws must throw the original's error, not a rejected promise.
+          throw e
+        }
+      }
+    : async (...args) => ask(name, args)
+}
+port.async = {}
+for (const name of functions) {
+  port.async[name] = async (...args) => ask(name, args)
 }
 // callSync is possible only in-process: it throws where a pipe would have to wait.
 port.callSync = (name, ...args) => {

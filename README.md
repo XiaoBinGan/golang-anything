@@ -435,3 +435,20 @@ shadow 72 次真实调用 → 0 处不一致
 enable 后，从原式路径导入 → {"next":2,"value":128}（走 Go 端口）
 disable 后 sha256 与 enable 前完全相同
 ```
+
+## 七个 crate 的真实性能谱（进程内桥，`bench`）
+
+| crate | 结论 |
+| --- | --- |
+| format-go（`box`，字符串拼接） | **96x 快** |
+| jadx-go（只做一次判断） | **7.6x 快** |
+| port-rs（`count`/`words`/`rangeOf`/`ratio`） | 3.8x 快 |
+| byteToHex-go | 1.5x 快 |
+| shellQuote-go | 1.4x 快 |
+| **util-go（`pad`/`repeat`，纯内存小函数）** | **2.1x 慢** |
+| **uleb-go（字节循环）** | **1.0x（持平）** |
+
+**短板照实写**：极小的纯函数赢不了——`pad('a', 3)` 在 V8 里是 14 ns，我们的桥一次调用就要 50 ns。
+越靠近「真实工作量」赢得越多，这是这类桥的固有形状，不是没优化。
+
+`bench` 之前对带 `import` 的单元直接失败（没注册解析钩子），现在和 `record`/`fuzz` 共用同一个钩子。

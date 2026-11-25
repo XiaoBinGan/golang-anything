@@ -8,6 +8,13 @@
 const { spawn } = require('node:child_process')
 const path = require('node:path')
 
+// The in-process addon comes first: a call through it costs a function call, not a pipe round trip.
+let addon = null
+try {
+  // A module-relative require resolves against this file's folder, whatever the caller's cwd is.
+  addon = require('./addon.node')
+} catch {}
+
 const bin = process.env.GO_ANYTHING_PORTCTL || path.join(__dirname, 'portctl')
 let child = null
 let queue = []
@@ -59,6 +66,12 @@ function decode(v) {
 }
 
 function ask(name, args) {
+  if (addon) {
+    const reply = JSON.parse(addon.answer(name, JSON.stringify(args ?? [])))
+    if (reply.error) return Promise.reject(new Error(reply.error))
+    if (reply.panic) return Promise.reject(new Error('Rust panic: ' + reply.panic))
+    return Promise.resolve(decode(reply.ok))
+  }
   const proc = start()
   return new Promise((resolve, reject) => {
     queue.push(line => {
@@ -80,8 +93,72 @@ const functions = ["pad", "repeat"]
 
 const port = {}
 for (const name of functions) {
-  port[name] = async (...args) => ask(name, args)
+  // In-process the call is synchronous, and that is the point of building the addon: a package whose
+  // functions all return promises cannot stand in for a synchronous original. The promise form stays
+  // for the pipe, where a call has to wait for an answer.
+  port[name] = addon
+    ? (...args) => {
+        try {
+          return port.callSync(name, ...args)
+        } catch (e) {
+          // A port that throws must throw the original's error, not a rejected promise.
+          throw e
+        }
+      }
+    : async (...args) => ask(name, args)
 }
+port.async = {}
+for (const name of functions) {
+  port.async[name] = async (...args) => ask(name, args)
+}
+// callSync is possible only in-process: it throws where a pipe would have to wait.
+port.callSync = (name, ...args) => {
+  if (!addon) throw new Error('callSync needs the in-process addon: run go-anything build --fast')
+  // One string argument is the shape most ports have: the addon answers it without JSON on either side.
+  if (addon.answer1 && args.length === 1 && typeof args[0] === 'string') {
+    const text = addon.answer1(name, args[0])
+    if (text === null) throw new Error('go-anything: ' + name + ' failed')
+    return decode(JSON.parse(text))
+  }
+  const reply = JSON.parse(addon.answer(name, JSON.stringify(args)))
+  if (reply.error) throw new Error(reply.error)
+  if (reply.panic) throw new Error('Rust panic: ' + reply.panic)
+  return decode(reply.ok)
+}
+// callMany answers N calls of the same export in one crossing: the fixed cost of leaving the runtime
+// is paid once, so the per-call cost inside a batch is a fraction of a single call's.
+port.callMany = (name, list) => {
+  if (!addon || !addon.answerBatch) {
+    throw new Error('callMany needs the in-process addon: run go-anything build --fast')
+  }
+  const out = addon.answerBatch(list.map(() => name), list)
+  if (out === null) throw new Error('go-anything: batch failed')
+  return out.map(text => decode(JSON.parse(text)))
+}
+// callNumbers answers a batch of one-string calls that return a number, through typed buffers: the
+// arguments go in as one UTF-8 blob plus a length table, the answers come back as a Float64Array.
+// Nothing is marshalled and no string is created per call, which is what a tight loop needs.
+port.callNumbers = (name, texts) => {
+  if (!addon || !addon.numbers) {
+    throw new Error('callNumbers needs the in-process addon: run go-anything build --fast')
+  }
+  const encoder = new TextEncoder()
+  const blobs = texts.map(t => encoder.encode(t))
+  let total = 0
+  for (const b of blobs) total += b.length
+  const blob = new Uint8Array(total)
+  const lens = new Uint32Array(texts.length)
+  let at = 0
+  blobs.forEach((b, i) => {
+    blob.set(b, at)
+    at += b.length
+    lens[i] = b.length
+  })
+  const out = addon.numbers(name, blob, lens)
+  if (out === null) throw new Error('go-anything: ' + name + ' failed on a batch')
+  return out // Float64Array; NaN marks a call that raised
+}
+port.inProcess = !!addon
 port.call = ask
 port.close = () => {
   if (child) child.kill()

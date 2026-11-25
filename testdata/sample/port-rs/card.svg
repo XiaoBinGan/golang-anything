@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="840" height="240" viewBox="0 0 840 240" role="img" aria-label="go-anything report">
+<rect width="840" height="240" rx="16" fill="#0f0d0b"/>
+<rect x="1" y="1" width="838" height="238" rx="15" fill="none" stroke="#b0231c" stroke-opacity=".7"/>
+<text x="40" y="72" font-family="ui-serif,Georgia,serif" font-size="30" fill="#f4ecdc">src/text.ts</text>
+<text x="40" y="104" font-family="ui-monospace,monospace" font-size="15" fill="#9c8f7d">github.com/xiaobingan/go-anything/testdata/sample/port-rs</text>
+<text x="40" y="170" font-family="ui-serif,Georgia,serif" font-size="38" fill="#b0231c">145/145</text>
+<text x="40" y="198" font-family="ui-monospace,monospace" font-size="13" fill="#9c8f7d">cases</text>
+<text x="296" y="170" font-family="ui-serif,Georgia,serif" font-size="38" fill="#b0231c">—</text>
+<text x="296" y="198" font-family="ui-monospace,monospace" font-size="13" fill="#9c8f7d">speedup</text>
+<text x="552" y="170" font-family="ui-serif,Georgia,serif" font-size="38" fill="#b0231c">1/1</text>
+<text x="552" y="198" font-family="ui-monospace,monospace" font-size="13" fill="#9c8f7d">throw paths</text>
+<text x="800" y="72" text-anchor="end" font-family="ui-monospace,monospace" font-size="13" fill="#9c8f7d">in-process addon</text>
+<text x="800" y="198" text-anchor="end" font-family="ui-monospace,monospace" font-size="12" fill="#6f6155">darwin/arm64, 10 CPUs</text>
+</svg>

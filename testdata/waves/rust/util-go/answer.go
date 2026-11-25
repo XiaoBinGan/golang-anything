@@ -2,30 +2,74 @@
 package port
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 )
 
-// Answer runs one call and never lets a panic out: the host sees a reply, not a dead process.
-func Answer(name string, args []any) map[string]any {
+// Call answers one call with arguments as a CLI has them: strings. It turns the reply into the text a
+// command prints, and an error into the error the front door reports.
+func Call(name string, args []any) (string, error) {
+	v, err := invoke(name, args)
+	if err != nil {
+		return "", err
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
+// invoke is the one place a call happens: the in-process bridge and the CLI both go through it, so
+// neither allocates the reply object the other builds anyway.
+func invoke(name string, args []any) (any, error) {
 	fn, ok := Registry[name]
 	if !ok {
-		return map[string]any{"error": "not ported: " + name}
+		return nil, fmt.Errorf("not ported: %s", name)
 	}
 	defer func() {
 		_ = recover()
 	}()
-	v, err := safeCall(fn, DecodeArgs(args))
+	return safeCall(fn, DecodeArgs(args))
+}
+
+// AnswerJSON parses the arguments as JSON and marshals the reply: the one shape every bridge can
+// carry, including the WebAssembly one where there is no C string to hand back.
+func AnswerJSON(name string, argsJSON string) []byte {
+	var args []any
+	if argsJSON != "" && argsJSON != "null" {
+		if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+			return []byte("{\"error\":\"bad args\"}")
+		}
+	}
+	reply := Answer(name, args)
+	b, err := json.Marshal(reply)
+	if err != nil {
+		return []byte("{\"error\":\"reply\"}")
+	}
+	return b
+}
+
+// Answer runs one call and never lets a panic out: the host sees a reply, not a dead process.
+func Answer(name string, args []any) map[string]any {
+	v, err := invoke(name, args)
 	if err != nil {
 		return map[string]any{"error": err.Error()}
 	}
 	return map[string]any{"ok": mark(v)}
 }
 
-// mark writes NaN, ±Infinity, -0 and code units the way the original's codec does, so a host sees
-// values rather than spellings JSON cannot carry.
+// Undefined is JavaScript's undefined: a port returns this where the original answered undefined, and
+// the wire spells it as a marker. Returning nil would say null, which is a different value.
+type Undefined struct{}
+
+// mark writes NaN, ±Infinity, -0, undefined and code units the way the original's codec does, so a host
+// sees values rather than spellings JSON cannot carry.
 func mark(v any) any {
 	switch x := v.(type) {
+	case Undefined:
+		return map[string]any{"$undefined": true}
 	case float64:
 		switch {
 		case math.IsNaN(x):
