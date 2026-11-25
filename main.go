@@ -12,13 +12,17 @@ import (
 
 	"os/exec"
 
+	"time"
+
 	"github.com/xiaobingan/go-anything/internal/analyze"
+	"github.com/xiaobingan/go-anything/internal/app"
 	"github.com/xiaobingan/go-anything/internal/bench"
 	"github.com/xiaobingan/go-anything/internal/bridge"
 	"github.com/xiaobingan/go-anything/internal/diff"
 	"github.com/xiaobingan/go-anything/internal/fastbridge"
 	"github.com/xiaobingan/go-anything/internal/fuzz"
 	"github.com/xiaobingan/go-anything/internal/mapdoc"
+	"github.com/xiaobingan/go-anything/internal/pkg"
 	"github.com/xiaobingan/go-anything/internal/record"
 	"github.com/xiaobingan/go-anything/internal/report"
 	"github.com/xiaobingan/go-anything/internal/scaffold"
@@ -48,6 +52,9 @@ const usage = `go-anything: port a codebase into Go, one unit at a time.
   go-anything fuzz     <crate> [--count N] [--seed S] [--keep]   fresh inputs from a new seed, both sides
   go-anything refresh  <crate>                   regenerate the binding files from port.go
   go-anything report   <crate> [--out DIR]       write REPORT.md and card.svg for a PR or a README
+  go-anything package  <crate> [--shape library|cli|service]   lay out what users install + CI
+  go-anything app record <repo> --command CMD    run a whole program on its cases and keep them
+  go-anything app replay <repo> --command CMD    run another build against the recorded cases
 
 A crate is a folder this tool made. It holds go-anything.json, cases.jsonl, port.go and cmd/godriver.
 `
@@ -99,6 +106,10 @@ func main() {
 		err = runRefresh(os.Args[2:])
 	case "report":
 		err = runReport(os.Args[2:])
+	case "package":
+		err = runPackage(os.Args[2:])
+	case "app":
+		err = runApp(os.Args[2:])
 	case "-h", "--help", "help":
 		fmt.Print(usage)
 		return
@@ -999,5 +1010,84 @@ func runReport(args []string) error {
 	}
 	fmt.Print(card.Text())
 	fmt.Printf("Wrote %s and %s\n", card.Markdown, card.SVG)
+	return nil
+}
+
+// runPackage lays out the installable packages and the workflow that builds the other platforms.
+func runPackage(args []string) error {
+	fs := flag.NewFlagSet("package", flag.ExitOnError)
+	out := fs.String("out", "", "output folder; defaults to <crate>/package")
+	name := fs.String("name", "", "package name; defaults to the crate folder")
+	version := fs.String("version", "", "package version; defaults to 0.1.0 with a note")
+	shape := fs.String("shape", "library", "library, cli or service")
+	original := fs.String("original", "", "for a CLI: the npm package to fall back to, as name@version")
+	fs.Parse(args)
+	if fs.NArg() != 1 {
+		return fmt.Errorf("package takes one crate folder")
+	}
+	res, err := pkg.Run(pkg.Options{
+		CrateDir: fs.Arg(0), Out: *out, Name: *name, Version: *version,
+		Shape: *shape, Original: *original,
+	})
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s %s (%s) → %s\n", res.Name, res.Version, res.Shape, res.Out)
+	for _, f := range res.Files {
+		fmt.Printf("  %s\n", f)
+	}
+	for _, n := range res.Notes {
+		fmt.Printf("note: %s\n", n)
+	}
+	fmt.Println("Nothing was published: the workflow builds the other platforms, and publishing is yours.")
+	return nil
+}
+
+// runApp records a whole program, or replays a build against what was recorded.
+func runApp(args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("app takes `record` or `replay`")
+	}
+	what := args[0]
+	fs := flag.NewFlagSet("app "+what, flag.ExitOnError)
+	command := fs.String("command", "", "the program to run")
+	prefix := fs.String("args", "", "comma-separated arguments every case gets first")
+	inputs := fs.String("inputs", "", "JSONL of extra cases: {\"name\":…, \"argv\":[…], \"stdin\":…}")
+	runs := fs.Int("runs", 2, "how many times to run each case while recording")
+	timeout := fs.Duration("timeout", 30*time.Second, "how long one run may take")
+	fs.Parse(args[1:])
+	if fs.NArg() != 1 {
+		return fmt.Errorf("app %s takes one repository root", what)
+	}
+	var argv []string
+	if *prefix != "" {
+		argv = strings.Split(*prefix, ",")
+	}
+	opts := app.Options{
+		Repo: fs.Arg(0), Command: *command, Args: argv, Inputs: *inputs,
+		Runs: *runs, Timeout: *timeout,
+	}
+	var (
+		res app.Outcome
+		err error
+	)
+	switch what {
+	case "record":
+		res, err = app.Record(opts)
+	case "replay":
+		res, err = app.Replay(opts)
+	default:
+		return fmt.Errorf("app takes `record` or `replay`, not %q", what)
+	}
+	if err != nil {
+		return err
+	}
+	fmt.Print(res.Markdown())
+	if what == "record" {
+		fmt.Printf("Wrote %d case(s) to %s\n", res.Cases, res.Dir)
+	}
+	if len(res.Failed) > 0 {
+		return fmt.Errorf("app replay: %d of %d cases differ", len(res.Failed), res.Cases)
+	}
 	return nil
 }

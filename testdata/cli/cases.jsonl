@@ -1,0 +1,3 @@
+{"name":"count a b  c","argv":["--count","a b  c"]}
+{"name":"pad to 6","argv":["pad","6","ab"]}
+{"name":"unknown","argv":["--nope"]}

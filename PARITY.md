@@ -22,9 +22,9 @@
 | 14 | `clean` | `clean` | ✅ | 删 `work/`、`portctl`、`cmd/gobench`，不动源码 |
 | 15 | `shadow` | `shadow` + `shadow-report` | ✅ | 生成 `shadow.cjs`：同一调用跑原式与端口，比对后**返回原式的答案**，差异写 `shadow.jsonl`；`shadow-report` 汇总 |
 | 16 | `gate` | `gate` | ✅ | 每例匹配 + 每个 `throw` 必须有录到的失败用例 + 导出不缺 + 不许 panic |
-| 17 | `package` | — | ⬜ | 多平台打包与 CI 工作流 |
-| 18 | `app record` | — | ⬜ | 整程序（CLI/HTTP 服务）黑盒录制 |
-| 19 | `app replay` | — | ⬜ | 用录到的用例回放任意构建 |
+| 17 | `package` | `package` | ✅ | 三种形态（library / cli / service）：npm 主包 + 每平台子包 + Go module + Dockerfile + GitHub Actions；重跑只替换上次写的文件 |
+| 18 | `app record` | `app record` | ✅ | 黑盒跑整程序（argv/stdin/env 进，stdout/stderr/exit 出），每例跑两次以识别不稳定输出 |
+| 19 | `app replay` | `app replay` | ✅ | 任意构建回放；自动把程序路径替换成 `<prog>`，所以换路径不等于是行为变化 |
 | 20 | `app front-door` | — | ⬜ | 生成接管入口的 Go 二进制 |
 | 21 | `app wire` | — | ⬜ | 把命令交给某个单元的端口 |
 | 22 | `app lift` | — | ⬜ | fallback 归零后变成纯 Go 应用 |
@@ -34,7 +34,7 @@
 | 26 | — | `check` | ✅ 额外 | 用真正被调用的那条桥（addon 或 stdio）回放全部用例 |
 | 27 | — | `fast` | ✅ 额外 | 只构建进程内桥 |
 
-**当前：26 条里 16 条已实现（含 3 条自创：`check` `fast` `shadow-report`），10 条待做。**
+**当前：26 条里 19 条已实现（含 3 条自创：`check` `fast` `shadow-report`），7 条待做。**
 
 ## 性能（本机 macOS arm64，Node 22.22，Go 1.26）
 

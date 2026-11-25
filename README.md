@@ -74,9 +74,43 @@ $ go-anything report testdata/sample/port-rs
 
 同时写 `card.svg`（840×240，README 可嵌）；用例不全会自动换成另一种主色，不会假装通过。
 
+## app：整程序黑盒录制与回放
+
+```sh
+$ go-anything app record --command /tmp/textcli --inputs cases.jsonl /tmp/appcli
+6/6 cases replay identically in 0.12s.
+Wrote 6 case(s) to /tmp/appcli/go-anything-cases
+
+$ go-anything app replay --command /tmp/textcli /tmp/appcli
+6/6 cases replay identically in 0.01s.
+
+# 换了版本的构建：
+$ go-anything app replay --command /tmp/textcli2 /tmp/appcli
+5/6 cases replay identically; 1 differ:
+- --version: stdout differs
+```
+
+每个用例跑两次：输出在两次之间不同（时间戳、pid）就标成 `noisy`，回放只比对退出码并说明原因。
+程序路径会规范成 `<prog>`——否则换个构建路径就会被误判成行为变化（这条是实测撞出来的）。
+
+## package：让别人能装上
+
+```sh
+$ go-anything package --name port-rs --version 1.2.3 <crate>
+port-rs 1.2.3 (library) → <crate>/package
+  .github/workflows/release.yml
+  README.md
+  go.mod
+  index.cjs
+  package.json
+```
+
+三种形态：`library`（npm 主包 + 每平台子包 + `go.mod`）、`cli`（每平台二进制 + 回落到原包）、
+`service`（Dockerfile）。工作流**不会替你发布**；换形态重跑会删掉上次写、这次不写的文件（有测试）。
+
 ## 与 rust-anything 的能力对齐
 
-见 [PARITY.md](PARITY.md)：26 条命令的逐项状态。**已实现 16 条**（`analyze` `scaffold/bridge` `record` `build` `diff` `bench` `clean` `gate` `map` `doctor` `enable` `disable` `shadow` `fuzz` `refresh` `report`，外加三条自创的 `check` `fast` `shadow-report`），10 条待做（`profile` `go` `package` 与 `app *` 五条、`setup/mcp`）。
+见 [PARITY.md](PARITY.md)：26 条命令的逐项状态。**已实现 19 条**（`analyze` `scaffold/bridge` `record` `build` `diff` `bench` `clean` `gate` `map` `doctor` `enable` `disable` `shadow` `fuzz` `refresh` `report` `package` `app record` `app replay`，外加三条自创的 `check` `fast` `shadow-report`），7 条待做（`profile` `go` `app front-door/wire/lift`、`setup/mcp`）。
 
 ## 性能：进程内桥 0.73 µs/次
 
