@@ -28,6 +28,9 @@ check "diff: one call key, used by fuzz too" \
   sh -c "! grep -q 'func key(' $ROOT/internal/fuzz/fuzz.go"
 check "analyze: a callback, a Promise, a Map and an iterator all stay behind" \
   go test ./internal/analyze/ -run "Promise|Container|Lazy"
+# A verdict that cannot come back non-zero is decoration: this one is checked by breaking it, in
+# scripts/negative.sh, and the rule here is that the script exists and says it can fail.
+check "the checks themselves can fail (make negative)" grep -q 'expect_fail' "$ROOT/scripts/negative.sh"
 
 # The committed answer.go, index.cjs and cmd/portctl are generated: if regenerating them changes the tree,
 # the committed copies are stale and a reader is looking at code the tool no longer writes.

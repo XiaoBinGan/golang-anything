@@ -18,6 +18,24 @@ RUST_CRATE=${RUST_CRATE:-/tmp/racmp2/rust/text-rs}
 ROUNDS=${ROUNDS:-7}
 OUT=${OUT:-/tmp/perf.txt}
 
+# A missing rig gives a traceback or a table of zeroes, and both read like a measurement. Refuse instead:
+# the numbers are only worth printing when both sides are there and both crates answer.
+for needed in "$RUST_ANYTHING" "$RUST_CRATE/cases.jsonl" "$GO_CRATE/cases.jsonl" "$GO_CGO"; do
+  if [ ! -e "$needed" ]; then
+    echo "perf: nothing to measure — $needed is not there" >&2
+    echo "      set RUST_ANYTHING and RUST_CRATE, and run scripts/build.sh first" >&2
+    exit 2
+  fi
+done
+if ! "$GO" diff "$GO_CRATE" >/dev/null 2>&1; then
+  echo "perf: the go crate does not diff; timing it would measure failure" >&2
+  exit 2
+fi
+if ! "$RUST_ANYTHING" diff "$RUST_CRATE" >/dev/null 2>&1; then
+  echo "perf: the rust crate does not diff; timing it would measure failure" >&2
+  exit 2
+fi
+
 export GO_ANYTHING_PARSE=${GO_ANYTHING_PARSE:-$GO_CGO}
 
 python3 - "$GO" "$RUST_ANYTHING" "$GO_CRATE" "$RUST_CRATE" "$ROUNDS" <<'PY' | tee "$OUT"
@@ -96,5 +114,8 @@ else:
 
 PY
 
+status=$?
+
 echo
 echo "written to $OUT"
+exit "$status"

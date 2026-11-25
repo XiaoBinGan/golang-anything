@@ -6,7 +6,7 @@ GO ?= go
 BIN ?= bin
 SHELL := /bin/bash
 
-.PHONY: all build test check contract evidence matrix perf clean
+.PHONY: all build test check contract evidence matrix perf negative clean
 
 all: build
 
@@ -34,6 +34,11 @@ evidence:
 
 perf:
 	GO=$(BIN)/go-anything GO_ANYTHING_PARSE=$(BIN)/go-anything-cgo ./scripts/perf.sh
+
+# Slow and destructive on purpose: every check is run against a known break and must fail. This is the
+# reason to believe `make check`, so it is its own target rather than part of it.
+negative:
+	./scripts/negative.sh
 
 clean:
 	rm -rf $(BIN)

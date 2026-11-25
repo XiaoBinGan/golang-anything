@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# The checks can fail. Every script in this folder that reports a verdict is run once against a known
+# break, and must come back non-zero; a check that cannot fail is decoration.
+#
+# This is slow and it breaks things on purpose, so it is not part of `make check`: it is the reason to
+# believe `make check`.
+set -uo pipefail
+
+GO=${GO:-./bin/go-anything}
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+cd "$ROOT" || exit 1
+
+failures=0
+expect_fail() {
+  local what="$1"
+  local status="$2"
+  if [ "$status" -ne 0 ]; then
+    printf 'ok    %s (exit %s)\n' "$what" "$status"
+  else
+    printf 'FAIL  %s exited 0 on a known break\n' "$what"
+    failures=$((failures + 1))
+  fi
+}
+
+# 1. matrix: a port that answers its input unchanged must not pass the table.
+crate=testdata/realworld5/go-ports/jp-go
+cp "$crate/port.go" /tmp/negative-port.go
+python3 - "$crate/port.go" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s = s.replace('return strings.ReplaceAll(strings.ReplaceAll(token, "~", "~0"), "/", "~1"), nil',
+              '_ = strings.TrimSpace\n\treturn token, nil')
+open(p, 'w').write(s)
+PY
+CRATES="$crate" ./scripts/matrix.sh >/dev/null 2>&1
+expect_fail "matrix rejects a broken port" $?
+cp /tmp/negative-port.go "$crate/port.go"
+
+# 2. contract: a second copy of a shared implementation must be reported.
+cp internal/shadow/shadow.go /tmp/negative-shadow.go
+printf '\nfunc canonCopy(v any) any { return v }\n' >> internal/shadow/shadow.go
+sed -i '' 's|%JSWIRE_CANON%|const canon = v => v|' internal/shadow/shadow.go
+./scripts/contract.sh >/dev/null 2>&1
+expect_fail "contract notices a copy of the wire" $?
+cp /tmp/negative-shadow.go internal/shadow/shadow.go
+
+# 3. evidence: a crate that no longer gates must fail a claim.
+cp "$crate/cases.jsonl" /tmp/negative-cases.jsonl
+printf '{"fn":"jsonPointerTokens","args":["/a/b"],"ok":["wrong"]}\n' >> "$crate/cases.jsonl"
+./scripts/evidence.sh >/dev/null 2>&1
+expect_fail "evidence notices a case that does not hold" $?
+cp /tmp/negative-cases.jsonl "$crate/cases.jsonl"
+
+# 4. perf: no rig, no numbers.
+RUST_ANYTHING=/nonexistent ./scripts/perf.sh >/dev/null 2>&1
+expect_fail "perf refuses a missing rig" $?
+
+# 5. npm install: a loader that answers a hard-coded wrong value, built from a patched template.
+cp internal/pkg/pkg.go /tmp/negative-pkg.go
+python3 - internal/pkg/pkg.go <<'PY2'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s = s.replace("""let port
+try {
+  port = require(PACKAGES[key] || PACKAGES[process.platform + '-' + process.arch])
+} catch (e) {
+  throw new Error('go-anything: no port package for ' + key + '; the release workflow builds ' +
+    Object.keys(PACKAGES).join(', '))
+}
+
+module.exports = port""", """const port = { jsonPointerTokens: () => [], escapeJsonPointerToken: () => "" }
+module.exports = port""")
+open(p, 'w').write(s)
+PY2
+CGO_ENABLED=1 go build -o /tmp/negative-go-badloader .
+cp /tmp/negative-pkg.go internal/pkg/pkg.go
+GO=/tmp/negative-go-badloader ./scripts/npm-install-check.sh >/dev/null 2>&1
+expect_fail "npm-install-check notices a loader that answers wrongly" $?
+
+echo
+if [ "$failures" -eq 0 ]; then
+  echo "every check in this folder fails when it should"
+else
+  echo "$failures check(s) cannot fail"
+fi
+exit $((failures > 0))

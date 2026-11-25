@@ -70,8 +70,13 @@ run() {
   else
     echo "$failures problem(s) above"
   fi
+  return $((failures > 0))
 }
+# The table is only a check if it can fail: a broken port used to print FAIL in a column and still exit 0,
+# which is the same lie as a test that never asserts.
 run | tee "$OUT"
+status=${PIPESTATUS[0]}
 
 echo
 echo "written to $OUT"
+exit "$status"
