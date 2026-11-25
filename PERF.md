@@ -22,7 +22,7 @@ GO_ANYTHING_PARSE=bin/go-anything-cgo ./scripts/perf.sh
 | 桥接单次调用（napi vs cgo addon） | 0.070 µs | 0.201 µs | 慢 2.9 倍 |
 | record 吞吐 | 6,548 cases/s | **10,781 cases/s** | **快 65%** ✅ |
 | diff 吞吐 | 17,475 cases/s | **69,219 cases/s** | **快 4.0 倍** ✅ |
-| 启动 `--help` | 2.65 ms | 2.72 ms | 慢 3%（噪声内） |
+| 启动 `--help` | 2.00–2.08 ms | 2.09–2.19 ms | **慢 ~0.1 ms（95% CI [+0.06, +0.15]）** |
 | `analyze` 真实仓库（7,390 个 .ts） | 42.0 s | **8.46 s** | **快 5.0 倍** ✅ |
 
 ## 逐项测量
@@ -121,7 +121,38 @@ node scripts/floor/wasm-floor.mjs          # 进程内 wasm 调用
 复现脚本：`scripts/floor/ring-floor.mjs`、`scripts/floor/wasm-floor.mjs`；
 真实端口：`go-anything wasm <crate>` → `node testdata/sample/port-rs/index.wasm.mjs`。
 
-## 1c. 启动：把 cgo 挪出快路径（本轮）
+## 1c. 启动：把 cgo 挪出快路径
+
+### 0.1 ms 不是噪声，也不是能靠调参数消掉的东西
+
+20 轮 × 40 次 spawn、交替分块、bootstrap 2000 次：
+
+```
+go-anything   median 2.194 ms
+rust-anything median 2.066 ms
+difference    +0.129 ms (+6.2%)   95% CI [+0.100, +0.149]   ← 真实存在
+```
+
+把每一层拆开（每次都同法测量）：
+
+| 变体 | 启动 | 相对 `/usr/bin/true` |
+| --- | ---: | ---: |
+| `/usr/bin/true` | 1.26 ms | — |
+| Go 空程序（1.1 MB，无 cgo） | 1.96 ms | **+0.70 ms（Go 运行时）** |
+| 只 import 本工具包的探针（1.6 MB） | 2.28 ms | +1.02 ms |
+| go-anything（3.5 MB，PIE） | 2.18 ms | +0.92 ms |
+| go-anything（3.5 MB，`-buildmode=exe`） | 2.09 ms | +0.83 ms |
+| rust-anything（26 MB） | 2.00–2.08 ms | +0.75 ms |
+
+结论：**差距全部落在 Go 运行时那 0.7 ms 里**，二进制大小不是主因（1.6 MB 的探针比 3.5 MB 的还慢）。
+试过但没用：`TZ` 固定、`GOMAXPROCS=1`、`-s -w`（省 0.08 ms）、cgo 剥离（省 1.2 ms，已采用）。
+
+**`-buildmode=exe` 能再省 0.04 ms，但那是拿 ASLR 换的**，不采用——安全属性的倒退不能用 0.04 ms 来定价。
+
+所以这一轴的诚实结论：**冷启动 `--help` 我们落后约 0.1 ms（5%），这是 Go 运行时 vs 无运行时的差别**，
+任何调参都消不掉；而任何真正干活的命令（`analyze` 5.0 倍、`diff` 4.0 倍、`record` 1.65 倍）我们都领先。
+
+## 1d. 启动：把 cgo 挪出快路径（cgo 的 1.2 ms）
 
 一台机器上先量出「Go 空程序」的下界：**2.0 ms**（1.1 MB，无 cgo）。然后把每一层加回去：
 
