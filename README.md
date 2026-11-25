@@ -1243,3 +1243,26 @@ go-anything: node is required by the checks in this folder.
 ```
 
 同一条命令在正常环境下 `rc=0`（16 条全红）。
+
+## 验收：干净 clone 上跑全部检查（第 59 轮）
+
+```sh
+$ git clone <repo> /tmp/accept && cd /tmp/accept
+$ make check                 # 不导出任何环境变量
+all checks passed                                        # 38 s，第二次 26 s
+
+$ ./scripts/negative.sh
+every check in this folder fails when it should          # 16/16，rc=0
+
+$ ./scripts/perf.sh
+VERDICT wasm faster than napi: 1.49x                     # rc=0
+```
+
+这一轮在干净 clone 上暴露的最后两个问题：
+
+| 问题 | 原因 |
+| --- | --- |
+| `make check` 第一条就挂在 `go1.22.5 vs go1.26.2` | `scripts/build.sh` 没有 source `env.sh`，`make test` 也是 |
+| `contract` 报 `stale committed copies` | `testdata/sample/port-rs/addon.node` 是**被 git 跟踪的二进制**，每次构建都变；`internal/pkg/mk-darwin-arm64/` 是测试跑 `npm pack` 留在源码树里的产物 |
+
+两处都是「生成物进了版本库」。现在都进 `.gitignore`。
