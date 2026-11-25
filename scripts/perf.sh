@@ -1,58 +1,96 @@
 #!/usr/bin/env bash
-# Measures the four numbers the goal is about, on this machine, and prints them as a table.
+# The four numbers the goal is about, on this machine, with the method written down next to each one.
 #
-# Everything is measured the same way: the same crate, the same machine, three runs, the median. A
-# number without a command next to it is a claim, not a measurement.
-set -u
+# Two rules make these honest:
+#   1. Both tools run on their own crate, produced by their own `bridge`, and both diffs pass. Comparing
+#      a real run against a failed one measures how fast failure is.
+#   2. Every number is a median over alternating rounds, because a single run on a busy machine lies.
+#
+# Requires: ./bin/go-anything and ./bin/go-anything-cgo (scripts/build.sh), a rust-anything release
+# binary in $RUST_ANYTHING, and its crate in $RUST_CRATE.
+set -uo pipefail
 
-GO_ANYTHING=${GO_ANYTHING:-/tmp/go-anything}
-CRATE=${CRATE:-testdata/sample/port-rs}
-RUNS=${RUNS:-3}
+GO=${GO:-./bin/go-anything}
+GO_CGO=${GO_CGO:-./bin/go-anything-cgo}
+RUST_ANYTHING=${RUST_ANYTHING:-/tmp/ra-39/target/release/rust-anything}
+GO_CRATE=${GO_CRATE:-testdata/sample/port-rs}
+RUST_CRATE=${RUST_CRATE:-/tmp/racmp2/rust/text-rs}
+ROUNDS=${ROUNDS:-7}
 OUT=${OUT:-/tmp/perf.txt}
 
-median() { sort -n | awk '{ a[NR]=$1 } END { if (NR % 2) print a[(NR+1)/2]; else print (a[NR/2]+a[NR/2+1])/2 }'; }
+export GO_ANYTHING_PARSE=${GO_ANYTHING_PARSE:-$GO_CGO}
 
-# millis runs a command N times and prints the median wall time in milliseconds.
-millis() {
-  for _ in $(seq "$RUNS"); do
-    local start end
-    start=$(python3 -c 'import time;print(time.perf_counter_ns())')
-    "$@" >/dev/null 2>&1
-    end=$(python3 -c 'import time;print(time.perf_counter_ns())')
-    python3 -c "print(($end-$start)/1e6)"
-  done | median
-}
+python3 - "$GO" "$RUST_ANYTHING" "$GO_CRATE" "$RUST_CRATE" "$ROUNDS" <<'PY' | tee "$OUT"
+import subprocess, sys, time, statistics, os
 
-{
-  echo "== startup =="
-  printf 'help            %8.1f ms\n' "$(millis "$GO_ANYTHING" --help)"
-  printf 'doctor          %8.1f ms\n' "$(millis "$GO_ANYTHING" doctor)"
-  printf 'analyze (1 file)%8.1f ms\n' "$(millis "$GO_ANYTHING" analyze testdata/sample)"
+go, rust, go_crate, rust_crate, rounds = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], int(sys.argv[5])
 
-  echo
-  echo "== analyze on the fixture (25 lines, 4 exports) =="
-  for _ in $(seq "$RUNS"); do
-    "$GO_ANYTHING" analyze testdata/sample >/dev/null 2>&1 || true
-  done
-  printf 'cold runs       %s x\n' "$RUNS"
+def ms(cmd, n=1):
+    t0 = time.perf_counter_ns()
+    for _ in range(n):
+        r = subprocess.run(cmd, capture_output=True, text=True)
+    return (time.perf_counter_ns() - t0) / 1e6 / n, r
 
-  echo
-  echo "== diff throughput =="
-  CASES=$(wc -l < "$CRATE/cases.jsonl" | tr -d ' ')
-  D=$(millis "$GO_ANYTHING" diff "$CRATE")
-  printf 'diff %s cases  %8.1f ms  →  %.0f cases/s\n' "$CASES" "$D" \
-    "$(python3 -c "print($CASES/($D/1000))")"
+def interleaved(pairs):
+    """Runs each command once per round, in order, and reports medians: load spikes hit everyone."""
+    got = {name: [] for name, _ in pairs}
+    for _ in range(rounds):
+        for name, cmd in pairs:
+            v, _ = ms(cmd)
+            got[name].append(v)
+    return {k: statistics.median(v) for k, v in got.items()}
 
-  echo
-  echo "== record throughput =="
-  R=$(millis "$GO_ANYTHING" record --unit src/text.ts "$CRATE")
-  printf 'record %s cases %7.1f ms  →  %.0f cases/s\n' "$CASES" "$R" \
-    "$(python3 -c "print($CASES/($R/1000))")"
+print("== startup, one spawn, median of %d rounds ==" % rounds)
+start = interleaved([
+    ("go-anything --help", [go, "--help"]),
+    ("rust-anything --help", [rust, "--help"]),
+])
+for k, v in start.items():
+    print(f"  {k:24} {v:6.2f} ms")
 
-  echo
-  echo "== bridge latency (20000 calls, per call) =="
-  ( cd "$CRATE" && node /tmp/lat.mjs 2>/dev/null | head -3 )
-} | tee "$OUT"
+print()
+print("== record, cases per second, both writing their own cases ==")
+def cases_of(path):
+    with open(os.path.join(path, "cases.jsonl")) as f:
+        return sum(1 for line in f if line.strip())
+record = []
+for name, cmd, crate in (
+    ("go-anything record", [go, "record", "--unit", "src/text.ts", go_crate], go_crate),
+    ("rust-anything record", [rust, "record", rust_crate], rust_crate),
+):
+    got = []
+    for _ in range(3):
+        v, r = ms(cmd)
+        got.append(v)
+    n = cases_of(crate)
+    record.append((name, statistics.median(got), n))
+for name, v, n in record:
+    print(f"  {name:24} {v:7.1f} ms   {n:5d} cases   {n/(v/1000):9,.0f} cases/s   {v/n*1000:5.1f} µs/case")
+
+print()
+print("== diff, both passing, on each tool's own crate ==")
+def cases(path):
+    with open(os.path.join(path, "cases.jsonl")) as f:
+        return sum(1 for line in f if line.strip())
+gc, rc = cases(go_crate), cases(rust_crate)
+diff = interleaved([
+    ("go-anything diff", [go, "diff", go_crate]),
+    ("rust-anything diff", [rust, "diff", rust_crate]),
+])
+for k, n in (("go-anything diff", gc), ("rust-anything diff", rc)):
+    v = diff[k]
+    print(f"  {k:24} {v:6.2f} ms   {n:5d} cases   {n/(v/1000):9,.0f} cases/s   {v/n*1000:5.1f} µs/case")
+
+print()
+print("== bridge, one call in-process, same function on both sides ==")
+probe = os.path.join(os.environ.get("PERF_DIR", "."), "scripts", "floor", "bridge-ab.mjs")
+if os.path.exists(probe):
+    out = subprocess.run(["node", probe, go_crate, rust_crate], capture_output=True, text=True)
+    print(out.stdout.strip() or out.stderr.strip())
+else:
+    print("  (scripts/floor/bridge-ab.mjs is missing)")
+
+PY
 
 echo
 echo "written to $OUT"

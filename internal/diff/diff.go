@@ -141,8 +141,10 @@ func runDriver(crateDir string) ([]cases.Case, error) {
 	if err != nil {
 		return nil, err
 	}
-	cmd := exec.Command("go", "run", "./cmd/godriver",
-		filepath.Join(abs, "cases.jsonl"), filepath.Join(abs, "work", "answers.jsonl"))
+	// A driver binary `build` already made is what runs: `go run` compiles on every call and costs ten
+	// milliseconds before a single case is compared.
+	cmd := driverCommand(abs)
+	cmd.Args = append(cmd.Args, filepath.Join(abs, "cases.jsonl"), filepath.Join(abs, "work", "answers.jsonl"))
 	cmd.Dir = abs
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
@@ -356,4 +358,15 @@ func goHint(err error) string {
 			"installation the `go` binary came from, e.g. export GOROOT=$(brew --prefix go)/libexec)"
 	}
 	return ""
+}
+
+// driverCommand is the prebuilt driver when there is one, and `go run` when there is not.
+func driverCommand(crateDir string) *exec.Cmd {
+	for _, name := range []string{"godriver", "godriver.exe"} {
+		path := filepath.Join(crateDir, "work", name)
+		if info, err := os.Stat(path); err == nil && !info.IsDir() {
+			return exec.Command(path)
+		}
+	}
+	return exec.Command("go", "run", "./cmd/godriver")
 }

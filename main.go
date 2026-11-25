@@ -440,6 +440,21 @@ func runBuild(args []string) error {
 		return err
 	}
 	fmt.Printf("Built %s (%.1f MB).\n", out, float64(info.Size())/(1<<20))
+	// The driver is what `diff` runs in a loop: build it here so the comparison does not pay a compile.
+	driver, err := filepath.Abs(filepath.Join(dir, "work", "godriver"))
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(driver), 0o755); err != nil {
+		return err
+	}
+	buildDriver := exec.Command("go", "build", "-o", driver, "./cmd/godriver")
+	buildDriver.Dir = dir
+	buildDriver.Stderr = os.Stderr
+	if err := buildDriver.Run(); err != nil {
+		return fmt.Errorf("building the driver: %w", err)
+	}
+	fmt.Printf("Built %s: `diff` now runs the comparison without compiling first.\n", driver)
 	if *fast {
 		return buildFast(dir, *nodeInclude)
 	}

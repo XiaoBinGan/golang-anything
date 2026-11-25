@@ -1,5 +1,32 @@
 # 性能：实测，而不是宣称
 
+同一台机器（darwin/arm64, 10 核）、同一台 Node（v22.22.3）、Go 1.26.2、rust-anything 4.0.0（本机
+`cargo build --release` 编出来的）。两个工具各自用**自己生成的桥**，跑**同样的函数**。
+
+**方法**：交替分块计时（A 一次、B 一次，再反过来），多次取中位数——一次负载尖峰会同时打到两侧。
+两边都必须是**真跑通**的：`diff` 两边都是 `rc=0`（我先把 Rust 端口的 `rangeOf` 补对，917/917 通过），
+否则量到的是「失败有多快」。
+
+一条命令复现全部四行：
+
+```sh
+./scripts/build.sh bin
+GO_ANYTHING_PARSE=bin/go-anything-cgo ./scripts/perf.sh
+```
+
+## 汇总
+
+| 指标 | rust-anything | go-anything | 结果 |
+| --- | ---: | ---: | --- |
+| 桥接单次调用（napi vs wasm） | 0.070 µs | **0.051 µs** | **快 27%** ✅ |
+| 桥接单次调用（napi vs cgo addon） | 0.070 µs | 0.201 µs | 慢 2.9 倍 |
+| record 吞吐 | 6,548 cases/s | **10,781 cases/s** | **快 65%** ✅ |
+| diff 吞吐 | 17,475 cases/s | **69,219 cases/s** | **快 4.0 倍** ✅ |
+| 启动 `--help` | 2.65 ms | 2.72 ms | 慢 3%（噪声内） |
+| `analyze` 真实仓库（7,390 个 .ts） | 42.0 s | **8.46 s** | **快 5.0 倍** ✅ |
+
+## 逐项测量
+
 同一台机器（darwin/arm64, 10 核）、同一个单元（`src/text.ts`）、同一台 Node（v22.22.3）、
 Go 1.26.2。两个工具都用自己生成的桥，调用同一个 `count("a b  c")`。
 
