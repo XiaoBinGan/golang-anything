@@ -37,7 +37,10 @@ const plan = JSON.parse(await readFile(planPath, 'utf8'))
 // generator never crosses a type: that was the prototype's first mistake.
 const table = {
   string: ['', 'a', 'abc', '  ', 'a b  c', 'x y z', 'pad  ', 'héllo', 'naïve café', '😀😀',
-           '$5 apple', '$a$b', '$', 'a$', '  \t  ', 'ünïcodé', 'ÆØÅ', '中文 字', 'a\nb', '0'],
+           '$5 apple', '$a$b', '$', 'a$', '  \t  ', 'ünïcodé', 'ÆØÅ', '中文 字', 'a\nb', '0',
+           // Punctuation that changes what a function does. It was missing, and a port that dropped the
+           // quote escaping in shellQuote passed every case until these values existed.
+           "it's", "''", "a'b'c", '\\', 'a\\b', '"', 'a"b', 'cmd --flag | tee', '$(id)', 'a|b', 'a;b', '--flag'],
   // Byte buffers: what a parser is handed. Small, and the last one is longer than any offset below so
   // an index into it is in range for at least one case.
   bytes: [

@@ -125,3 +125,53 @@ func TestParameterPropertiesLoad(t *testing.T) {
 		t.Fatalf("a parameter property must load: %v", err)
 	}
 }
+
+// The string table had no punctuation that changes what a function does. A port of shellQuote that
+// dropped the quote escaping passed every case until "it's" was in the table.
+func TestTheStringTableHasLoadBearingPunctuation(t *testing.T) {
+	for _, want := range []string{"'", "\\", "\"", "|", ";"} {
+		found := false
+		for _, v := range driverStrings(t) {
+			if strings.Contains(v, want) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("no value in the string table contains %q", want)
+		}
+	}
+}
+
+// driverStrings reads the string table out of the recorder source: the table lives in the JavaScript the
+// tool generates, so the test reads the same text the generator writes.
+func driverStrings(t *testing.T) []string {
+	t.Helper()
+	body, err := os.ReadFile("record.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(body)
+	at := strings.Index(text, "string: [")
+	if at < 0 {
+		t.Fatal("the string table is not where the test expects it")
+	}
+	end := strings.Index(text[at:], "],")
+	if end < 0 {
+		t.Fatal("the string table does not end where the test expects it")
+	}
+	table := text[at : at+end]
+	var out []string
+	for _, line := range strings.Split(table, "\n") {
+		for _, piece := range strings.Split(line, ",") {
+			piece = strings.TrimSpace(piece)
+			for _, quote := range []string{"'", `"`} {
+				if strings.HasPrefix(piece, quote) && strings.HasSuffix(piece, quote) && len(piece) >= 2 {
+					out = append(out, piece[1:len(piece)-1])
+					break
+				}
+			}
+		}
+	}
+	return out
+}

@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 	"unicode/utf16"
 
 	"github.com/xiaobingan/go-anything/internal/cases"
@@ -147,9 +148,22 @@ func runDriver(crateDir string) ([]cases.Case, error) {
 	}
 	// A driver binary `build` already made is what runs: `go run` compiles on every call and costs ten
 	// milliseconds before a single case is compared.
-	cmd := driverCommand(abs)
-	cmd.Args = append(cmd.Args, filepath.Join(abs, "cases.jsonl"), filepath.Join(abs, "work", "answers.jsonl"))
-	cmd.Dir = abs
+	cmd, built := driverCommand(abs)
+	if built {
+		// The rebuild runs first and on its own: the case paths are arguments to the driver, not to the
+		// compiler, and handing them to `go build` made it complain about a package that is a file.
+		cmd.Dir = abs
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return nil, fmt.Errorf("rebuilding the driver after a source change: %w", err)
+		}
+		cmd, _ = driverCommand(abs)
+		cmd.Args = append(cmd.Args, filepath.Join(abs, "cases.jsonl"), filepath.Join(abs, "work", "answers.jsonl"))
+		cmd.Dir = abs
+	} else {
+		cmd.Args = append(cmd.Args, filepath.Join(abs, "cases.jsonl"), filepath.Join(abs, "work", "answers.jsonl"))
+		cmd.Dir = abs
+	}
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return nil, fmt.Errorf("the port's driver failed: %w%s", err, goHint(err))
@@ -364,13 +378,49 @@ func goHint(err error) string {
 	return ""
 }
 
-// driverCommand is the prebuilt driver when there is one, and `go run` when there is not.
-func driverCommand(crateDir string) *exec.Cmd {
+// driverCommand is the prebuilt driver when it is newer than every source file, and a fresh build when
+// it is not.
+//
+// The staleness check is not a nicety: a prebuilt driver from an earlier `build` answered an old port, so
+// `gate` passed on a crate that no longer compiled. A green gate has to mean the code in front of you.
+func driverCommand(crateDir string) (*exec.Cmd, bool) {
 	for _, name := range []string{"godriver", "godriver.exe"} {
 		path := filepath.Join(crateDir, "work", name)
-		if info, err := os.Stat(path); err == nil && !info.IsDir() {
-			return exec.Command(path)
+		info, err := os.Stat(path)
+		if err != nil || info.IsDir() {
+			continue
 		}
+		if stale, _ := sourcesNewerThan(crateDir, info.ModTime()); stale {
+			// Rebuild in place: the same path, so the next call runs the new binary.
+			return exec.Command("go", "build", "-o", path, "./cmd/godriver"), true
+		}
+		return exec.Command(path), false
 	}
-	return exec.Command("go", "run", "./cmd/godriver")
+	return exec.Command("go", "run", "./cmd/godriver"), false
+}
+
+// sourcesNewerThan reports whether any .go file in the crate changed after the driver was built.
+func sourcesNewerThan(crateDir string, built time.Time) (bool, error) {
+	newer := false
+	err := filepath.WalkDir(crateDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() {
+			// work/ holds the driver itself and the answers; the rest is source.
+			if d.Name() == "work" && filepath.Dir(path) == crateDir {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(path, ".go") {
+			return nil
+		}
+		if info, err := d.Info(); err == nil && info.ModTime().After(built) {
+			newer = true
+			return filepath.SkipAll
+		}
+		return nil
+	})
+	return newer, err
 }
