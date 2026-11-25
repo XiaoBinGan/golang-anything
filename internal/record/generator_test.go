@@ -175,3 +175,28 @@ func driverStrings(t *testing.T) []string {
 	}
 	return out
 }
+
+// An answer that is a class instance carries its behaviour in its prototype, and JSON keeps only the
+// fields: recording one produced "{}" cases no port could match. The recorder leaves the function
+// unproven and says so.
+func TestAnAnswerThatIsAClassInstanceIsNotRecorded(t *testing.T) {
+	if _, err := exec.LookPath("node"); err != nil {
+		t.Skip("node is not on PATH")
+	}
+	crate, unit := writeRepo(t,
+		"export class Slots { constructor(public n: number) {} }\n\n"+
+			"export const makeSlots = (n: number): Slots => new Slots(n)\n",
+		analyze.Export{
+			Name:    "makeSlots",
+			Params:  []ts.Param{{Name: "n", Type: "number"}},
+			Returns: "Slots",
+			Line:    3,
+		})
+	sum, err := Run(Options{CrateDir: crate, Unit: unit})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sum.Cases != 0 {
+		t.Errorf("%d cases recorded for an answer JSON cannot carry", sum.Cases)
+	}
+}

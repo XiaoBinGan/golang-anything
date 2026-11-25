@@ -739,3 +739,21 @@ ready 6,092 → 5,954      blocked 1,859 → 1,997
 
 **没有一刀切**：名字以大写开头的类型（如 `SetupOptions`）不拦——它是数据接口时能作为对象过桥。
 只有在类型明确没有 JSON 形态时才拒绝。
+
+## 静态方法与类实例（第 38 轮）
+
+真实仓库里有 44 个 `static` 方法导出。拿 `src/kuna/KunaRunSlots.ts` 试，撞到两件事：
+
+| 问题 | 现象 |
+| --- | --- |
+| **静态方法根本没被录到** | `forHost` 在运行时是 `mod.KunaRunSlots.forHost`，而录制器只查 `mod.forHost` → `typeof !== 'function'` → **静默跳过，0 例，一声不响** |
+| **类实例被录成 `{}`** | `forHost(0)` 返回 `KunaRunSlots` 实例，`JSON.stringify` 只剩字段、方法在原型上 → 录到 `"ok":{}`，端口永远对不上 |
+
+修法：
+
+1. 录制计划从「函数名 → 类型表」改成「函数名 → { 路径, 类型表 }」，静态方法按 `Class.name` 解析；
+2. 解析不到时报出来（此前静默）：`go-anything: X.y is not a function in the original; it is skipped`
+3. 答案无法过线时（类实例）明确拒绝：`forHost answers a KunaRunSlots, which JSON cannot carry: no case proves it`
+
+`canCarry` 是递归判断：原始值、数组、日期、Map/Set、TypedArray、原型为 `Object.prototype` 的普通对象可以过；
+类实例不行。

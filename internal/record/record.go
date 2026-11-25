@@ -108,11 +108,33 @@ const push = c => {
   seen.add(key)
   write.push(c)
 }
+// canCarry decides whether an answer can cross the wire at all: primitives, arrays of them, dates,
+// typed arrays, and objects whose prototype is Object. A class instance carries its behaviour in its
+// prototype and JSON keeps only the fields, so recording one produced "{}" cases no port could match.
+const canCarry = v => {
+  if (v === null || typeof v !== 'object') return true
+  if (typeof v === 'function') return false
+  if (Array.isArray(v)) return v.every(canCarry)
+  if (v instanceof Date || v instanceof Map || v instanceof Set) return true
+  if (ArrayBuffer.isView(v)) return true
+  const proto = Object.getPrototypeOf(v)
+  if (proto !== Object.prototype && proto !== null) return false
+  return Object.values(v).every(canCarry)
+}
+
 const call = (fn, args) => {
   if (slow.has(fn)) return
+  const target = resolve(plan[fn]?.path ?? fn)
   const started = Date.now()
   try {
-    const ok = decode(mod[fn](...args))
+    const raw = target(...args)
+    if (!canCarry(raw)) {
+      slow.add(fn)
+      process.stderr.write('go-anything: ' + fn + ' answers a ' + (raw.constructor?.name ?? 'class instance') +
+        ', which JSON cannot carry: no case proves it, so it is left unproven\n')
+      return
+    }
+    const ok = decode(raw)
     const size = JSON.stringify(ok)?.length ?? 0
     if (size > MAX_BYTES) {
       // One giant answer must not end the recording: the argument table has a 1,000,000 in it, and
@@ -145,8 +167,16 @@ const cost = v => (typeof v === 'string' ? v.length : typeof v === 'number' ? Ma
 //  1. a paired walk: every value at every position, stepping the tables together (max(table) calls);
 //  2. a bounded cross product over the first PAIRWISE_HEAD values of each position, for the cases where
 //     two arguments interact.
-for (const [fn, types] of Object.entries(plan)) {
-  if (typeof mod[fn] !== 'function') continue
+// resolve follows a dotted path through the module: KunaRunSlots.forHost is a static method.
+const resolve = path => path.split('.').reduce((value, key) => (value == null ? undefined : value[key]), mod)
+
+for (const [fn, entry] of Object.entries(plan)) {
+  const types = entry.types ?? entry
+  if (typeof resolve(entry.path ?? fn) !== 'function') {
+    process.stderr.write('go-anything: ' + (entry.path ?? fn) + ' is not a function in the original; ' +
+      'it is skipped, so no case proves it\n')
+    continue
+  }
   if (only && !only.split(',').includes(fn)) continue
   // Cheap values first: a table that starts with 1,000,000 fills the answer limit before the small
   // ones are recorded, and a function whose three big cases are skipped ends up with no cases at all.
@@ -170,7 +200,7 @@ try {
   extra = (await readFile(extraPath, 'utf8')).split('\n').filter(Boolean).map(l => JSON.parse(l))
 } catch {}
 for (const c of extra) {
-  if (typeof mod[c.fn] !== 'function') continue
+  if (typeof resolve(plan[c.fn]?.path ?? c.fn) !== 'function') continue
   if (only && !only.split(',').includes(c.fn)) continue
   call(c.fn, c.args ?? [], c.kwargs)
 }
@@ -322,8 +352,17 @@ func planRoot(crateDir, rel string) string {
 
 // typePlan maps each export to its parameter types in the dialect the driver knows, and counts the
 // throw paths that a recorded failing case has to cover.
-func typePlan(u analyze.Unit) (map[string][]string, int) {
-	plan := map[string][]string{}
+// planEntry is one export in the recorder's plan: where to find it, and what to call it with.
+type planEntry struct {
+	Path  string   `json:"path"`
+	Types []string `json:"types"`
+}
+
+func typePlan(u analyze.Unit) (map[string]planEntry, int) {
+	// The plan answers, for each export, where the function lives and what to feed it. A static method
+	// of an exported class lives at `Class.name`, not at `name`, and the recorder used to skip those
+	// silently: 44 exports in the real repository recorded zero cases and said nothing.
+	plan := map[string]planEntry{}
 	throws := 0
 	for _, e := range u.Exports {
 		if e.Blocked != "" {
@@ -333,7 +372,11 @@ func typePlan(u analyze.Unit) (map[string][]string, int) {
 		for i, p := range e.Params {
 			types[i] = dialectType(p.Type)
 		}
-		plan[e.Name] = types
+		path := e.Name
+		if e.Method && e.Receiver != "" {
+			path = e.Receiver + "." + e.Name
+		}
+		plan[e.Name] = planEntry{Path: path, Types: types}
 		throws += len(e.ThrowLines)
 	}
 	return plan, throws
