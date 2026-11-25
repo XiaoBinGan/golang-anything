@@ -64,3 +64,5 @@ testdata/markers/go-ports/*/index.wasm.mjs
 testdata/markers/go-ports/*/port.wasm
 testdata/markers/go-ports/*/wasm_support.go
 testdata/markers/go-ports/*/cmd/portwasm/
+testdata/*/go-ports/*/package/
+testdata/sample/*/package/
