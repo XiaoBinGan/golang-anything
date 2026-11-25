@@ -32,6 +32,13 @@ func box(args []any) (any, error) {
 	if width < 4 {
 		return nil, fmt.Errorf("RangeError: box: width must be at least 4")
 	}
+	// A width past what JavaScript can build is a RangeError there, and a port that just allocates
+	// panics with "makeslice: cap out of range" — the same fact, told wrong. V8's limit is that a string
+	// cannot exceed 2^29 - 24 code units.
+	const maxString = 1<<29 - 24
+	if width-2 > maxString {
+		return nil, fmt.Errorf("RangeError: Invalid string length")
+	}
 	inner := pad(label, int(width)-2)
 	out := append([]uint16{'-'}, inner...)
 	return append(out, '-'), nil

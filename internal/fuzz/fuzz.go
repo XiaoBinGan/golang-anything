@@ -32,12 +32,15 @@ type Options struct {
 
 // Result is what a run found.
 type Result struct {
-	Seed      int64           `json:"seed"`
-	Calls     int             `json:"calls"`
-	Matched   int             `json:"matched"`
-	Mismatch  []diff.Mismatch `json:"mismatches"`
-	Kept      int             `json:"kept"`
-	Untouched []string        `json:"untouched"`
+	Seed     int64           `json:"seed"`
+	Calls    int             `json:"calls"`
+	Matched  int             `json:"matched"`
+	Mismatch []diff.Mismatch `json:"mismatches"`
+	Kept     int             `json:"kept"`
+	// Skipped counts the calls the original declined (too large, or out of time). A run that skipped
+	// half of its calls is not a clean run, and the summary says so.
+	Skipped   int      `json:"skipped,omitempty"`
+	Untouched []string `json:"untouched"`
 }
 
 // originalScript answers a list of calls on the original: the same wire markers the recorder uses.
@@ -64,10 +67,26 @@ const decode = v => {
   return v
 }
 
+// MAX_BYTES and the deadline exist because an original can be asked for something enormous: repeat('abc',
+// 1e9) took node to four gigabytes and the process died with a scavenge failure instead of an answer.
+// A call that big is skipped for both sides, which keeps the comparison honest: neither is asked.
+const MAX_BYTES = 64 * 1024
+const started = Date.now()
+const BUDGET_MS = Number(process.env.GO_ANYTHING_FUZZ_BUDGET_MS || 120000)
 const answers = []
 for (const c of calls) {
+  if (Date.now() - started > BUDGET_MS) {
+    answers.push({ fn: c.fn, args: c.args, skip: 'the workload ran out of time' })
+    continue
+  }
   try {
-    answers.push({ fn: c.fn, args: c.args, ok: decode(mod[c.fn](...(c.args ?? []))) })
+    const value = decode(mod[c.fn](...(c.args ?? [])))
+    const size = JSON.stringify(value)?.length ?? 0
+    if (size > MAX_BYTES) {
+      answers.push({ fn: c.fn, args: c.args, skip: 'the answer is ' + size + ' bytes' })
+      continue
+    }
+    answers.push({ fn: c.fn, args: c.args, ok: value })
   } catch (e) {
     const type = e && e.constructor ? e.constructor.name : 'Error'
     answers.push({ fn: c.fn, args: c.args, error: type + ': ' + String(e.message ?? e) })
@@ -184,6 +203,12 @@ func Run(opts Options) (Result, error) {
 	out := Result{Seed: seed, Calls: len(want)}
 	var keepList []cases.Case
 	for _, w := range want {
+		if w.Skip != "" {
+			// The original declined this call, so neither side is asked: comparing an answer against a
+			// skip reported a mismatch for every enormous input.
+			out.Skipped++
+			continue
+		}
 		got, ok := byCall[diff.CallKey(w.Fn, w.Args)]
 		if !ok {
 			got = cases.Case{Fn: w.Fn, Args: w.Args, Err: "the port did not answer"}
@@ -316,7 +341,9 @@ func randomString(gen *rand.Rand) string {
 	// The alphabet carries the punctuation that changes what a function does, not only letters: the
 	// recorder's table learned this in round 21 and this generator had drifted from it, so 200 fresh
 	// draws could not find a shellQuote that had dropped its quote escaping.
-	alphabet := []rune("ab  $\t\n.-_0é😀中\u00a0\u200bß'\"\\`|;&<>()[]{}*?~#%!,:")
+	// Structural characters as well as letters: a port that escaped "~" but not "/" passed 400 fresh
+	// draws, because the alphabet had no slash in it. What a function is about has to be in the pool.
+	alphabet := []rune("ab  $\t\n.-_0é😀中\u00a0\u200bß'\"\\`|;&<>()[]{}*?~#%!,:/=@+")
 	n := gen.Intn(12)
 	out := make([]rune, n)
 	for i := range out {
@@ -333,7 +360,10 @@ func randomNumber(gen *rand.Rand) float64 {
 	case 1:
 		return gen.Float64()*2 - 1
 	case 2:
-		return float64(gen.Intn(1<<30)) * 1e6
+		// Large but allocatable: a times argument of 1e15 asks the original for a string it cannot
+		// build, and node dies of a scavenge failure before any answer is compared. The recorder's table
+		// stops at a million for the same reason.
+		return float64(gen.Intn(1000)) * 1000
 	case 3:
 		return 0
 	case 4:
@@ -342,18 +372,29 @@ func randomNumber(gen *rand.Rand) float64 {
 	return -float64(gen.Intn(1000)) / 7
 }
 
+// show is the same clipping diff uses: a fuzz mismatch printed a 590 KB array of code units once, and
+// the point of the report is to be read.
+const shownBytes = 160
+
 func show(c cases.Case) string {
 	switch {
 	case c.Err != "":
-		return "error " + c.Err
+		return clip("error "+c.Err, shownBytes)
 	case c.Panic != "":
-		return "panic " + c.Panic
+		return clip("panic "+c.Panic, shownBytes)
 	}
 	b, err := json.Marshal(c.Ok)
 	if err != nil {
-		return fmt.Sprint(c.Ok)
+		return clip(fmt.Sprint(c.Ok), shownBytes)
 	}
-	return string(b)
+	return clip(string(b), shownBytes)
+}
+
+func clip(s string, limit int) string {
+	if len(s) <= limit {
+		return s
+	}
+	return s[:limit] + fmt.Sprintf(" … (%d bytes more)", len(s)-limit)
 }
 
 // planRoot walks up from the crate until the unit's file is under a parent.

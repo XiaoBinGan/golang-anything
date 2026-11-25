@@ -3,8 +3,11 @@ package cases
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 )
 
@@ -19,6 +22,9 @@ type Case struct {
 	Ok     any            `json:"ok,omitempty"`
 	Err    string         `json:"error,omitempty"`
 	Panic  string         `json:"panic,omitempty"`
+	// Skip marks a call neither side should be compared on: the original could not answer it within the
+	// recording's limits (its answer was gigabytes, or the run ran out of time).
+	Skip string `json:"skip,omitempty"`
 }
 
 // Read loads a JSONL file of cases.
@@ -29,20 +35,30 @@ func Read(path string) ([]Case, error) {
 	}
 	defer f.Close()
 	var out []Case
-	scan := bufio.NewScanner(f)
-	scan.Buffer(make([]byte, 1<<20), 1<<20)
-	for n := 1; scan.Scan(); n++ {
-		line := scan.Bytes()
-		if len(line) == 0 {
-			continue
+	// A reader, not a Scanner: one case can be a few hundred kilobytes (a long argument, a long
+	// answer), and a Scanner stops at its buffer with "token too long" — which read as the tool being
+	// broken rather than the case being big.
+	reader := bufio.NewReaderSize(f, 1<<20)
+	const maxLine = 64 << 20
+	for n := 1; ; n++ {
+		line, err := readLine(reader, maxLine)
+		if len(line) > 0 {
+			var c Case
+			if jsonErr := json.Unmarshal(line, &c); jsonErr != nil {
+				return nil, fmt.Errorf("%s:%d: %w", path, n, jsonErr)
+			}
+			out = append(out, c)
 		}
-		var c Case
-		if err := json.Unmarshal(line, &c); err != nil {
-			return nil, fmt.Errorf("%s:%d: %w", path, n, err)
+		if err == io.EOF {
+			return out, nil
 		}
-		out = append(out, c)
+		if err != nil {
+			if err == errTooLong {
+				return nil, fmt.Errorf("%s:%d: the line is longer than 64 MB", path, n)
+			}
+			return nil, err
+		}
 	}
-	return out, scan.Err()
 }
 
 // Write appends cases to a JSONL file.
@@ -63,4 +79,27 @@ func Write(path string, list []Case) error {
 		}
 	}
 	return w.Flush()
+}
+
+var errTooLong = errors.New("line too long")
+
+// readLine reads to a newline, dropping the rest of an oversized line and saying so.
+func readLine(r *bufio.Reader, limit int) ([]byte, error) {
+	var buf []byte
+	for {
+		chunk, err := r.ReadSlice('\n')
+		if len(buf)+len(chunk) > limit {
+			for err == bufio.ErrBufferFull {
+				if _, err = r.ReadSlice('\n'); err != nil && err != bufio.ErrBufferFull {
+					break
+				}
+			}
+			return nil, errTooLong
+		}
+		buf = append(buf, chunk...)
+		if err == bufio.ErrBufferFull {
+			continue
+		}
+		return bytes.TrimRight(buf, "\r\n"), err
+	}
 }

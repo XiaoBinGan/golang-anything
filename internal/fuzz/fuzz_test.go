@@ -57,7 +57,7 @@ func TestTheAlphabetHasLoadBearingPunctuation(t *testing.T) {
 			seen[r] = true
 		}
 	}
-	for _, want := range []rune{'\'', '"', '\\', '|', ';', '$', '`'} {
+	for _, want := range []rune{'\'', '"', '\\', '|', ';', '$', '`', '/', '~', '=', '@'} {
 		if !seen[want] {
 			t.Errorf("the alphabet never produces %q", want)
 		}

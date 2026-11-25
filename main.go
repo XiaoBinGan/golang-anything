@@ -1123,7 +1123,13 @@ func runFuzz(args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%d/%d fresh calls match (seed %d).\n", res.Matched, res.Calls, res.Seed)
+	// A call the original declined is neither a match nor a difference: it is left out of the count, and
+	// said out loud, because "61 of 80" reads like nineteen regressions when nineteen calls were skipped.
+	compared := res.Calls - res.Skipped
+	fmt.Printf("%d/%d fresh calls match (seed %d).\n", res.Matched, compared, res.Seed)
+	if res.Skipped > 0 {
+		fmt.Printf("%d call(s) skipped: the original would not answer them within the limits.\n", res.Skipped)
+	}
 	if len(res.Mismatch) > 0 {
 		fmt.Println()
 		for _, m := range res.Mismatch {
@@ -1138,9 +1144,9 @@ func runFuzz(args []string) error {
 	if res.Kept > 0 {
 		fmt.Printf("kept %d failing call(s) in cases.jsonl: `diff` and `gate` now check them.\n", res.Kept)
 	}
-	if res.Matched != res.Calls {
+	if compared > 0 && res.Matched != compared {
 		return fmt.Errorf("fuzz: %d of %d fresh calls differ (replay with --seed %d)",
-			res.Calls-res.Matched, res.Calls, res.Seed)
+			compared-res.Matched, compared, res.Seed)
 	}
 	return nil
 }
