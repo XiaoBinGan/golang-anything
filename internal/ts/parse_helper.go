@@ -137,6 +137,11 @@ func (h *helper) ask(req request) (*File, error) {
 	return answer.File, nil
 }
 
+// Warm starts the helper now, before the caller has anything to parse. The walk that finds the files
+// is the head start: 3.2 ms of process start hides behind a directory tree instead of being paid after
+// the work that found it.
+func Warm() { shared.once.Do(shared.start) }
+
 // Parse reads and parses one file, through the helper.
 func Parse(path string) (*File, error) {
 	if _, ok := LangOf(path); !ok {

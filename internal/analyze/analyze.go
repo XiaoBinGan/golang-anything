@@ -98,6 +98,9 @@ func Run(root string) (*Report, error) {
 		return nil, err
 	}
 	rep := &Report{Root: abs, Language: "typescript"}
+	// Start the parser while the walk below is still looking for files: a build without cgo pays a
+	// process start for it, and this is the one moment it costs nothing.
+	ts.Warm()
 	var units []Unit
 	byPath := map[string]int{}
 	err = filepath.WalkDir(abs, func(path string, d os.DirEntry, err error) error {

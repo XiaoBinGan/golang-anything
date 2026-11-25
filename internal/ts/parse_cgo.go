@@ -26,6 +26,10 @@ func language(l Lang) *sitter.Language {
 	}
 }
 
+// Warm exists so a caller can say "I will parse" before it does: with the parser in this build there is
+// nothing to start, so it does nothing.
+func Warm() {}
+
 // Parse reads one file.
 func Parse(path string) (*File, error) {
 	src, err := os.ReadFile(path)

@@ -117,9 +117,19 @@ node scripts/floor/wasm-floor.mjs          # 进程内 wasm 调用
 代价：`analyze` 6.92 ms vs 4.09 ms（多一次进程启动 + 0.55 MB 交接）。`--help`、`gate`、`diff`、
 `check`、`app replay` 这些不 parse 的命令全部拿到 2.42 ms。
 
-**诚实结论**：启动这一轴是**互有胜负**——不 parse 的命令我们持平（2.42 vs 2.35），
-parse 的命令我们慢 1.7 倍（6.92 vs 4.09）。要两头都赢，得把 tree-sitter 换成纯 Go 的 TS 解析器，
-那是另一个工程。
+**但在真实仓库上量，结论反过来。** 同一个仓库（`rea`：7,390 个 `.ts` + 3,839 个 `.js`）：
+
+| 命令 | go-anything | rust-anything | 结果 |
+| --- | ---: | ---: | --- |
+| `analyze rea` | **8.46 s** | 42.00 s | **快 5.0 倍** |
+
+小样本（2,000 个 `.ts`）：0.044 s vs 0.201 s，**快 4.6 倍**。
+
+所以启动这一轴按命令分开说：
+
+- `--help`、`gate`、`diff`、`check` 这类**不解析**的命令：2.42 ms vs 2.35 ms，持平；
+- `analyze` 在**小样本**上：6.9 ms vs 4.1 ms，我们慢（多一次进程启动）；
+- `analyze` 在**真实仓库**上：8.5 s vs 42.0 s，**我们快 5 倍**——进程启动的 3 ms 在真实工作量前不值一提。
 
 ## 2. record 吞吐（同一个单元，各自生成的 crate）
 
