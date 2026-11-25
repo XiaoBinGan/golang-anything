@@ -486,3 +486,34 @@ every crate gates and answers through a real bridge
 ```
 - shellQuote("it's"): expected "'it'\"'\"'s'", got "'it's'"
 ```
+
+## `app record` / `app replay` 在真实 CLI 上
+
+拿 **go-anything 自己**当被测程序（它是个真 CLI）：
+
+```
+$ go-anything app record --command ./bin/go-anything --inputs inputs.jsonl /tmp/appwise
+6/6 cases replay identically
+$ go-anything app replay --command ./bin/go-anything /tmp/appwise
+6/6 cases replay identically
+
+# 负向对照：只把 help 文案改一个感叹号
+$ go-anything app replay --command /tmp/go-changed /tmp/appwise
+3/6 cases replay identically; 3 differ:
+- --help: stdout differs
+- --version: stderr differs
+- no arguments: stderr differs
+```
+
+**一个字符的改动，三个用例同时点名**——这正是 `app` 层存在的意义。
+
+顺手补了 CLI 的常识：`--version`/`version` 之前是「unknown command」，现在答
+`go-anything v0.0.0-... (go1.26.2)`；`--help` 走 stdout 且退出码 0。有测试直接调 dispatch 验这两条。
+
+## `mcp` 在真实 crate 上
+
+```
+tools/call gate  {crate: uleb-go}        → {"cases":229,"matched":229,"passed":true}
+tools/call diff  {crate: jadx-go}        → {"cases":2,"matched":2,"passed":true}
+tools/call fuzz  {crate: shellQuote-go}  → {"calls":15,"matched":15,"seed":7}
+```

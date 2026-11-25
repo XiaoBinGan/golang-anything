@@ -7,11 +7,11 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
-	"strings"
-
 	"os/exec"
-
+	"path/filepath"
+	"runtime"
+	"runtime/debug"
+	"strings"
 	"time"
 
 	"github.com/xiaobingan/go-anything/internal/analyze"
@@ -69,7 +69,24 @@ const usage = `go-anything: port a codebase into Go, one unit at a time.
 A crate is a folder this tool made. It holds go-anything.json, cases.jsonl, port.go and cmd/godriver.
 `
 
-func main() {
+// version is what the tool says about itself: the module version when the binary carries one, and the
+// shape of the build otherwise.
+func version() string {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return "go-anything (unknown build)"
+	}
+	v := info.Main.Version
+	if v == "" || v == "(devel)" {
+		v = "devel"
+	}
+	return fmt.Sprintf("go-anything %s (%s)", v, runtime.Version())
+}
+
+func main() { realMain() }
+
+// realMain is the dispatch, split out so a test can call it with arguments of its own.
+func realMain() {
 	// A cgo build of this tool answers parse requests itself: that is what makes the fast build's
 	// sidecar free — it is the same program, started for one thing.
 	if len(os.Args) > 1 && os.Args[1] == "__parse" {
@@ -79,6 +96,16 @@ func main() {
 	if len(os.Args) < 2 {
 		fmt.Fprint(os.Stderr, usage)
 		os.Exit(2)
+	}
+	// A tool that cannot say what version it is makes every bug report a guess. `--version` and
+	// `version` both answer, and neither needs the parser.
+	switch os.Args[1] {
+	case "--version", "-version", "version":
+		fmt.Println(version())
+		return
+	case "--help", "-h", "help":
+		fmt.Fprint(os.Stdout, usage)
+		return
 	}
 	var err error
 	switch os.Args[1] {
