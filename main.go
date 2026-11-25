@@ -17,8 +17,10 @@ import (
 	"github.com/xiaobingan/go-anything/internal/bridge"
 	"github.com/xiaobingan/go-anything/internal/diff"
 	"github.com/xiaobingan/go-anything/internal/fastbridge"
+	"github.com/xiaobingan/go-anything/internal/fuzz"
 	"github.com/xiaobingan/go-anything/internal/mapdoc"
 	"github.com/xiaobingan/go-anything/internal/record"
+	"github.com/xiaobingan/go-anything/internal/report"
 	"github.com/xiaobingan/go-anything/internal/scaffold"
 	"github.com/xiaobingan/go-anything/internal/shadow"
 	"github.com/xiaobingan/go-anything/internal/switched"
@@ -43,6 +45,9 @@ const usage = `go-anything: port a codebase into Go, one unit at a time.
   go-anything disable  <crate>                   take that block out again, byte for byte
   go-anything shadow   <crate>                   write shadow.cjs: original and port side by side
   go-anything shadow-report <crate>              summarize what shadow.cjs has seen
+  go-anything fuzz     <crate> [--count N] [--seed S] [--keep]   fresh inputs from a new seed, both sides
+  go-anything refresh  <crate>                   regenerate the binding files from port.go
+  go-anything report   <crate> [--out DIR]       write REPORT.md and card.svg for a PR or a README
 
 A crate is a folder this tool made. It holds go-anything.json, cases.jsonl, port.go and cmd/godriver.
 `
@@ -88,6 +93,12 @@ func main() {
 		err = runShadow(os.Args[2:], false)
 	case "shadow-report":
 		err = runShadow(os.Args[2:], true)
+	case "fuzz":
+		err = runFuzz(os.Args[2:])
+	case "refresh":
+		err = runRefresh(os.Args[2:])
+	case "report":
+		err = runReport(os.Args[2:])
 	case "-h", "--help", "help":
 		fmt.Print(usage)
 		return
@@ -885,5 +896,108 @@ func runShadow(args []string, reportOnly bool) error {
 	fmt.Printf("Wrote %s for %d export(s).\n", path, len(m.Names()))
 	fmt.Println("Require it where you require the original: it answers the original's value and logs differences.")
 	fmt.Println("`go-anything shadow-report` summarizes shadow.jsonl.")
+	return nil
+}
+
+// runFuzz looks for the difference the recording missed.
+func runFuzz(args []string) error {
+	fs := flag.NewFlagSet("fuzz", flag.ExitOnError)
+	count := fs.Int("count", 50, "fresh calls per function")
+	seed := fs.Int64("seed", 0, "seed to replay a run; random when left out")
+	keep := fs.Bool("keep", false, "append what failed to cases.jsonl, so diff and gate check it from now on")
+	tolerance := fs.Float64("tolerance", 1e-9, "numbers match within this relative tolerance")
+	fs.Parse(args)
+	if fs.NArg() != 1 {
+		return fmt.Errorf("fuzz takes one crate folder")
+	}
+	res, err := fuzz.Run(fuzz.Options{
+		CrateDir: fs.Arg(0), Count: *count, Seed: *seed, Keep: *keep, Tolerance: *tolerance,
+	})
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%d/%d fresh calls match (seed %d).\n", res.Matched, res.Calls, res.Seed)
+	if len(res.Mismatch) > 0 {
+		fmt.Println()
+		for _, m := range res.Mismatch {
+			args, _ := json.Marshal(m.Args)
+			fmt.Printf("- `%s(%s)`: expected %s, got %s (%s)\n", m.Fn, string(args[1:len(args)-1]),
+				m.Expected, m.Got, m.Why)
+		}
+	}
+	if len(res.Untouched) > 0 {
+		fmt.Printf("stays in the original: %s\n", strings.Join(res.Untouched, ", "))
+	}
+	if res.Kept > 0 {
+		fmt.Printf("kept %d failing call(s) in cases.jsonl: `diff` and `gate` now check them.\n", res.Kept)
+	}
+	if res.Matched != res.Calls {
+		return fmt.Errorf("fuzz: %d of %d fresh calls differ (replay with --seed %d)",
+			res.Calls-res.Matched, res.Calls, res.Seed)
+	}
+	return nil
+}
+
+// runRefresh regenerates everything but port.go from the manifest: the stubs a person filled in stay.
+func runRefresh(args []string) error {
+	fs := flag.NewFlagSet("refresh", flag.ExitOnError)
+	fs.Parse(args)
+	if fs.NArg() != 1 {
+		return fmt.Errorf("refresh takes one crate folder")
+	}
+	dir := fs.Arg(0)
+	m, err := readManifest(dir)
+	if err != nil {
+		return err
+	}
+	unit, err := unitFrom(dir, m.Unit)
+	if err != nil {
+		return err
+	}
+	// The port's own file is never rewritten here: it holds the work.
+	files, err := scaffold.Run(scaffold.Options{CrateDir: dir, Unit: unit, Crate: m.Crate, SkipPort: true})
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Regenerated %d file(s) from %s; port.go was left alone.\n", len(files), m.Unit)
+	for _, f := range files {
+		fmt.Printf("  %s\n", f)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "index.cjs")); err == nil {
+		if err := buildBridge(dir, m); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// buildBridge rewrites the host wrappers when the crate already had them.
+func buildBridge(dir string, m manifest) error {
+	files, err := bridge.Run(bridge.Options{CrateDir: dir, Crate: m.Crate, Unit: m.Unit, Exports: m.Names()})
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Rewrote %d wrapper file(s).\n", len(files))
+	return nil
+}
+
+// runReport writes the two files a pull request wants.
+func runReport(args []string) error {
+	fs := flag.NewFlagSet("report", flag.ExitOnError)
+	out := fs.String("out", "", "output folder; defaults to the crate")
+	minMS := fs.Int("min-ms", 100, "minimum measured time per function and side")
+	skip := fs.Bool("skip-bench", false, "only the case numbers, no timing")
+	fs.Parse(args)
+	if fs.NArg() != 1 {
+		return fmt.Errorf("report takes one crate folder")
+	}
+	card, err := report.Run(report.Options{
+		CrateDir: fs.Arg(0), Out: *out, MinMS: *minMS, SkipBench: *skip,
+	})
+	if err != nil {
+		return err
+	}
+	fmt.Print(card.Text())
+	fmt.Printf("Wrote %s and %s\n", card.Markdown, card.SVG)
 	return nil
 }

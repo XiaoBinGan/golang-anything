@@ -24,6 +24,8 @@ type Options struct {
 	Unit     analyze.Unit
 	Crate    string
 	Force    bool
+	// SkipPort leaves port.go alone: `refresh` regenerates the binding, never the work.
+	SkipPort bool
 }
 
 // Run writes <crate>/port.go, <crate>/cmd/godriver/main.go and <crate>/go-anything.json.
@@ -32,9 +34,10 @@ func Run(opts Options) ([]string, error) {
 		return nil, err
 	}
 	portPath := filepath.Join(opts.CrateDir, "port.go")
-	if _, err := os.Stat(portPath); err == nil && !opts.Force {
+	if _, err := os.Stat(portPath); err == nil && !opts.Force && !opts.SkipPort {
 		return nil, fmt.Errorf("%s exists: pass --force to overwrite the stubs", portPath)
 	}
+	writePort := !opts.SkipPort || !fileExists(portPath)
 	var buf bytes.Buffer
 	fmt.Fprintf(&buf, `// Package port is the Go port of %s, made by go-anything.
 //
@@ -76,8 +79,10 @@ func %s(args []any) (any, error) {
 	if err != nil {
 		return nil, fmt.Errorf("the generated port does not parse: %w", err)
 	}
-	if err := os.WriteFile(portPath, formatted, 0o644); err != nil {
-		return nil, err
+	if writePort {
+		if err := os.WriteFile(portPath, formatted, 0o644); err != nil {
+			return nil, err
+		}
 	}
 
 	wire := `// Wire markers: JSON cannot carry NaN, ±Infinity, -0, undefined or a lone surrogate, so answers and
@@ -306,12 +311,15 @@ func fail(err error) {
 	if err := os.WriteFile(manifestPath, []byte(manifest), 0o644); err != nil {
 		return nil, err
 	}
-	return []string{
-		portPath,
+	files := []string{
 		filepath.Join(opts.CrateDir, "wire.go"),
 		filepath.Join(opts.CrateDir, "cmd", "godriver", "main.go"),
 		manifestPath,
-	}, nil
+	}
+	if writePort {
+		files = append([]string{portPath}, files...)
+	}
+	return files, nil
 }
 
 // signature renders the original's TypeScript signature next to the stub, so filling it in does not
@@ -353,4 +361,10 @@ func exportList(exports []analyze.Export) string {
 			e.Name, strings.Join(types, ","), e.Returns, e.Line, strings.Join(throws, ","), e.Blocked)
 	}
 	return strings.Join(parts, ",")
+}
+
+// fileExists reports whether a path is an existing regular file.
+func fileExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.Mode().IsRegular()
 }

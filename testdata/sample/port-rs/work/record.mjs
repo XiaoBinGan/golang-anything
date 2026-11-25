@@ -10,7 +10,9 @@ const plan = JSON.parse(await readFile(planPath, 'utf8'))
 const table = {
   string: ['', 'a', 'abc', '  ', 'a b  c', 'x y z', 'pad  ', 'héllo', 'naïve café', '😀😀',
            '$5 apple', '$a$b', '$', 'a$', '  \t  ', 'ünïcodé', 'ÆØÅ', '中文 字', 'a\nb', '0'],
-  number: [0, 1, 2, -1, 7, 1.5, -0.5, 1e9, -1e9, 1e21, 0.1 + 0.2, 3.14159, 1 / 3, -0],
+  // Magnitudes stay small on purpose: a times argument of 1e9 makes the original allocate a
+  // gigabyte and the recording never returns. Big values are what --inputs is for.
+  number: [0, 1, 2, -1, 7, 1.5, -0.5, 1e6, -1e6, 0.1 + 0.2, 3.14159, 1 / 3, -0],
   boolean: [true, false],
   'string[]': [[], ['a'], ['a', 'b'], ['héllo', '😀😀'], ['$x', 'y']],
   'number[]': [[], [1], [1, 2, -1], [0.1, 0.2], [1e21]],
@@ -38,6 +40,13 @@ const decode = v => {
 
 const write = []
 const seen = new Set()
+// A call that takes longer than this is a sign the case is pathological, not that the code is slow:
+// stop generating for that function and say so, instead of hanging the recording.
+const BUDGET_MS = 250
+const slow = new Set()
+// A case has to be small enough to commit and to read in a diff. An answer past this is the
+// generator's fault, not the code's: record it as skipped and stop asking that function.
+const MAX_BYTES = 64 * 1024
 const push = c => {
   const key = c.fn + '|' + JSON.stringify(c.args)
   if (seen.has(key)) return
@@ -45,11 +54,26 @@ const push = c => {
   write.push(c)
 }
 const call = (fn, args) => {
+  if (slow.has(fn)) return
+  const started = Date.now()
   try {
-    push({ fn, args: decode(args), ok: decode(mod[fn](...args)) })
+    const ok = decode(mod[fn](...args))
+    const size = JSON.stringify(ok)?.length ?? 0
+    if (size > MAX_BYTES) {
+      slow.add(fn)
+      process.stderr.write('go-anything: ' + fn + ' answers ' + size + ' bytes for ' +
+        JSON.stringify(decode(args)) + '; that case is skipped and no more are made for it\n')
+      return
+    }
+    push({ fn, args: decode(args), ok })
   } catch (e) {
     const type = e && e.constructor ? e.constructor.name : 'Error'
     push({ fn, args: decode(args), error: type + ': ' + String(e.message ?? e) })
+  }
+  if (Date.now() - started > BUDGET_MS) {
+    slow.add(fn)
+    process.stderr.write('go-anything: ' + fn + ' took ' + (Date.now() - started) + 'ms on ' +
+      JSON.stringify(args) + '; no more cases for it\n')
   }
 }
 
@@ -76,4 +100,5 @@ for (const c of extra) {
   call(c.fn, c.args ?? [], c.kwargs)
 }
 
+// A function that hit the budget is reported on stderr; its recorded cases are still valid.
 await writeFile(outPath, write.map(c => JSON.stringify(c)).join('\n') + '\n')

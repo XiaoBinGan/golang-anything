@@ -122,6 +122,14 @@ func callKey(fn string, args []any) string {
 	return fn + "|" + string(b)
 }
 
+// RunDriver answers a cases file with the port's driver, for the commands that generate their own calls.
+func RunDriver(crateDir string) ([]cases.Case, error) { return runDriver(crateDir) }
+
+// Compare is Same, exported for the commands that compare outside a full diff (fuzz, shadow replay).
+func Compare(want, got cases.Case, tolerance float64) string {
+	return same(want, got, tolerance)
+}
+
 // runDriver executes the generated Go driver in the crate folder.
 func runDriver(crateDir string) ([]cases.Case, error) {
 	out := filepath.Join(crateDir, "work", "answers.jsonl")

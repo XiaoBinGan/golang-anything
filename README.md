@@ -42,9 +42,41 @@ $ go-anything shadow-report testdata/sample/port-rs
 
 （上面这组是真发生的：我把端口改成 `i+1 < len(units)` 制造 off-by-one，shadow 立刻抓到。）
 
+## fuzz：新种子找录不到的分歧
+
+```sh
+$ go-anything fuzz --count 25 --seed 3 testdata/sample/port-rs
+100/100 fresh calls match (seed 3).
+
+# 端口被我改成 off-by-one（末尾空格少算）之后：
+$ go-anything fuzz --count 30 --seed 7 testdata/sample/port-rs
+116/120 fresh calls match (seed 7).
+- `count("_	$ 😀 ")`: expected 2, got 1 (the answer differs)
+$ go-anything fuzz --count 30 --seed 7 --keep testdata/sample/port-rs
+kept 4 failing call(s) in cases.jsonl: `diff` and `gate` now check them.
+$ go-anything gate testdata/sample/port-rs
+go-anything: gate: 7 of 640 cases do not match      ← 从此这条分歧是常驻用例
+```
+
+`--seed` 固定就能重放同一次运行；`--keep` 把失败调用变成正式用例。
+
+## report：给 PR 和 README 的结果
+
+```sh
+$ go-anything report testdata/sample/port-rs
+## `src/text.ts` ported to Go
+| Recorded cases matched | 609 / 609 (100.0%) |
+| Speedup, call included | 1.91x (geometric mean) |
+| Throw paths with a recorded failing case | 1 of 1 |
+| Bridge | in-process addon |
+| Measured | 2026-11-25 20:56 on darwin/arm64, 10 CPUs |
+```
+
+同时写 `card.svg`（840×240，README 可嵌）；用例不全会自动换成另一种主色，不会假装通过。
+
 ## 与 rust-anything 的能力对齐
 
-见 [PARITY.md](PARITY.md)：26 条命令的逐项状态。**已实现 13 条**（`analyze` `scaffold/bridge` `record` `build` `diff` `bench` `clean` `gate` `map` `doctor` `enable` `disable` `shadow`，外加三条自创的 `check` `fast` `shadow-report`），13 条待做（`refresh` `fuzz` `profile` `go` `report` `package` 与 `app *` 五条、`setup/mcp`）。
+见 [PARITY.md](PARITY.md)：26 条命令的逐项状态。**已实现 16 条**（`analyze` `scaffold/bridge` `record` `build` `diff` `bench` `clean` `gate` `map` `doctor` `enable` `disable` `shadow` `fuzz` `refresh` `report`，外加三条自创的 `check` `fast` `shadow-report`），10 条待做（`profile` `go` `package` 与 `app *` 五条、`setup/mcp`）。
 
 ## 性能：进程内桥 0.73 µs/次
 
