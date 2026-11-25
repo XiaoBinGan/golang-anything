@@ -109,7 +109,9 @@ func realMain() {
 		fmt.Println(version())
 		return
 	case "--help", "-h", "help":
-		fmt.Fprint(os.Stdout, usage)
+		// WriteString, not Fprint: the fmt printer lazily builds its own state on first use, and that
+		// one-time cost (tens of microseconds) is most of what --help spends inside main.
+		os.Stdout.WriteString(usage)
 		return
 	}
 	var err error
@@ -171,7 +173,7 @@ func realMain() {
 	case "setup":
 		err = runSetup(os.Args[2:])
 	case "-h", "--help", "help":
-		fmt.Print(usage)
+		os.Stdout.WriteString(usage)
 		return
 	default:
 		err = fmt.Errorf("unknown command %q\n\n%s", os.Args[1], usage)
