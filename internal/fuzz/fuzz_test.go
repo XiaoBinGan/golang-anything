@@ -45,3 +45,21 @@ func TestRunRefusesWithoutACrate(t *testing.T) {
 		t.Error("a crate with no export has nothing to fuzz")
 	}
 }
+
+// The fuzz alphabet has to carry the punctuation that changes what a function does. It drifted from the
+// recorder's table once: 200 fresh draws could not find a shellQuote that had dropped its quote
+// escaping, while the recorded cases could.
+func TestTheAlphabetHasLoadBearingPunctuation(t *testing.T) {
+	gen := newSource(1)
+	seen := map[rune]bool{}
+	for i := 0; i < 20000; i++ {
+		for _, r := range randomString(gen) {
+			seen[r] = true
+		}
+	}
+	for _, want := range []rune{'\'', '"', '\\', '|', ';', '$', '`'} {
+		if !seen[want] {
+			t.Errorf("the alphabet never produces %q", want)
+		}
+	}
+}

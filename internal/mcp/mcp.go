@@ -9,7 +9,9 @@ package mcp
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -146,30 +148,80 @@ func boolean(description string) map[string]any {
 // Serve answers JSON-RPC on in and out until in ends. It never writes anything but protocol frames on
 // out: a log line there would break the client.
 func Serve(in io.Reader, out io.Writer, log io.Writer) error {
-	scan := bufio.NewScanner(in)
-	scan.Buffer(make([]byte, 1<<20), 1<<20)
+	// Read lines with a Reader, not a Scanner: a Scanner answers "token too long" by stopping, and a
+	// client that sends one big argument would take the whole server down instead of getting an error
+	// for that one request.
+	reader := bufio.NewReaderSize(in, 1<<20)
 	enc := json.NewEncoder(out)
-	for scan.Scan() {
-		line := scan.Bytes()
-		if len(line) == 0 {
-			continue
-		}
-		var req request
-		if err := json.Unmarshal(line, &req); err != nil {
-			if err := enc.Encode(response{JSONRPC: "2.0", Error: &rpcError{Code: -32700, Message: "parse error"}}); err != nil {
-				return err
+	const maxLine = 64 << 20
+	for {
+		line, err := readLine(reader, maxLine)
+		if len(line) > 0 {
+			if reply, ok := answerLine(line, enc, log); !ok {
+				return reply
 			}
-			continue
 		}
-		reply, ok := handle(req, log)
-		if !ok {
-			continue // a notification: no answer expected
-		}
-		if err := enc.Encode(reply); err != nil {
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			if err == errTooLong {
+				// The line was dropped; the stream continues with the next one.
+				tooLong := response{JSONRPC: "2.0", Error: &rpcError{Code: -32600, Message: "request line longer than 64 MB"}}
+				if encErr := enc.Encode(tooLong); encErr != nil {
+					return encErr
+				}
+				continue
+			}
 			return err
 		}
 	}
-	return scan.Err()
+}
+
+var errTooLong = errors.New("line too long")
+
+// readLine reads up to a newline, and reports errTooLong after dropping the rest of an oversized line so
+// the next request still arrives.
+func readLine(r *bufio.Reader, limit int) ([]byte, error) {
+	var buf []byte
+	for {
+		chunk, err := r.ReadSlice('\n')
+		if len(buf)+len(chunk) > limit {
+			for err == bufio.ErrBufferFull {
+				if _, err = r.ReadSlice('\n'); err != nil && err != bufio.ErrBufferFull {
+					break
+				}
+			}
+			return nil, errTooLong
+		}
+		buf = append(buf, chunk...)
+		if err == bufio.ErrBufferFull {
+			continue
+		}
+		return bytes.TrimRight(buf, "\r\n"), err
+	}
+}
+
+// answerLine handles one request. A returned error stops the server; ok=false means that happened.
+func answerLine(line []byte, enc *json.Encoder, log io.Writer) (error, bool) {
+	if len(bytes.TrimSpace(line)) == 0 {
+		return nil, true
+	}
+	var req request
+	if err := json.Unmarshal(line, &req); err != nil {
+		if err := enc.Encode(response{JSONRPC: "2.0", Error: &rpcError{Code: -32700, Message: "parse error"}}); err != nil {
+			return err, false
+		}
+		return nil, true
+	}
+	reply, ok := handle(req, log)
+	if !ok {
+		return nil, true // a notification: no answer expected
+	}
+	if err := enc.Encode(reply); err != nil {
+		return err, false
+	}
+	return nil, true
 }
 
 // handle answers one request; ok is false for notifications.

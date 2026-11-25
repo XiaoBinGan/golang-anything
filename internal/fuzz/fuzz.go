@@ -313,7 +313,10 @@ func valueOf(gen *rand.Rand, kind string) any {
 
 // randomString leans on what breaks string code: non-ASCII, emoji and lone-carrier cases.
 func randomString(gen *rand.Rand) string {
-	alphabet := []rune("ab  $\t\n.-_0é😀中\u00a0\u200bß")
+	// The alphabet carries the punctuation that changes what a function does, not only letters: the
+	// recorder's table learned this in round 21 and this generator had drifted from it, so 200 fresh
+	// draws could not find a shellQuote that had dropped its quote escaping.
+	alphabet := []rune("ab  $\t\n.-_0é😀中\u00a0\u200bß'\"\\`|;&<>()[]{}*?~#%!,:")
 	n := gen.Intn(12)
 	out := make([]rune, n)
 	for i := range out {

@@ -117,3 +117,20 @@ func contains(list []string, want string) bool {
 	}
 	return false
 }
+
+// A client that sends one very large request must get an error for that request, not take the server
+// down: the old reader stopped at "token too long" and every later request was lost.
+func TestAHugeRequestDoesNotEndTheStream(t *testing.T) {
+	huge := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"analyze","arguments":{"repo":"` +
+		strings.Repeat("x", 70<<20) + `"}}}`
+	replies := run(t, huge, `{"jsonrpc":"2.0","id":2,"method":"ping"}`)
+	if len(replies) != 2 {
+		t.Fatalf("want an error and a pong, got %d replies", len(replies))
+	}
+	if replies[0]["error"] == nil {
+		t.Errorf("the oversized request should be an error: %+v", replies[0])
+	}
+	if replies[1]["id"].(float64) != 2 || replies[1]["result"] == nil {
+		t.Errorf("the request after it was lost: %+v", replies[1])
+	}
+}

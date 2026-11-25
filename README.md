@@ -607,3 +607,16 @@ every claim above was checked and held
 | `enable` 后**用户删掉结束标记**再 `disable` | 拒绝并说明：`has the opening marker … but not the closing one: the block was edited by hand, so nothing was removed`；块后代码**没有被吞掉** |
 
 最后一条之前只说「没有开启过」，会让人找错地方。
+
+## 协议与生成器的边界（第 32 轮）
+
+| 场景 | 之前 | 现在 |
+| --- | --- | --- |
+| MCP 收到 **>1 MB 的一行** | `bufio.Scanner: token too long` —— **整个服务器退出**，后续请求全丢 | 只对该请求回 `-32600 request line longer than 64 MB`，连接继续 |
+| MCP 流水线 50 个请求 | — | 50 个回复，顺序一致 |
+| MCP 字符串 id / 缺 params / `name` 不是字符串 | — | id 原样回；缺参数 `-32602`；类型不对 `-32602` |
+| **`fuzz` 200 次新采样找不到 shellQuote 的转义 bug** | 生成器字母表里**没有标点**——和 `record` 的表在 21 轮修过一次后**又漂移了** | 字母表加入 `'"\|;&<>()[]{}\*?~#%!,:`，同一次 60 次就抓到 8 条 |
+| `fuzz --keep` 连跑两次 | — | 32 → 37 → 43 例累积；重录后回到 32 且全绿 |
+
+第二条是这轮最值得记的：**同一个错误在 `record` 修过，`fuzz` 里还留着**——因为它们是两份独立的生成器。
+现在两边都有测试盯着字母表/表里必须有那些标点。
