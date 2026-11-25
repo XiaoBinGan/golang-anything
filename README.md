@@ -1054,3 +1054,31 @@ ok   a missing platform package says so
 | --- | --- |
 | 生成的 loader 不 `require` 平台包 | `FAIL a missing platform package did not say so`，`rc=1` |
 | loader 返回写死的错答案 | `FAIL {"answer":[],"escaped":""}`，`rc=1` |
+
+## 检查脚本必须能变红（第 50 轮）
+
+三个脚本**报告结论却永远 `exit 0`**：
+
+| 脚本 | 之前 | 现在 |
+| --- | --- | --- |
+| `matrix.sh` | 坏端口在表格里显示 `FAIL`，退出码 **0** | `exit 1` |
+| `perf.sh` | 缺 rig 时打 traceback 或一排 0.0 ms，退出码 **0** | 拒绝测量，`exit 2` |
+| `npm-install-check.sh`（49 轮） | `FAIL` 是装饰 | `exit 1` |
+
+`perf.sh` 现在还会先跑两边的 `diff`——它自己的注释早就写着「两边都必须 diff 通过」，但从来没检查过。
+
+### `scripts/negative.sh` / `make negative`
+
+**故意坏一次，确认它红**：
+
+```
+$ make negative
+ok    matrix rejects a broken port (exit 1)
+ok    contract notices a copy of the wire (exit 1)
+ok    evidence notices a case that does not hold (exit 1)
+ok    perf refuses a missing rig (exit 2)
+ok    npm-install-check notices a loader that answers wrongly (exit 1)
+every check in this folder fails when it should          # 19 秒
+```
+
+它慢且会临时破坏文件，所以**不放进 `make check`**——它是「为什么可以相信 `make check`」的那个东西。
