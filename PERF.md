@@ -63,24 +63,37 @@ node scripts/floor/wasm-floor.mjs          # 进程内 wasm 调用
 来回一次就要 182 ns，比 napi 慢一倍多，跨进程只会更糟。`wasm` 那行指出的是一条真能赢的路：
 把端口编成 wasm，在同一个进程里直接调用，函数调用本身只要 8 ns。
 
-**四条候选架构，全部实测过（都不是猜的）：**
+**更正：我上一轮把 wasip1 判死刑是错的。**
 
-| 架构 | 每次调用 | 真实字符串工作 | 结论 |
+真正的失败原因不是「导出函数跑在固定栈上」，而是**构建模式**：不带 `-buildmode=c-shared` 时，wasip1 产物
+是「命令模块」，它靠 `_start` 初始化，任何 `//go:wasmexport` 在初始化前调用都会 abort（`notInitialized`）。
+加上 `-buildmode=c-shared` 得到的是 **reactor 模块**，真实的 Go 代码——字符串、`utf16.Encode`、分配——全部可用。
+
+修正后的四条架构与实测：
+
+| 架构 | 每次调用 | 真实 Go 代码 | 结论 |
 | --- | ---: | --- | --- |
 | 共享内存 ring（JS↔JS 最好情况） | 182–210 ns | 可以 | 比 napi 慢 2.5 倍，弃 |
-| **wasip1 叶子导出** | **18.1 ns** | **崩溃**（`badmorestackg0`） | 只有叶子函数能用 |
-| js/wasm 回调（Go 调度器在跑） | **10,260 ns** | 可以 | 比 napi 慢 140 倍，弃 |
-| cgo + N-API（现状） | 215 ns | 可以 | 能用，落后 2.9 倍 |
+| **wasip1 reactor：叶子函数** | **18.2 ns** | 仅叶子 | 比 napi 快 4 倍（纯字节循环） |
+| **wasip1 reactor：分配型端口** | 121 ns | 可以 | 仍比 napi 快 1.6 倍（一次 `utf16.Encode`） |
+| wasip1 reactor + JSON 信封（本工具现状） | 750–780 ns | 可以 | 慢在信封，不在 wasm |
+| js/wasm 回调（Go 调度器） | 10,260 ns | 可以 | 慢 140 倍，弃 |
+| cgo + N-API（现状默认） | 215–250 ns | 可以 | 落后 2.9 倍 |
 
-**这张表的结论比任何实现都值钱**：
+**分解 780 ns 花在哪（实测）**：
 
-- 「共享内存 ring」和「js/wasm 回调」都是听起来很对的方案，实测一个慢 2.5 倍、一个慢 140 倍，**在写代码前就被否掉了**；
-- wasip1 的叶子导出达到 18 ns（比 napi 快 4 倍），但**只要函数里出现真正的 Go 字符串工作就崩溃**——
-  导出函数跑在固定栈上，`utf16.Encode` 这类需要 growstack 的调用直接 abort；
-- 剩下的唯一希望是 **tinygo**（它的 wasm 后端没有这套 g0 栈限制）。本机下载 tinygo 反复失败
-  （curl exit 56，GitHub release 资产过不去代理），所以这条路**被网络挡住**，不是被设计挡住。
+```
+go_call1（wasm 调用 + 注册表查找 + []any 装箱 + json.Marshal + 拷贝）  0.51 µs
++ JSON.parse(reply)                                             0.04 µs
++ TextEncoder.encode(arg)                                       0.15 µs
+```
 
-复现脚本：`scripts/floor/ring-floor.mjs`、`scripts/floor/wasm-floor.mjs`。
+**结论：wasm 这条路是通的，慢的是我们自己包的那层。** 叶子端口 18 ns、带一次分配的端口 121 ns，
+都低于 napi 的 73 ns——前提是调用别经过 `Registry` + `[]any` + `json.Marshal` 这层信封。
+下一步就是生成**按签名直调**的导出（`go_count(ptr, len) float64`），把 0.51 µs 压到 ~50 ns。
+
+复现脚本：`scripts/floor/ring-floor.mjs`、`scripts/floor/wasm-floor.mjs`；
+真实端口：`go-anything wasm <crate>` → `node testdata/sample/port-rs/index.wasm.mjs`。
 
 ## 2. record 吞吐（同一个单元，各自生成的 crate）
 

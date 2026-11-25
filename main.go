@@ -31,6 +31,7 @@ import (
 	"github.com/xiaobingan/go-anything/internal/scaffold"
 	"github.com/xiaobingan/go-anything/internal/shadow"
 	"github.com/xiaobingan/go-anything/internal/switched"
+	"github.com/xiaobingan/go-anything/internal/wasmbridge"
 )
 
 const usage = `go-anything: port a codebase into Go, one unit at a time.
@@ -47,6 +48,7 @@ const usage = `go-anything: port a codebase into Go, one unit at a time.
   go-anything clean    <crate>                   remove what this tool and go build left behind
   go-anything doctor                             check the runtimes a port needs
   go-anything build --fast <crate>               also build the in-process bridge (c-shared + N-API)
+  go-anything wasm     <crate>                   build the port as WebAssembly and call it in-process
   go-anything check    <crate>                   replay the cases through the host wrapper (addon or stdio)
   go-anything enable   <crate> [--only a,b] [--async]   make the original call the port
   go-anything disable  <crate>                   take that block out again, byte for byte
@@ -97,6 +99,8 @@ func main() {
 		err = runDoctor(os.Args[2:])
 	case "fast":
 		err = runFast(os.Args[2:])
+	case "wasm":
+		err = runWasm(os.Args[2:])
 	case "check":
 		err = runCheck(os.Args[2:])
 	case "enable":
@@ -1430,4 +1434,32 @@ func handlerName(key string) string {
 		return "run"
 	}
 	return "run" + strings.ToUpper(b.String()[:1]) + b.String()[1:]
+}
+
+// runWasm builds the port as a WebAssembly reactor plus its wrapper.
+func runWasm(args []string) error {
+	fs := flag.NewFlagSet("wasm", flag.ExitOnError)
+	fs.Parse(args)
+	if fs.NArg() != 1 {
+		return fmt.Errorf("wasm takes one crate folder")
+	}
+	dir := fs.Arg(0)
+	m, err := readManifest(dir)
+	if err != nil {
+		return err
+	}
+	files, err := wasmbridge.Run(wasmbridge.Options{CrateDir: dir, Crate: m.Crate, Exports: m.Names()})
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Built the WebAssembly port for %d export(s):\n", len(m.Names()))
+	for _, f := range files {
+		if info, err := os.Stat(f); err == nil {
+			fmt.Printf("  %s (%.1f MB)\n", filepath.Base(f), float64(info.Size())/(1<<20))
+			continue
+		}
+		fmt.Printf("  %s\n", f)
+	}
+	fmt.Println("`index.wasm.mjs` calls it in-process: no pipe, no addon, one function call per call.")
+	return nil
 }

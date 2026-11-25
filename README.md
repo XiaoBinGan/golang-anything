@@ -194,11 +194,12 @@ $ ./frontdoor --version
 | --- | ---: |
 | rust-anything napi（对照） | 73 ns |
 | 共享内存 ring（JS↔JS 最好情况） | 182 ns → **赢不了，没写** |
-| **wasip1 叶子导出** | **18.1 ns**，但真实字符串工作崩溃 |
+| **wasip1 reactor（`-buildmode=c-shared`）** | **18 ns 叶子 / 121 ns 带分配 / 780 ns 带 JSON 信封** |
 | js/wasm 回调（Go 调度器） | 10,260 ns → 慢 140 倍，弃 |
 | cgo + napi（现在） | 215 ns |
 
 复现：`node scripts/floor/ring-floor.mjs`、`node scripts/floor/wasm-floor.mjs`。
+真实端口：`go-anything wasm <crate>` 生成 `port.wasm` + `index.wasm.mjs`，Node 里直接调用。
 
 ## 批量接口：`callNumbers`
 

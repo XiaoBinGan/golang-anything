@@ -121,6 +121,23 @@ func invoke(name string, args []any) (any, error) {
 	return safeCall(fn, DecodeArgs(args))
 }
 
+// AnswerJSON parses the arguments as JSON and marshals the reply: the one shape every bridge can
+// carry, including the WebAssembly one where there is no C string to hand back.
+func AnswerJSON(name string, argsJSON string) []byte {
+	var args []any
+	if argsJSON != "" && argsJSON != "null" {
+		if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+			return []byte("{\"error\":\"bad args\"}")
+		}
+	}
+	reply := Answer(name, args)
+	b, err := json.Marshal(reply)
+	if err != nil {
+		return []byte("{\"error\":\"reply\"}")
+	}
+	return b
+}
+
 // Answer runs one call and never lets a panic out: the host sees a reply, not a dead process.
 func Answer(name string, args []any) map[string]any {
 	v, err := invoke(name, args)
