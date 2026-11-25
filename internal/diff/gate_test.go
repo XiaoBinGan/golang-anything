@@ -106,3 +106,16 @@ func TestAVeryLongValueIsClipped(t *testing.T) {
 		t.Errorf("the clipping does not say how much was cut:\n%s", text)
 	}
 }
+
+// A call with no arguments arrives as `"args":[]` from the recorder and as no `args` at all from a
+// driver that omits the empty field. Marshalling nil gives "null", so a function with no parameters
+// never joined its own answer — every such export read "the driver did not answer this case".
+func TestACallWithNoArgumentsJoins(t *testing.T) {
+	if a, b := callKey("f", nil), callKey("f", []any{}); a != b {
+		t.Fatalf("nil and empty args give different keys: %q vs %q", a, b)
+	}
+	// A call with arguments still distinguishes them.
+	if a, b := callKey("f", []any{1.0}), callKey("f", []any{2.0}); a == b {
+		t.Fatalf("different arguments share a key: %q", a)
+	}
+}

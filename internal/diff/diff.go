@@ -118,8 +118,21 @@ func Run(opts Options) (Outcome, error) {
 	return out, nil
 }
 
+// CallKey identifies one call: the function and its arguments, as JSON.
+//
+// Exported because fuzz had its own copy and the copy drifted: the zero-argument fix landed in one and
+// not in the other, and the two then disagreed about whether a driver had answered.
+func CallKey(fn string, args []any) string { return callKey(fn, args) }
+
 // callKey identifies one call: the function and its arguments, as JSON.
 func callKey(fn string, args []any) string {
+	// A call with no arguments arrives two ways: `"args":[]` from the recorder and no `args` at all from
+	// a driver that omits the empty field. Marshalling nil and []any{} gives "null" and "[]", so a
+	// function with no parameters never joined its own answer — and this fixture was the first crate to
+	// have one.
+	if len(args) == 0 {
+		return fn + "|[]"
+	}
 	b, err := json.Marshal(args)
 	if err != nil {
 		return fn

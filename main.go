@@ -888,7 +888,10 @@ let matched = 0
 const bad = []
 for (const c of cases) {
   try {
-    const args = (c.args ?? []).map(decode)
+    // The arguments go to the bridge as they were recorded, markers and all: decoding them here turns
+    // {"$number":"-0"} into -0, and JSON.stringify([-0]) is "[0]" — the marker never reaches the port,
+    // which is how isNegativeZero answered false through the bridge and true through the driver.
+    const args = c.args ?? []
     const got = inProcess ? port.callSync(c.fn, ...args) : await port.call(c.fn, args)
     // The recorded answer carries wire markers too: decode before comparing.
     const want = decode(c.ok)

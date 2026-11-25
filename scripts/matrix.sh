@@ -19,6 +19,7 @@ testdata/realworld/go-ports/byteToHex-go
 testdata/realworld/go-ports/shellQuote-go
 testdata/realworld3/go-ports/uleb-go
 testdata/realworld4/go-ports/jadx-go
+testdata/markers/go-ports/markers-go
 "}
 
 {

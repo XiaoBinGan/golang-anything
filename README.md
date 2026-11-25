@@ -620,3 +620,25 @@ every claim above was checked and held
 
 第二条是这轮最值得记的：**同一个错误在 `record` 修过，`fuzz` 里还留着**——因为它们是两份独立的生成器。
 现在两边都有测试盯着字母表/表里必须有那些标点。
+
+## 第八个 crate：每个「JSON 装不下的值」各一个函数
+
+`testdata/markers/` 存在的唯一目的是把每个桥都按同一份契约校验一遍：
+
+| 原式 | 线上的写法 |
+| --- | --- |
+| `n / 0` | `{"$number":"Infinity"}` |
+| `0 / 0` | `{"$number":"NaN"}` |
+| `() => -0` | `{"$number":"-0"}` |
+| `() => "\ud800"` | `{"$utf16":[55296]}` |
+| `() => undefined` | `{"$undefined":true}` |
+
+82 条用例，`gate` / `check`（经 addon）/ `fuzz` 全绿。它一上来就暴露了三处**同一逻辑的多份实现互相漂移**：
+
+| 漂移 | 现象 |
+| --- | --- |
+| `diff.callKey` 与 `fuzz.key` 两份拷贝 | **零参数函数永远对不上**（录制写 `"args":[]`，驱动省略该字段 → key 一个 `[]` 一个 `null`） |
+| 同上，修在 `diff` 后 `fuzz` 仍错 | `fuzz` 报 `the port did not answer` |
+| `check.mjs` 把参数**解码后再序列化** | `-0` → `JSON.stringify([-0])` → `[0]`，标记在路上就丢了：`isNegativeZero` 经桥上答 `false`、经驱动答 `true` |
+
+现在 `CallKey` 只有一份，`check` 原样传标记。

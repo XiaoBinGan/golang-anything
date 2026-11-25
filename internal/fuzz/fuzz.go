@@ -170,7 +170,7 @@ func Run(opts Options) (Result, error) {
 	}
 	byCall := map[string]cases.Case{}
 	for _, a := range portAnswers {
-		byCall[key(a.Fn, a.Args)] = a
+		byCall[diff.CallKey(a.Fn, a.Args)] = a
 	}
 
 	tol := opts.Tolerance
@@ -184,7 +184,7 @@ func Run(opts Options) (Result, error) {
 	out := Result{Seed: seed, Calls: len(want)}
 	var keepList []cases.Case
 	for _, w := range want {
-		got, ok := byCall[key(w.Fn, w.Args)]
+		got, ok := byCall[diff.CallKey(w.Fn, w.Args)]
 		if !ok {
 			got = cases.Case{Fn: w.Fn, Args: w.Args, Err: "the port did not answer"}
 		}
@@ -207,10 +207,10 @@ func Run(opts Options) (Result, error) {
 		}
 		seen := map[string]bool{}
 		for _, c := range list {
-			seen[key(c.Fn, c.Args)] = true
+			seen[diff.CallKey(c.Fn, c.Args)] = true
 		}
 		for _, c := range keepList {
-			if seen[key(c.Fn, c.Args)] {
+			if seen[diff.CallKey(c.Fn, c.Args)] {
 				continue
 			}
 			list = append(list, c)
@@ -340,14 +340,6 @@ func randomNumber(gen *rand.Rand) float64 {
 		return float64(gen.Intn(10)) / 3
 	}
 	return -float64(gen.Intn(1000)) / 7
-}
-
-func key(fn string, args []any) string {
-	b, err := json.Marshal(args)
-	if err != nil {
-		return fn
-	}
-	return fn + "|" + string(b)
 }
 
 func show(c cases.Case) string {

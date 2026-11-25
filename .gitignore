@@ -51,3 +51,12 @@ testdata/realworld4/go-ports/*/portctl
 testdata/realworld4/go-ports/*/work/
 testdata/realworld3/go-ports/*/shadow.jsonl
 testdata/*/go-ports/*/shadow.jsonl
+testdata/markers/go-ports/*/addon.node
+testdata/markers/go-ports/*/answer.go
+testdata/markers/go-ports/*/*.dylib
+testdata/markers/go-ports/*/*.h
+testdata/markers/go-ports/*/index.cjs
+testdata/markers/go-ports/*/port.py
+testdata/markers/go-ports/*/portctl
+testdata/markers/go-ports/*/work/
+testdata/markers/go-ports/*/shadow.jsonl
