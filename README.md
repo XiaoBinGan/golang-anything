@@ -74,6 +74,18 @@ $ go-anything report testdata/sample/port-rs
 
 同时写 `card.svg`（840×240，README 可嵌）；用例不全会自动换成另一种主色，不会假装通过。
 
+## 无扩展名 import 的单元也能录
+
+真实源码写 `import { pad } from './util'`，Node 的 ESM 解析器要扩展名。`record` 现在写一个加载钩子
+（`work/resolve.mjs`）依次试 `.ts`/`.tsx`/`.js`/`.mjs`/`.cjs`，所以这样的单元照样能录：
+
+```sh
+$ go-anything record --unit src/format.ts testdata/waves/rust/format-go
+Recorded 7 cases for 1 functions (74d57a3e64c9d0aa) from src/format.ts
+$ go-anything gate testdata/waves/rust/format-go
+gate: every case matches, every export is in the port, and every throw path has a failing case.
+```
+
 ## app：整程序黑盒录制与回放
 
 ```sh

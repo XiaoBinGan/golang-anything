@@ -14,3 +14,14 @@ testdata/**/shadow.jsonl
 go-anything
 scripts/floor/probe.wasm
 bin/
+testdata/waves/rust/*/work/
+testdata/waves/rust/*/port.wasm
+testdata/waves/rust/*/index.wasm.mjs
+testdata/waves/rust/*/wasm_support.go
+testdata/waves/rust/*/addon.node
+testdata/waves/rust/*/*.dylib
+testdata/waves/rust/*/answer.go
+testdata/waves/rust/*/portctl
+testdata/waves/rust/*/index.cjs
+testdata/waves/rust/*/port.py
+testdata/waves/rust/*/libport.h

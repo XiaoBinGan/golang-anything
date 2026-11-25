@@ -1,0 +1,7 @@
+{"fn":"box","args":["",0],"error":"RangeError: box: width must be at least 4"}
+{"fn":"box","args":["",1],"error":"RangeError: box: width must be at least 4"}
+{"fn":"box","args":["",2],"error":"RangeError: box: width must be at least 4"}
+{"fn":"box","args":["",-1],"error":"RangeError: box: width must be at least 4"}
+{"fn":"box","args":["",7],"ok":"-     -"}
+{"fn":"box","args":["",1.5],"error":"RangeError: box: width must be at least 4"}
+{"fn":"box","args":["",-0.5],"error":"RangeError: box: width must be at least 4"}

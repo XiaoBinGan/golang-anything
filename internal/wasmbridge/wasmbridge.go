@@ -275,8 +275,7 @@ const crateSupport = `// Typed entry points for the WebAssembly module, generate
 package port
 
 import (
-	"math"
-%STRCONV%	"unsafe"
+%MATH%%STRCONV%	"unsafe"
 )
 
 // bytesAt reads n bytes at a pointer without copying: the bytes live in this module's memory.
@@ -359,7 +358,12 @@ func Run(opts Options) ([]string, error) {
 	if strings.Contains(body, "strconv.") {
 		strconvImport = "\t\"strconv\"\n"
 	}
-	supportSrc := strings.ReplaceAll(crateSupport, "%STRCONV%", strconvImport)
+	mathImport := ""
+	if strings.Contains(body, "math.") {
+		mathImport = "\t\"math\"\n"
+	}
+	supportSrc := strings.ReplaceAll(crateSupport, "%MATH%", mathImport)
+	supportSrc = strings.ReplaceAll(supportSrc, "%STRCONV%", strconvImport)
 	supportSrc = strings.ReplaceAll(supportSrc, "%SUPPORT%", body)
 	if err := os.WriteFile(support, []byte(supportSrc), 0o644); err != nil {
 		return nil, err

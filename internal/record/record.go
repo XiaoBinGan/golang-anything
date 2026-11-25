@@ -163,6 +163,13 @@ func Run(opts Options) (Summary, error) {
 	if err := os.WriteFile(script, []byte(driver), 0o644); err != nil {
 		return Summary{}, err
 	}
+	hooksPath, err := filepath.Abs(filepath.Join(work, "resolve.mjs"))
+	if err != nil {
+		return Summary{}, err
+	}
+	if err := os.WriteFile(hooksPath, []byte(resolver), 0o644); err != nil {
+		return Summary{}, err
+	}
 	// The unit's path is relative to the plan root, not to the process: find it the same way.
 	root := planRoot(opts.CrateDir, opts.Unit.Files[0])
 	unitPath, err := filepath.Abs(filepath.Join(root, opts.Unit.Files[0]))
@@ -203,7 +210,7 @@ func Run(opts Options) (Summary, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), limit)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "node", "--experimental-strip-types",
-		"--no-warnings=ExperimentalWarning", script, unitPath, out, planPath, extra,
+		"--no-warnings=ExperimentalWarning", "--import", hooksPath, script, unitPath, out, planPath, extra,
 		strings.Join(opts.Only, ","))
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
