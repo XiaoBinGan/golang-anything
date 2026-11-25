@@ -85,3 +85,4 @@ testdata/*/go-ports/*/libport.dylib
 testdata/sample/*/libport.dylib
 testdata/waves/*/*/libport.dylib
 testdata/realworld*/*/*/libport.dylib
+testdata/markers/go-ports/markers-go/port.wasm
