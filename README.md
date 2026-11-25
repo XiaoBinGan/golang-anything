@@ -188,6 +188,17 @@ $ ./frontdoor --version
 桥接四步优化都实测过：JSON 双向 1.4–2.0 µs → 分开传参 0.73 µs → 单字符串入口 0.21–0.23 µs →
 **类型化批量 0.051 µs**。批量是唯一压到 rust-anything 单次调用之下的形态，因为跨界成本只付一次。
 
+## 三条架构的下界（实测，见 PERF.md）
+
+| 方案 | 每次调用下界 |
+| --- | ---: |
+| rust-anything napi（对照） | 73 ns |
+| 共享内存 ring（JS↔JS 最好情况） | 182 ns → **赢不了，没写** |
+| **进程内 wasm**（`//go:wasmexport`） | **8.2 ns** → 有 8.9 倍余量 |
+| cgo + napi（现在） | 215 ns |
+
+复现：`node scripts/floor/ring-floor.mjs`、`node scripts/floor/wasm-floor.mjs`。
+
 ## 批量接口：`callNumbers`
 
 ```js

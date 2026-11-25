@@ -12,3 +12,4 @@ testdata/*/rust/*/work/
 testdata/**/work/
 testdata/**/shadow.jsonl
 go-anything
+scripts/floor/probe.wasm

@@ -41,6 +41,32 @@ Go 1.26.2。两个工具都用自己生成的桥，调用同一个 `count("a b  
 
 要到 0.07 µs 只能绕开 cgo——Go 没有这条路。
 
+## 1b. 两条「能不能赢」的实测下界（本轮）
+
+在写更多代码之前，先测「这个架构的物理下界」——如果下界就赢不了，写出来也没用。
+
+| 架构 | 每次调用下界 | 与 73 ns 比 | 结论 |
+| --- | ---: | --- | --- |
+| 共享内存 ring（**JS↔JS 同进程**，最好的情况：无 cgo、无系统调用） | 182 ns | 2.5 倍慢 | **ring 赢不了**，不用写 |
+| **进程内 wasm**（`GOOS=wasip1` + `//go:wasmexport`，一次 int32 调用） | **8.2 ns** | **快 8.9 倍** | 有足够余量，值得做 |
+| cgo + napi（当前单次调用） | 215 ns | 2.9 倍慢 | 结构性落后 |
+
+复现命令：
+
+```sh
+node scripts/floor/ring-floor.mjs          # JS 工作线程 + SharedArrayBuffer 往返
+(cd scripts/floor/wasmprobe && GOOS=wasip1 GOARCH=wasm go build -o ../probe.wasm .)
+node scripts/floor/wasm-floor.mjs          # 进程内 wasm 调用
+```
+
+**为什么这两行值钱**：`ring` 那行把一个「听起来很对」的方案在写代码之前否掉了——JS 两个线程通过共享内存
+来回一次就要 182 ns，比 napi 慢一倍多，跨进程只会更糟。`wasm` 那行指出的是一条真能赢的路：
+把端口编成 wasm，在同一个进程里直接调用，函数调用本身只要 8 ns。
+
+**为什么还没落地**：`//go:wasmexport` 的真实字符串调用在这套工具链上撞到 Go wasm 运行时的栈限制
+（`runtime.morestack` / `badmorestackg0` 崩溃），所以「调用下界 8 ns」已经证明，但「带内存拷贝的真实调用」
+还需要换 tinygo 或把导出函数限制成叶子函数。这是工程问题，不是延迟预算问题。
+
 ## 2. record 吞吐（同一个单元，各自生成的 crate）
 
 | 实现 | 用例数 | 中位耗时 | 吞吐 |
