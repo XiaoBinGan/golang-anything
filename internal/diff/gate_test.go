@@ -1,9 +1,13 @@
 package diff
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestGateInsistsOnARecordedFailingCase(t *testing.T) {
-	out := Outcome{Cases: 4, Matched: 4, ErrorCases: map[string]int{"ok": 0}}
+	out := Outcome{Cases: 4, Matched: 4, ErrorCases: map[string]int{"ok": 0},
+		PerFn: map[string]int{"ok": 4, "throws": 4, "generic": 4}}
 	checks := Check(out, map[string]int{"ok": 0, "throws": 1}, map[string]string{"generic": "is generic"})
 	if checks.Passed(out.Matched, out.Cases) {
 		t.Fatal("a throw with no recorded failing case must fail the gate")
@@ -37,5 +41,24 @@ func TestGateFailsOnMismatchAndPanic(t *testing.T) {
 	// Zero recorded cases is a failure, not a vacuous pass.
 	if (GateChecks{}).Passed(0, 0) {
 		t.Error("no cases must not read as a pass")
+	}
+}
+
+// A crate can be green while a whole function was never called: a recording whose table started with
+// an answer too large to keep left one export with no cases at all, and the gate said yes. Now it says
+// which export nobody asked about.
+func TestGateFailsOnAnExportWithNoRecordedCase(t *testing.T) {
+	out := Outcome{
+		Cases: 4, Matched: 4,
+		ErrorCases: map[string]int{},
+		PerFn:      map[string]int{"pad": 4, "repeat": 0},
+	}
+	checks := Check(out, nil, map[string]string{"pad": "", "repeat": ""})
+	if len(checks.Untested) != 1 || checks.Untested[0] != "repeat" {
+		t.Fatalf("untested: %+v", checks.Untested)
+	}
+	reasons := checks.Failed(out.Matched, out.Cases)
+	if len(reasons) != 1 || !strings.Contains(reasons[0], "no recorded case for repeat") {
+		t.Fatalf("reasons: %v", reasons)
 	}
 }

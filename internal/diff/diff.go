@@ -45,6 +45,9 @@ type Outcome struct {
 	// ErrorCases counts, per function, the recorded cases that raised: an error path with none of
 	// these is a path nobody proved.
 	ErrorCases map[string]int `json:"error_cases,omitempty"`
+	// Cases counts, per function, the recorded cases: an export with none of these is a port nothing
+	// ever asked a question about.
+	PerFn map[string]int `json:"cases_by_fn,omitempty"`
 }
 
 // Passed is the sentence `gate` and a person both want.
@@ -74,11 +77,12 @@ func Run(opts Options) (Outcome, error) {
 	for _, a := range answers {
 		byCall[callKey(a.Fn, a.Args)] = a
 	}
-	out := Outcome{Cases: len(recorded), ErrorCases: map[string]int{}}
+	out := Outcome{Cases: len(recorded), ErrorCases: map[string]int{}, PerFn: map[string]int{}}
 	for _, want := range recorded {
 		if want.Err != "" {
 			out.ErrorCases[want.Fn]++
 		}
+		out.PerFn[want.Fn]++
 	}
 	missing := map[string]bool{}
 	for _, want := range recorded {

@@ -16,6 +16,9 @@ type GateChecks struct {
 	Blocked map[string]string
 	// Panicked counts recorded cases where the port panicked instead of answering.
 	Panicked int
+	// Untested are exports with no recorded case at all: a function nobody asked about is not proved
+	// by a green gate, it is simply absent from the run.
+	Untested []string
 }
 
 // Check runs the extra gate conditions over a finished outcome.
@@ -32,6 +35,18 @@ func Check(out Outcome, throws map[string]int, blocked map[string]string) GateCh
 		}
 	}
 	sort.Strings(checks.Uncovered)
+	// Every export the port carries needs at least one recorded case. Without this rule a crate can be
+	// green while a whole function was never called — which happened here: a table that started with a
+	// million-length answer left `pad` with no cases and the gate still said yes.
+	for fn := range out.PerFn {
+		_ = fn
+	}
+	for fn := range blocked {
+		if out.PerFn[fn] == 0 {
+			checks.Untested = append(checks.Untested, fn)
+		}
+	}
+	sort.Strings(checks.Untested)
 	checks.Missing = out.Missing
 	for _, m := range out.Mismatch {
 		if strings.HasPrefix(m.Got, "panic ") || strings.Contains(m.Got, "\"panic\"") {
@@ -49,6 +64,9 @@ func (c GateChecks) Failed(matched, total int) []string {
 	var out []string
 	if matched != total {
 		out = append(out, fmt.Sprintf("%d of %d cases do not match", total-matched, total))
+	}
+	if len(c.Untested) > 0 {
+		out = append(out, fmt.Sprintf("no recorded case for %s: nothing proved it", strings.Join(c.Untested, ", ")))
 	}
 	if len(c.Missing) > 0 {
 		out = append(out, fmt.Sprintf("no port for %s", strings.Join(c.Missing, ", ")))

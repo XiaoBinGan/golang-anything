@@ -18,575 +18,111 @@
 {"fn":"count","args":["中文 字"],"ok":1}
 {"fn":"count","args":["a\nb"],"ok":0}
 {"fn":"count","args":["0"],"ok":0}
+{"fn":"rangeOf","args":["","héllo"],"ok":{"start":-1,"end":4,"rest":""}}
+{"fn":"rangeOf","args":["a","naïve café"],"ok":{"start":-1,"end":9,"rest":"a"}}
+{"fn":"rangeOf","args":["abc","😀😀"],"ok":{"start":-1,"end":3,"rest":"c"}}
+{"fn":"rangeOf","args":["  ","$5 apple"],"ok":{"start":-1,"end":7,"rest":" "}}
+{"fn":"rangeOf","args":["a b  c","$a$b"],"ok":{"start":-1,"end":3,"rest":"c"}}
+{"fn":"rangeOf","args":["x y z","$"],"ok":{"start":-1,"end":0,"rest":"z"}}
+{"fn":"rangeOf","args":["pad  ","a$"],"ok":{"start":-1,"end":1,"rest":" "}}
+{"fn":"rangeOf","args":["héllo","  \t  "],"ok":{"start":-1,"end":4,"rest":"o"}}
+{"fn":"rangeOf","args":["naïve café","ünïcodé"],"ok":{"start":-1,"end":6,"rest":"é"}}
+{"fn":"rangeOf","args":["😀😀","ÆØÅ"],"ok":{"start":-1,"end":2,"rest":{"$utf16":[56832]}}}
+{"fn":"rangeOf","args":["$5 apple","中文 字"],"ok":{"start":-1,"end":3,"rest":"e"}}
+{"fn":"rangeOf","args":["$a$b","a\nb"],"ok":{"start":-1,"end":2,"rest":"b"}}
+{"fn":"rangeOf","args":["$","0"],"ok":{"start":-1,"end":0,"rest":"$"}}
+{"fn":"rangeOf","args":["a$",""],"ok":{"start":0,"end":0,"rest":"a$"}}
+{"fn":"rangeOf","args":["  \t  ","a"],"ok":{"start":-1,"end":0,"rest":" "}}
+{"fn":"rangeOf","args":["ünïcodé","abc"],"ok":{"start":-1,"end":2,"rest":"é"}}
+{"fn":"rangeOf","args":["ÆØÅ","  "],"ok":{"start":-1,"end":1,"rest":"Å"}}
+{"fn":"rangeOf","args":["中文 字","a b  c"],"ok":{"start":-1,"end":5,"rest":"字"}}
+{"fn":"rangeOf","args":["a\nb","x y z"],"ok":{"start":-1,"end":4,"rest":"b"}}
+{"fn":"rangeOf","args":["0","pad  "],"ok":{"start":-1,"end":4,"rest":"0"}}
 {"fn":"rangeOf","args":["",""],"ok":{"start":0,"end":0,"rest":""}}
 {"fn":"rangeOf","args":["","a"],"ok":{"start":-1,"end":0,"rest":""}}
 {"fn":"rangeOf","args":["","abc"],"ok":{"start":-1,"end":2,"rest":""}}
 {"fn":"rangeOf","args":["","  "],"ok":{"start":-1,"end":1,"rest":""}}
 {"fn":"rangeOf","args":["","a b  c"],"ok":{"start":-1,"end":5,"rest":""}}
 {"fn":"rangeOf","args":["","x y z"],"ok":{"start":-1,"end":4,"rest":""}}
-{"fn":"rangeOf","args":["","pad  "],"ok":{"start":-1,"end":4,"rest":""}}
-{"fn":"rangeOf","args":["","héllo"],"ok":{"start":-1,"end":4,"rest":""}}
-{"fn":"rangeOf","args":["","naïve café"],"ok":{"start":-1,"end":9,"rest":""}}
-{"fn":"rangeOf","args":["","😀😀"],"ok":{"start":-1,"end":3,"rest":""}}
-{"fn":"rangeOf","args":["","$5 apple"],"ok":{"start":-1,"end":7,"rest":""}}
-{"fn":"rangeOf","args":["","$a$b"],"ok":{"start":-1,"end":3,"rest":""}}
-{"fn":"rangeOf","args":["","$"],"ok":{"start":-1,"end":0,"rest":""}}
-{"fn":"rangeOf","args":["","a$"],"ok":{"start":-1,"end":1,"rest":""}}
-{"fn":"rangeOf","args":["","  \t  "],"ok":{"start":-1,"end":4,"rest":""}}
-{"fn":"rangeOf","args":["","ünïcodé"],"ok":{"start":-1,"end":6,"rest":""}}
-{"fn":"rangeOf","args":["","ÆØÅ"],"ok":{"start":-1,"end":2,"rest":""}}
-{"fn":"rangeOf","args":["","中文 字"],"ok":{"start":-1,"end":3,"rest":""}}
-{"fn":"rangeOf","args":["","a\nb"],"ok":{"start":-1,"end":2,"rest":""}}
-{"fn":"rangeOf","args":["","0"],"ok":{"start":-1,"end":0,"rest":""}}
 {"fn":"rangeOf","args":["a",""],"ok":{"start":0,"end":0,"rest":"a"}}
 {"fn":"rangeOf","args":["a","a"],"ok":{"start":0,"end":1,"rest":"a"}}
 {"fn":"rangeOf","args":["a","abc"],"ok":{"start":-1,"end":2,"rest":"a"}}
 {"fn":"rangeOf","args":["a","  "],"ok":{"start":-1,"end":1,"rest":"a"}}
 {"fn":"rangeOf","args":["a","a b  c"],"ok":{"start":-1,"end":5,"rest":"a"}}
 {"fn":"rangeOf","args":["a","x y z"],"ok":{"start":-1,"end":4,"rest":"a"}}
-{"fn":"rangeOf","args":["a","pad  "],"ok":{"start":-1,"end":4,"rest":"a"}}
-{"fn":"rangeOf","args":["a","héllo"],"ok":{"start":-1,"end":4,"rest":"a"}}
-{"fn":"rangeOf","args":["a","naïve café"],"ok":{"start":-1,"end":9,"rest":"a"}}
-{"fn":"rangeOf","args":["a","😀😀"],"ok":{"start":-1,"end":3,"rest":"a"}}
-{"fn":"rangeOf","args":["a","$5 apple"],"ok":{"start":-1,"end":7,"rest":"a"}}
-{"fn":"rangeOf","args":["a","$a$b"],"ok":{"start":-1,"end":3,"rest":"a"}}
-{"fn":"rangeOf","args":["a","$"],"ok":{"start":-1,"end":0,"rest":"a"}}
-{"fn":"rangeOf","args":["a","a$"],"ok":{"start":-1,"end":1,"rest":"a"}}
-{"fn":"rangeOf","args":["a","  \t  "],"ok":{"start":-1,"end":4,"rest":"a"}}
-{"fn":"rangeOf","args":["a","ünïcodé"],"ok":{"start":-1,"end":6,"rest":"a"}}
-{"fn":"rangeOf","args":["a","ÆØÅ"],"ok":{"start":-1,"end":2,"rest":"a"}}
-{"fn":"rangeOf","args":["a","中文 字"],"ok":{"start":-1,"end":3,"rest":"a"}}
-{"fn":"rangeOf","args":["a","a\nb"],"ok":{"start":-1,"end":2,"rest":"a"}}
-{"fn":"rangeOf","args":["a","0"],"ok":{"start":-1,"end":0,"rest":"a"}}
 {"fn":"rangeOf","args":["abc",""],"ok":{"start":0,"end":0,"rest":"abc"}}
 {"fn":"rangeOf","args":["abc","a"],"ok":{"start":0,"end":1,"rest":"abc"}}
 {"fn":"rangeOf","args":["abc","abc"],"ok":{"start":0,"end":3,"rest":"abc"}}
 {"fn":"rangeOf","args":["abc","  "],"ok":{"start":-1,"end":1,"rest":"c"}}
 {"fn":"rangeOf","args":["abc","a b  c"],"ok":{"start":-1,"end":5,"rest":"c"}}
 {"fn":"rangeOf","args":["abc","x y z"],"ok":{"start":-1,"end":4,"rest":"c"}}
-{"fn":"rangeOf","args":["abc","pad  "],"ok":{"start":-1,"end":4,"rest":"c"}}
-{"fn":"rangeOf","args":["abc","héllo"],"ok":{"start":-1,"end":4,"rest":"c"}}
-{"fn":"rangeOf","args":["abc","naïve café"],"ok":{"start":-1,"end":9,"rest":"c"}}
-{"fn":"rangeOf","args":["abc","😀😀"],"ok":{"start":-1,"end":3,"rest":"c"}}
-{"fn":"rangeOf","args":["abc","$5 apple"],"ok":{"start":-1,"end":7,"rest":"c"}}
-{"fn":"rangeOf","args":["abc","$a$b"],"ok":{"start":-1,"end":3,"rest":"c"}}
-{"fn":"rangeOf","args":["abc","$"],"ok":{"start":-1,"end":0,"rest":"c"}}
-{"fn":"rangeOf","args":["abc","a$"],"ok":{"start":-1,"end":1,"rest":"c"}}
-{"fn":"rangeOf","args":["abc","  \t  "],"ok":{"start":-1,"end":4,"rest":"c"}}
-{"fn":"rangeOf","args":["abc","ünïcodé"],"ok":{"start":-1,"end":6,"rest":"c"}}
-{"fn":"rangeOf","args":["abc","ÆØÅ"],"ok":{"start":-1,"end":2,"rest":"c"}}
-{"fn":"rangeOf","args":["abc","中文 字"],"ok":{"start":-1,"end":3,"rest":"c"}}
-{"fn":"rangeOf","args":["abc","a\nb"],"ok":{"start":-1,"end":2,"rest":"c"}}
-{"fn":"rangeOf","args":["abc","0"],"ok":{"start":-1,"end":0,"rest":"c"}}
 {"fn":"rangeOf","args":["  ",""],"ok":{"start":0,"end":0,"rest":"  "}}
 {"fn":"rangeOf","args":["  ","a"],"ok":{"start":-1,"end":0,"rest":" "}}
 {"fn":"rangeOf","args":["  ","abc"],"ok":{"start":-1,"end":2,"rest":" "}}
 {"fn":"rangeOf","args":["  ","  "],"ok":{"start":0,"end":2,"rest":"  "}}
 {"fn":"rangeOf","args":["  ","a b  c"],"ok":{"start":-1,"end":5,"rest":" "}}
 {"fn":"rangeOf","args":["  ","x y z"],"ok":{"start":-1,"end":4,"rest":" "}}
-{"fn":"rangeOf","args":["  ","pad  "],"ok":{"start":-1,"end":4,"rest":" "}}
-{"fn":"rangeOf","args":["  ","héllo"],"ok":{"start":-1,"end":4,"rest":" "}}
-{"fn":"rangeOf","args":["  ","naïve café"],"ok":{"start":-1,"end":9,"rest":" "}}
-{"fn":"rangeOf","args":["  ","😀😀"],"ok":{"start":-1,"end":3,"rest":" "}}
-{"fn":"rangeOf","args":["  ","$5 apple"],"ok":{"start":-1,"end":7,"rest":" "}}
-{"fn":"rangeOf","args":["  ","$a$b"],"ok":{"start":-1,"end":3,"rest":" "}}
-{"fn":"rangeOf","args":["  ","$"],"ok":{"start":-1,"end":0,"rest":" "}}
-{"fn":"rangeOf","args":["  ","a$"],"ok":{"start":-1,"end":1,"rest":" "}}
-{"fn":"rangeOf","args":["  ","  \t  "],"ok":{"start":-1,"end":4,"rest":" "}}
-{"fn":"rangeOf","args":["  ","ünïcodé"],"ok":{"start":-1,"end":6,"rest":" "}}
-{"fn":"rangeOf","args":["  ","ÆØÅ"],"ok":{"start":-1,"end":2,"rest":" "}}
-{"fn":"rangeOf","args":["  ","中文 字"],"ok":{"start":-1,"end":3,"rest":" "}}
-{"fn":"rangeOf","args":["  ","a\nb"],"ok":{"start":-1,"end":2,"rest":" "}}
-{"fn":"rangeOf","args":["  ","0"],"ok":{"start":-1,"end":0,"rest":" "}}
 {"fn":"rangeOf","args":["a b  c",""],"ok":{"start":0,"end":0,"rest":"a b  c"}}
 {"fn":"rangeOf","args":["a b  c","a"],"ok":{"start":0,"end":1,"rest":"a b  c"}}
 {"fn":"rangeOf","args":["a b  c","abc"],"ok":{"start":-1,"end":2,"rest":"c"}}
 {"fn":"rangeOf","args":["a b  c","  "],"ok":{"start":3,"end":5,"rest":"  c"}}
 {"fn":"rangeOf","args":["a b  c","a b  c"],"ok":{"start":0,"end":6,"rest":"a b  c"}}
 {"fn":"rangeOf","args":["a b  c","x y z"],"ok":{"start":-1,"end":4,"rest":"c"}}
-{"fn":"rangeOf","args":["a b  c","pad  "],"ok":{"start":-1,"end":4,"rest":"c"}}
-{"fn":"rangeOf","args":["a b  c","héllo"],"ok":{"start":-1,"end":4,"rest":"c"}}
-{"fn":"rangeOf","args":["a b  c","naïve café"],"ok":{"start":-1,"end":9,"rest":"c"}}
-{"fn":"rangeOf","args":["a b  c","😀😀"],"ok":{"start":-1,"end":3,"rest":"c"}}
-{"fn":"rangeOf","args":["a b  c","$5 apple"],"ok":{"start":-1,"end":7,"rest":"c"}}
-{"fn":"rangeOf","args":["a b  c","$a$b"],"ok":{"start":-1,"end":3,"rest":"c"}}
-{"fn":"rangeOf","args":["a b  c","$"],"ok":{"start":-1,"end":0,"rest":"c"}}
-{"fn":"rangeOf","args":["a b  c","a$"],"ok":{"start":-1,"end":1,"rest":"c"}}
-{"fn":"rangeOf","args":["a b  c","  \t  "],"ok":{"start":-1,"end":4,"rest":"c"}}
-{"fn":"rangeOf","args":["a b  c","ünïcodé"],"ok":{"start":-1,"end":6,"rest":"c"}}
-{"fn":"rangeOf","args":["a b  c","ÆØÅ"],"ok":{"start":-1,"end":2,"rest":"c"}}
-{"fn":"rangeOf","args":["a b  c","中文 字"],"ok":{"start":-1,"end":3,"rest":"c"}}
-{"fn":"rangeOf","args":["a b  c","a\nb"],"ok":{"start":-1,"end":2,"rest":"c"}}
-{"fn":"rangeOf","args":["a b  c","0"],"ok":{"start":-1,"end":0,"rest":"c"}}
 {"fn":"rangeOf","args":["x y z",""],"ok":{"start":0,"end":0,"rest":"x y z"}}
 {"fn":"rangeOf","args":["x y z","a"],"ok":{"start":-1,"end":0,"rest":"z"}}
 {"fn":"rangeOf","args":["x y z","abc"],"ok":{"start":-1,"end":2,"rest":"z"}}
 {"fn":"rangeOf","args":["x y z","  "],"ok":{"start":-1,"end":1,"rest":"z"}}
 {"fn":"rangeOf","args":["x y z","a b  c"],"ok":{"start":-1,"end":5,"rest":"z"}}
 {"fn":"rangeOf","args":["x y z","x y z"],"ok":{"start":0,"end":5,"rest":"x y z"}}
-{"fn":"rangeOf","args":["x y z","pad  "],"ok":{"start":-1,"end":4,"rest":"z"}}
-{"fn":"rangeOf","args":["x y z","héllo"],"ok":{"start":-1,"end":4,"rest":"z"}}
-{"fn":"rangeOf","args":["x y z","naïve café"],"ok":{"start":-1,"end":9,"rest":"z"}}
-{"fn":"rangeOf","args":["x y z","😀😀"],"ok":{"start":-1,"end":3,"rest":"z"}}
-{"fn":"rangeOf","args":["x y z","$5 apple"],"ok":{"start":-1,"end":7,"rest":"z"}}
-{"fn":"rangeOf","args":["x y z","$a$b"],"ok":{"start":-1,"end":3,"rest":"z"}}
-{"fn":"rangeOf","args":["x y z","$"],"ok":{"start":-1,"end":0,"rest":"z"}}
-{"fn":"rangeOf","args":["x y z","a$"],"ok":{"start":-1,"end":1,"rest":"z"}}
-{"fn":"rangeOf","args":["x y z","  \t  "],"ok":{"start":-1,"end":4,"rest":"z"}}
-{"fn":"rangeOf","args":["x y z","ünïcodé"],"ok":{"start":-1,"end":6,"rest":"z"}}
-{"fn":"rangeOf","args":["x y z","ÆØÅ"],"ok":{"start":-1,"end":2,"rest":"z"}}
-{"fn":"rangeOf","args":["x y z","中文 字"],"ok":{"start":-1,"end":3,"rest":"z"}}
-{"fn":"rangeOf","args":["x y z","a\nb"],"ok":{"start":-1,"end":2,"rest":"z"}}
-{"fn":"rangeOf","args":["x y z","0"],"ok":{"start":-1,"end":0,"rest":"z"}}
-{"fn":"rangeOf","args":["pad  ",""],"ok":{"start":0,"end":0,"rest":"pad  "}}
-{"fn":"rangeOf","args":["pad  ","a"],"ok":{"start":1,"end":2,"rest":"ad  "}}
-{"fn":"rangeOf","args":["pad  ","abc"],"ok":{"start":-1,"end":2,"rest":" "}}
-{"fn":"rangeOf","args":["pad  ","  "],"ok":{"start":3,"end":5,"rest":"  "}}
-{"fn":"rangeOf","args":["pad  ","a b  c"],"ok":{"start":-1,"end":5,"rest":" "}}
-{"fn":"rangeOf","args":["pad  ","x y z"],"ok":{"start":-1,"end":4,"rest":" "}}
-{"fn":"rangeOf","args":["pad  ","pad  "],"ok":{"start":0,"end":5,"rest":"pad  "}}
-{"fn":"rangeOf","args":["pad  ","héllo"],"ok":{"start":-1,"end":4,"rest":" "}}
-{"fn":"rangeOf","args":["pad  ","naïve café"],"ok":{"start":-1,"end":9,"rest":" "}}
-{"fn":"rangeOf","args":["pad  ","😀😀"],"ok":{"start":-1,"end":3,"rest":" "}}
-{"fn":"rangeOf","args":["pad  ","$5 apple"],"ok":{"start":-1,"end":7,"rest":" "}}
-{"fn":"rangeOf","args":["pad  ","$a$b"],"ok":{"start":-1,"end":3,"rest":" "}}
-{"fn":"rangeOf","args":["pad  ","$"],"ok":{"start":-1,"end":0,"rest":" "}}
-{"fn":"rangeOf","args":["pad  ","a$"],"ok":{"start":-1,"end":1,"rest":" "}}
-{"fn":"rangeOf","args":["pad  ","  \t  "],"ok":{"start":-1,"end":4,"rest":" "}}
-{"fn":"rangeOf","args":["pad  ","ünïcodé"],"ok":{"start":-1,"end":6,"rest":" "}}
-{"fn":"rangeOf","args":["pad  ","ÆØÅ"],"ok":{"start":-1,"end":2,"rest":" "}}
-{"fn":"rangeOf","args":["pad  ","中文 字"],"ok":{"start":-1,"end":3,"rest":" "}}
-{"fn":"rangeOf","args":["pad  ","a\nb"],"ok":{"start":-1,"end":2,"rest":" "}}
-{"fn":"rangeOf","args":["pad  ","0"],"ok":{"start":-1,"end":0,"rest":" "}}
-{"fn":"rangeOf","args":["héllo",""],"ok":{"start":0,"end":0,"rest":"héllo"}}
-{"fn":"rangeOf","args":["héllo","a"],"ok":{"start":-1,"end":0,"rest":"o"}}
-{"fn":"rangeOf","args":["héllo","abc"],"ok":{"start":-1,"end":2,"rest":"o"}}
-{"fn":"rangeOf","args":["héllo","  "],"ok":{"start":-1,"end":1,"rest":"o"}}
-{"fn":"rangeOf","args":["héllo","a b  c"],"ok":{"start":-1,"end":5,"rest":"o"}}
-{"fn":"rangeOf","args":["héllo","x y z"],"ok":{"start":-1,"end":4,"rest":"o"}}
-{"fn":"rangeOf","args":["héllo","pad  "],"ok":{"start":-1,"end":4,"rest":"o"}}
-{"fn":"rangeOf","args":["héllo","héllo"],"ok":{"start":0,"end":5,"rest":"héllo"}}
-{"fn":"rangeOf","args":["héllo","naïve café"],"ok":{"start":-1,"end":9,"rest":"o"}}
-{"fn":"rangeOf","args":["héllo","😀😀"],"ok":{"start":-1,"end":3,"rest":"o"}}
-{"fn":"rangeOf","args":["héllo","$5 apple"],"ok":{"start":-1,"end":7,"rest":"o"}}
-{"fn":"rangeOf","args":["héllo","$a$b"],"ok":{"start":-1,"end":3,"rest":"o"}}
-{"fn":"rangeOf","args":["héllo","$"],"ok":{"start":-1,"end":0,"rest":"o"}}
-{"fn":"rangeOf","args":["héllo","a$"],"ok":{"start":-1,"end":1,"rest":"o"}}
-{"fn":"rangeOf","args":["héllo","  \t  "],"ok":{"start":-1,"end":4,"rest":"o"}}
-{"fn":"rangeOf","args":["héllo","ünïcodé"],"ok":{"start":-1,"end":6,"rest":"o"}}
-{"fn":"rangeOf","args":["héllo","ÆØÅ"],"ok":{"start":-1,"end":2,"rest":"o"}}
-{"fn":"rangeOf","args":["héllo","中文 字"],"ok":{"start":-1,"end":3,"rest":"o"}}
-{"fn":"rangeOf","args":["héllo","a\nb"],"ok":{"start":-1,"end":2,"rest":"o"}}
-{"fn":"rangeOf","args":["héllo","0"],"ok":{"start":-1,"end":0,"rest":"o"}}
-{"fn":"rangeOf","args":["naïve café",""],"ok":{"start":0,"end":0,"rest":"naïve café"}}
-{"fn":"rangeOf","args":["naïve café","a"],"ok":{"start":1,"end":2,"rest":"aïve café"}}
-{"fn":"rangeOf","args":["naïve café","abc"],"ok":{"start":-1,"end":2,"rest":"é"}}
-{"fn":"rangeOf","args":["naïve café","  "],"ok":{"start":-1,"end":1,"rest":"é"}}
-{"fn":"rangeOf","args":["naïve café","a b  c"],"ok":{"start":-1,"end":5,"rest":"é"}}
-{"fn":"rangeOf","args":["naïve café","x y z"],"ok":{"start":-1,"end":4,"rest":"é"}}
-{"fn":"rangeOf","args":["naïve café","pad  "],"ok":{"start":-1,"end":4,"rest":"é"}}
-{"fn":"rangeOf","args":["naïve café","héllo"],"ok":{"start":-1,"end":4,"rest":"é"}}
-{"fn":"rangeOf","args":["naïve café","naïve café"],"ok":{"start":0,"end":10,"rest":"naïve café"}}
-{"fn":"rangeOf","args":["naïve café","😀😀"],"ok":{"start":-1,"end":3,"rest":"é"}}
-{"fn":"rangeOf","args":["naïve café","$5 apple"],"ok":{"start":-1,"end":7,"rest":"é"}}
-{"fn":"rangeOf","args":["naïve café","$a$b"],"ok":{"start":-1,"end":3,"rest":"é"}}
-{"fn":"rangeOf","args":["naïve café","$"],"ok":{"start":-1,"end":0,"rest":"é"}}
-{"fn":"rangeOf","args":["naïve café","a$"],"ok":{"start":-1,"end":1,"rest":"é"}}
-{"fn":"rangeOf","args":["naïve café","  \t  "],"ok":{"start":-1,"end":4,"rest":"é"}}
-{"fn":"rangeOf","args":["naïve café","ünïcodé"],"ok":{"start":-1,"end":6,"rest":"é"}}
-{"fn":"rangeOf","args":["naïve café","ÆØÅ"],"ok":{"start":-1,"end":2,"rest":"é"}}
-{"fn":"rangeOf","args":["naïve café","中文 字"],"ok":{"start":-1,"end":3,"rest":"é"}}
-{"fn":"rangeOf","args":["naïve café","a\nb"],"ok":{"start":-1,"end":2,"rest":"é"}}
-{"fn":"rangeOf","args":["naïve café","0"],"ok":{"start":-1,"end":0,"rest":"é"}}
-{"fn":"rangeOf","args":["😀😀",""],"ok":{"start":0,"end":0,"rest":"😀😀"}}
-{"fn":"rangeOf","args":["😀😀","a"],"ok":{"start":-1,"end":0,"rest":{"$utf16":[56832]}}}
-{"fn":"rangeOf","args":["😀😀","abc"],"ok":{"start":-1,"end":2,"rest":{"$utf16":[56832]}}}
-{"fn":"rangeOf","args":["😀😀","  "],"ok":{"start":-1,"end":1,"rest":{"$utf16":[56832]}}}
-{"fn":"rangeOf","args":["😀😀","a b  c"],"ok":{"start":-1,"end":5,"rest":{"$utf16":[56832]}}}
-{"fn":"rangeOf","args":["😀😀","x y z"],"ok":{"start":-1,"end":4,"rest":{"$utf16":[56832]}}}
-{"fn":"rangeOf","args":["😀😀","pad  "],"ok":{"start":-1,"end":4,"rest":{"$utf16":[56832]}}}
-{"fn":"rangeOf","args":["😀😀","héllo"],"ok":{"start":-1,"end":4,"rest":{"$utf16":[56832]}}}
-{"fn":"rangeOf","args":["😀😀","naïve café"],"ok":{"start":-1,"end":9,"rest":{"$utf16":[56832]}}}
-{"fn":"rangeOf","args":["😀😀","😀😀"],"ok":{"start":0,"end":4,"rest":"😀😀"}}
-{"fn":"rangeOf","args":["😀😀","$5 apple"],"ok":{"start":-1,"end":7,"rest":{"$utf16":[56832]}}}
-{"fn":"rangeOf","args":["😀😀","$a$b"],"ok":{"start":-1,"end":3,"rest":{"$utf16":[56832]}}}
-{"fn":"rangeOf","args":["😀😀","$"],"ok":{"start":-1,"end":0,"rest":{"$utf16":[56832]}}}
-{"fn":"rangeOf","args":["😀😀","a$"],"ok":{"start":-1,"end":1,"rest":{"$utf16":[56832]}}}
-{"fn":"rangeOf","args":["😀😀","  \t  "],"ok":{"start":-1,"end":4,"rest":{"$utf16":[56832]}}}
-{"fn":"rangeOf","args":["😀😀","ünïcodé"],"ok":{"start":-1,"end":6,"rest":{"$utf16":[56832]}}}
-{"fn":"rangeOf","args":["😀😀","ÆØÅ"],"ok":{"start":-1,"end":2,"rest":{"$utf16":[56832]}}}
-{"fn":"rangeOf","args":["😀😀","中文 字"],"ok":{"start":-1,"end":3,"rest":{"$utf16":[56832]}}}
-{"fn":"rangeOf","args":["😀😀","a\nb"],"ok":{"start":-1,"end":2,"rest":{"$utf16":[56832]}}}
-{"fn":"rangeOf","args":["😀😀","0"],"ok":{"start":-1,"end":0,"rest":{"$utf16":[56832]}}}
-{"fn":"rangeOf","args":["$5 apple",""],"ok":{"start":0,"end":0,"rest":"$5 apple"}}
-{"fn":"rangeOf","args":["$5 apple","a"],"ok":{"start":3,"end":4,"rest":"apple"}}
-{"fn":"rangeOf","args":["$5 apple","abc"],"ok":{"start":-1,"end":2,"rest":"e"}}
-{"fn":"rangeOf","args":["$5 apple","  "],"ok":{"start":-1,"end":1,"rest":"e"}}
-{"fn":"rangeOf","args":["$5 apple","a b  c"],"ok":{"start":-1,"end":5,"rest":"e"}}
-{"fn":"rangeOf","args":["$5 apple","x y z"],"ok":{"start":-1,"end":4,"rest":"e"}}
-{"fn":"rangeOf","args":["$5 apple","pad  "],"ok":{"start":-1,"end":4,"rest":"e"}}
-{"fn":"rangeOf","args":["$5 apple","héllo"],"ok":{"start":-1,"end":4,"rest":"e"}}
-{"fn":"rangeOf","args":["$5 apple","naïve café"],"ok":{"start":-1,"end":9,"rest":"e"}}
-{"fn":"rangeOf","args":["$5 apple","😀😀"],"ok":{"start":-1,"end":3,"rest":"e"}}
-{"fn":"rangeOf","args":["$5 apple","$5 apple"],"ok":{"start":0,"end":8,"rest":"$5 apple"}}
-{"fn":"rangeOf","args":["$5 apple","$a$b"],"ok":{"start":-1,"end":3,"rest":"e"}}
-{"fn":"rangeOf","args":["$5 apple","$"],"ok":{"start":0,"end":1,"rest":"$5 apple"}}
-{"fn":"rangeOf","args":["$5 apple","a$"],"ok":{"start":-1,"end":1,"rest":"e"}}
-{"fn":"rangeOf","args":["$5 apple","  \t  "],"ok":{"start":-1,"end":4,"rest":"e"}}
-{"fn":"rangeOf","args":["$5 apple","ünïcodé"],"ok":{"start":-1,"end":6,"rest":"e"}}
-{"fn":"rangeOf","args":["$5 apple","ÆØÅ"],"ok":{"start":-1,"end":2,"rest":"e"}}
-{"fn":"rangeOf","args":["$5 apple","中文 字"],"ok":{"start":-1,"end":3,"rest":"e"}}
-{"fn":"rangeOf","args":["$5 apple","a\nb"],"ok":{"start":-1,"end":2,"rest":"e"}}
-{"fn":"rangeOf","args":["$5 apple","0"],"ok":{"start":-1,"end":0,"rest":"e"}}
-{"fn":"rangeOf","args":["$a$b",""],"ok":{"start":0,"end":0,"rest":"$a$b"}}
-{"fn":"rangeOf","args":["$a$b","a"],"ok":{"start":1,"end":2,"rest":"a$b"}}
-{"fn":"rangeOf","args":["$a$b","abc"],"ok":{"start":-1,"end":2,"rest":"b"}}
-{"fn":"rangeOf","args":["$a$b","  "],"ok":{"start":-1,"end":1,"rest":"b"}}
-{"fn":"rangeOf","args":["$a$b","a b  c"],"ok":{"start":-1,"end":5,"rest":"b"}}
-{"fn":"rangeOf","args":["$a$b","x y z"],"ok":{"start":-1,"end":4,"rest":"b"}}
-{"fn":"rangeOf","args":["$a$b","pad  "],"ok":{"start":-1,"end":4,"rest":"b"}}
-{"fn":"rangeOf","args":["$a$b","héllo"],"ok":{"start":-1,"end":4,"rest":"b"}}
-{"fn":"rangeOf","args":["$a$b","naïve café"],"ok":{"start":-1,"end":9,"rest":"b"}}
-{"fn":"rangeOf","args":["$a$b","😀😀"],"ok":{"start":-1,"end":3,"rest":"b"}}
-{"fn":"rangeOf","args":["$a$b","$5 apple"],"ok":{"start":-1,"end":7,"rest":"b"}}
-{"fn":"rangeOf","args":["$a$b","$a$b"],"ok":{"start":0,"end":4,"rest":"$a$b"}}
-{"fn":"rangeOf","args":["$a$b","$"],"ok":{"start":0,"end":1,"rest":"$a$b"}}
-{"fn":"rangeOf","args":["$a$b","a$"],"ok":{"start":1,"end":3,"rest":"a$b"}}
-{"fn":"rangeOf","args":["$a$b","  \t  "],"ok":{"start":-1,"end":4,"rest":"b"}}
-{"fn":"rangeOf","args":["$a$b","ünïcodé"],"ok":{"start":-1,"end":6,"rest":"b"}}
-{"fn":"rangeOf","args":["$a$b","ÆØÅ"],"ok":{"start":-1,"end":2,"rest":"b"}}
-{"fn":"rangeOf","args":["$a$b","中文 字"],"ok":{"start":-1,"end":3,"rest":"b"}}
-{"fn":"rangeOf","args":["$a$b","a\nb"],"ok":{"start":-1,"end":2,"rest":"b"}}
-{"fn":"rangeOf","args":["$a$b","0"],"ok":{"start":-1,"end":0,"rest":"b"}}
-{"fn":"rangeOf","args":["$",""],"ok":{"start":0,"end":0,"rest":"$"}}
-{"fn":"rangeOf","args":["$","a"],"ok":{"start":-1,"end":0,"rest":"$"}}
-{"fn":"rangeOf","args":["$","abc"],"ok":{"start":-1,"end":2,"rest":"$"}}
-{"fn":"rangeOf","args":["$","  "],"ok":{"start":-1,"end":1,"rest":"$"}}
-{"fn":"rangeOf","args":["$","a b  c"],"ok":{"start":-1,"end":5,"rest":"$"}}
-{"fn":"rangeOf","args":["$","x y z"],"ok":{"start":-1,"end":4,"rest":"$"}}
-{"fn":"rangeOf","args":["$","pad  "],"ok":{"start":-1,"end":4,"rest":"$"}}
-{"fn":"rangeOf","args":["$","héllo"],"ok":{"start":-1,"end":4,"rest":"$"}}
-{"fn":"rangeOf","args":["$","naïve café"],"ok":{"start":-1,"end":9,"rest":"$"}}
-{"fn":"rangeOf","args":["$","😀😀"],"ok":{"start":-1,"end":3,"rest":"$"}}
-{"fn":"rangeOf","args":["$","$5 apple"],"ok":{"start":-1,"end":7,"rest":"$"}}
-{"fn":"rangeOf","args":["$","$a$b"],"ok":{"start":-1,"end":3,"rest":"$"}}
-{"fn":"rangeOf","args":["$","$"],"ok":{"start":0,"end":1,"rest":"$"}}
-{"fn":"rangeOf","args":["$","a$"],"ok":{"start":-1,"end":1,"rest":"$"}}
-{"fn":"rangeOf","args":["$","  \t  "],"ok":{"start":-1,"end":4,"rest":"$"}}
-{"fn":"rangeOf","args":["$","ünïcodé"],"ok":{"start":-1,"end":6,"rest":"$"}}
-{"fn":"rangeOf","args":["$","ÆØÅ"],"ok":{"start":-1,"end":2,"rest":"$"}}
-{"fn":"rangeOf","args":["$","中文 字"],"ok":{"start":-1,"end":3,"rest":"$"}}
-{"fn":"rangeOf","args":["$","a\nb"],"ok":{"start":-1,"end":2,"rest":"$"}}
-{"fn":"rangeOf","args":["$","0"],"ok":{"start":-1,"end":0,"rest":"$"}}
-{"fn":"rangeOf","args":["a$",""],"ok":{"start":0,"end":0,"rest":"a$"}}
-{"fn":"rangeOf","args":["a$","a"],"ok":{"start":0,"end":1,"rest":"a$"}}
-{"fn":"rangeOf","args":["a$","abc"],"ok":{"start":-1,"end":2,"rest":"$"}}
-{"fn":"rangeOf","args":["a$","  "],"ok":{"start":-1,"end":1,"rest":"$"}}
-{"fn":"rangeOf","args":["a$","a b  c"],"ok":{"start":-1,"end":5,"rest":"$"}}
-{"fn":"rangeOf","args":["a$","x y z"],"ok":{"start":-1,"end":4,"rest":"$"}}
-{"fn":"rangeOf","args":["a$","pad  "],"ok":{"start":-1,"end":4,"rest":"$"}}
-{"fn":"rangeOf","args":["a$","héllo"],"ok":{"start":-1,"end":4,"rest":"$"}}
-{"fn":"rangeOf","args":["a$","naïve café"],"ok":{"start":-1,"end":9,"rest":"$"}}
-{"fn":"rangeOf","args":["a$","😀😀"],"ok":{"start":-1,"end":3,"rest":"$"}}
-{"fn":"rangeOf","args":["a$","$5 apple"],"ok":{"start":-1,"end":7,"rest":"$"}}
-{"fn":"rangeOf","args":["a$","$a$b"],"ok":{"start":-1,"end":3,"rest":"$"}}
-{"fn":"rangeOf","args":["a$","$"],"ok":{"start":1,"end":2,"rest":"$"}}
-{"fn":"rangeOf","args":["a$","a$"],"ok":{"start":0,"end":2,"rest":"a$"}}
-{"fn":"rangeOf","args":["a$","  \t  "],"ok":{"start":-1,"end":4,"rest":"$"}}
-{"fn":"rangeOf","args":["a$","ünïcodé"],"ok":{"start":-1,"end":6,"rest":"$"}}
-{"fn":"rangeOf","args":["a$","ÆØÅ"],"ok":{"start":-1,"end":2,"rest":"$"}}
-{"fn":"rangeOf","args":["a$","中文 字"],"ok":{"start":-1,"end":3,"rest":"$"}}
-{"fn":"rangeOf","args":["a$","a\nb"],"ok":{"start":-1,"end":2,"rest":"$"}}
-{"fn":"rangeOf","args":["a$","0"],"ok":{"start":-1,"end":0,"rest":"$"}}
-{"fn":"rangeOf","args":["  \t  ",""],"ok":{"start":0,"end":0,"rest":"  \t  "}}
-{"fn":"rangeOf","args":["  \t  ","a"],"ok":{"start":-1,"end":0,"rest":" "}}
-{"fn":"rangeOf","args":["  \t  ","abc"],"ok":{"start":-1,"end":2,"rest":" "}}
-{"fn":"rangeOf","args":["  \t  ","  "],"ok":{"start":0,"end":2,"rest":"  \t  "}}
-{"fn":"rangeOf","args":["  \t  ","a b  c"],"ok":{"start":-1,"end":5,"rest":" "}}
-{"fn":"rangeOf","args":["  \t  ","x y z"],"ok":{"start":-1,"end":4,"rest":" "}}
-{"fn":"rangeOf","args":["  \t  ","pad  "],"ok":{"start":-1,"end":4,"rest":" "}}
-{"fn":"rangeOf","args":["  \t  ","héllo"],"ok":{"start":-1,"end":4,"rest":" "}}
-{"fn":"rangeOf","args":["  \t  ","naïve café"],"ok":{"start":-1,"end":9,"rest":" "}}
-{"fn":"rangeOf","args":["  \t  ","😀😀"],"ok":{"start":-1,"end":3,"rest":" "}}
-{"fn":"rangeOf","args":["  \t  ","$5 apple"],"ok":{"start":-1,"end":7,"rest":" "}}
-{"fn":"rangeOf","args":["  \t  ","$a$b"],"ok":{"start":-1,"end":3,"rest":" "}}
-{"fn":"rangeOf","args":["  \t  ","$"],"ok":{"start":-1,"end":0,"rest":" "}}
-{"fn":"rangeOf","args":["  \t  ","a$"],"ok":{"start":-1,"end":1,"rest":" "}}
-{"fn":"rangeOf","args":["  \t  ","  \t  "],"ok":{"start":0,"end":5,"rest":"  \t  "}}
-{"fn":"rangeOf","args":["  \t  ","ünïcodé"],"ok":{"start":-1,"end":6,"rest":" "}}
-{"fn":"rangeOf","args":["  \t  ","ÆØÅ"],"ok":{"start":-1,"end":2,"rest":" "}}
-{"fn":"rangeOf","args":["  \t  ","中文 字"],"ok":{"start":-1,"end":3,"rest":" "}}
-{"fn":"rangeOf","args":["  \t  ","a\nb"],"ok":{"start":-1,"end":2,"rest":" "}}
-{"fn":"rangeOf","args":["  \t  ","0"],"ok":{"start":-1,"end":0,"rest":" "}}
-{"fn":"rangeOf","args":["ünïcodé",""],"ok":{"start":0,"end":0,"rest":"ünïcodé"}}
-{"fn":"rangeOf","args":["ünïcodé","a"],"ok":{"start":-1,"end":0,"rest":"é"}}
-{"fn":"rangeOf","args":["ünïcodé","abc"],"ok":{"start":-1,"end":2,"rest":"é"}}
-{"fn":"rangeOf","args":["ünïcodé","  "],"ok":{"start":-1,"end":1,"rest":"é"}}
-{"fn":"rangeOf","args":["ünïcodé","a b  c"],"ok":{"start":-1,"end":5,"rest":"é"}}
-{"fn":"rangeOf","args":["ünïcodé","x y z"],"ok":{"start":-1,"end":4,"rest":"é"}}
-{"fn":"rangeOf","args":["ünïcodé","pad  "],"ok":{"start":-1,"end":4,"rest":"é"}}
-{"fn":"rangeOf","args":["ünïcodé","héllo"],"ok":{"start":-1,"end":4,"rest":"é"}}
-{"fn":"rangeOf","args":["ünïcodé","naïve café"],"ok":{"start":-1,"end":9,"rest":"é"}}
-{"fn":"rangeOf","args":["ünïcodé","😀😀"],"ok":{"start":-1,"end":3,"rest":"é"}}
-{"fn":"rangeOf","args":["ünïcodé","$5 apple"],"ok":{"start":-1,"end":7,"rest":"é"}}
-{"fn":"rangeOf","args":["ünïcodé","$a$b"],"ok":{"start":-1,"end":3,"rest":"é"}}
-{"fn":"rangeOf","args":["ünïcodé","$"],"ok":{"start":-1,"end":0,"rest":"é"}}
-{"fn":"rangeOf","args":["ünïcodé","a$"],"ok":{"start":-1,"end":1,"rest":"é"}}
-{"fn":"rangeOf","args":["ünïcodé","  \t  "],"ok":{"start":-1,"end":4,"rest":"é"}}
-{"fn":"rangeOf","args":["ünïcodé","ünïcodé"],"ok":{"start":0,"end":7,"rest":"ünïcodé"}}
-{"fn":"rangeOf","args":["ünïcodé","ÆØÅ"],"ok":{"start":-1,"end":2,"rest":"é"}}
-{"fn":"rangeOf","args":["ünïcodé","中文 字"],"ok":{"start":-1,"end":3,"rest":"é"}}
-{"fn":"rangeOf","args":["ünïcodé","a\nb"],"ok":{"start":-1,"end":2,"rest":"é"}}
-{"fn":"rangeOf","args":["ünïcodé","0"],"ok":{"start":-1,"end":0,"rest":"é"}}
-{"fn":"rangeOf","args":["ÆØÅ",""],"ok":{"start":0,"end":0,"rest":"ÆØÅ"}}
-{"fn":"rangeOf","args":["ÆØÅ","a"],"ok":{"start":-1,"end":0,"rest":"Å"}}
-{"fn":"rangeOf","args":["ÆØÅ","abc"],"ok":{"start":-1,"end":2,"rest":"Å"}}
-{"fn":"rangeOf","args":["ÆØÅ","  "],"ok":{"start":-1,"end":1,"rest":"Å"}}
-{"fn":"rangeOf","args":["ÆØÅ","a b  c"],"ok":{"start":-1,"end":5,"rest":"Å"}}
-{"fn":"rangeOf","args":["ÆØÅ","x y z"],"ok":{"start":-1,"end":4,"rest":"Å"}}
-{"fn":"rangeOf","args":["ÆØÅ","pad  "],"ok":{"start":-1,"end":4,"rest":"Å"}}
-{"fn":"rangeOf","args":["ÆØÅ","héllo"],"ok":{"start":-1,"end":4,"rest":"Å"}}
-{"fn":"rangeOf","args":["ÆØÅ","naïve café"],"ok":{"start":-1,"end":9,"rest":"Å"}}
-{"fn":"rangeOf","args":["ÆØÅ","😀😀"],"ok":{"start":-1,"end":3,"rest":"Å"}}
-{"fn":"rangeOf","args":["ÆØÅ","$5 apple"],"ok":{"start":-1,"end":7,"rest":"Å"}}
-{"fn":"rangeOf","args":["ÆØÅ","$a$b"],"ok":{"start":-1,"end":3,"rest":"Å"}}
-{"fn":"rangeOf","args":["ÆØÅ","$"],"ok":{"start":-1,"end":0,"rest":"Å"}}
-{"fn":"rangeOf","args":["ÆØÅ","a$"],"ok":{"start":-1,"end":1,"rest":"Å"}}
-{"fn":"rangeOf","args":["ÆØÅ","  \t  "],"ok":{"start":-1,"end":4,"rest":"Å"}}
-{"fn":"rangeOf","args":["ÆØÅ","ünïcodé"],"ok":{"start":-1,"end":6,"rest":"Å"}}
-{"fn":"rangeOf","args":["ÆØÅ","ÆØÅ"],"ok":{"start":0,"end":3,"rest":"ÆØÅ"}}
-{"fn":"rangeOf","args":["ÆØÅ","中文 字"],"ok":{"start":-1,"end":3,"rest":"Å"}}
-{"fn":"rangeOf","args":["ÆØÅ","a\nb"],"ok":{"start":-1,"end":2,"rest":"Å"}}
-{"fn":"rangeOf","args":["ÆØÅ","0"],"ok":{"start":-1,"end":0,"rest":"Å"}}
-{"fn":"rangeOf","args":["中文 字",""],"ok":{"start":0,"end":0,"rest":"中文 字"}}
-{"fn":"rangeOf","args":["中文 字","a"],"ok":{"start":-1,"end":0,"rest":"字"}}
-{"fn":"rangeOf","args":["中文 字","abc"],"ok":{"start":-1,"end":2,"rest":"字"}}
-{"fn":"rangeOf","args":["中文 字","  "],"ok":{"start":-1,"end":1,"rest":"字"}}
-{"fn":"rangeOf","args":["中文 字","a b  c"],"ok":{"start":-1,"end":5,"rest":"字"}}
-{"fn":"rangeOf","args":["中文 字","x y z"],"ok":{"start":-1,"end":4,"rest":"字"}}
-{"fn":"rangeOf","args":["中文 字","pad  "],"ok":{"start":-1,"end":4,"rest":"字"}}
-{"fn":"rangeOf","args":["中文 字","héllo"],"ok":{"start":-1,"end":4,"rest":"字"}}
-{"fn":"rangeOf","args":["中文 字","naïve café"],"ok":{"start":-1,"end":9,"rest":"字"}}
-{"fn":"rangeOf","args":["中文 字","😀😀"],"ok":{"start":-1,"end":3,"rest":"字"}}
-{"fn":"rangeOf","args":["中文 字","$5 apple"],"ok":{"start":-1,"end":7,"rest":"字"}}
-{"fn":"rangeOf","args":["中文 字","$a$b"],"ok":{"start":-1,"end":3,"rest":"字"}}
-{"fn":"rangeOf","args":["中文 字","$"],"ok":{"start":-1,"end":0,"rest":"字"}}
-{"fn":"rangeOf","args":["中文 字","a$"],"ok":{"start":-1,"end":1,"rest":"字"}}
-{"fn":"rangeOf","args":["中文 字","  \t  "],"ok":{"start":-1,"end":4,"rest":"字"}}
-{"fn":"rangeOf","args":["中文 字","ünïcodé"],"ok":{"start":-1,"end":6,"rest":"字"}}
-{"fn":"rangeOf","args":["中文 字","ÆØÅ"],"ok":{"start":-1,"end":2,"rest":"字"}}
-{"fn":"rangeOf","args":["中文 字","中文 字"],"ok":{"start":0,"end":4,"rest":"中文 字"}}
-{"fn":"rangeOf","args":["中文 字","a\nb"],"ok":{"start":-1,"end":2,"rest":"字"}}
-{"fn":"rangeOf","args":["中文 字","0"],"ok":{"start":-1,"end":0,"rest":"字"}}
-{"fn":"rangeOf","args":["a\nb",""],"ok":{"start":0,"end":0,"rest":"a\nb"}}
-{"fn":"rangeOf","args":["a\nb","a"],"ok":{"start":0,"end":1,"rest":"a\nb"}}
-{"fn":"rangeOf","args":["a\nb","abc"],"ok":{"start":-1,"end":2,"rest":"b"}}
-{"fn":"rangeOf","args":["a\nb","  "],"ok":{"start":-1,"end":1,"rest":"b"}}
-{"fn":"rangeOf","args":["a\nb","a b  c"],"ok":{"start":-1,"end":5,"rest":"b"}}
-{"fn":"rangeOf","args":["a\nb","x y z"],"ok":{"start":-1,"end":4,"rest":"b"}}
-{"fn":"rangeOf","args":["a\nb","pad  "],"ok":{"start":-1,"end":4,"rest":"b"}}
-{"fn":"rangeOf","args":["a\nb","héllo"],"ok":{"start":-1,"end":4,"rest":"b"}}
-{"fn":"rangeOf","args":["a\nb","naïve café"],"ok":{"start":-1,"end":9,"rest":"b"}}
-{"fn":"rangeOf","args":["a\nb","😀😀"],"ok":{"start":-1,"end":3,"rest":"b"}}
-{"fn":"rangeOf","args":["a\nb","$5 apple"],"ok":{"start":-1,"end":7,"rest":"b"}}
-{"fn":"rangeOf","args":["a\nb","$a$b"],"ok":{"start":-1,"end":3,"rest":"b"}}
-{"fn":"rangeOf","args":["a\nb","$"],"ok":{"start":-1,"end":0,"rest":"b"}}
-{"fn":"rangeOf","args":["a\nb","a$"],"ok":{"start":-1,"end":1,"rest":"b"}}
-{"fn":"rangeOf","args":["a\nb","  \t  "],"ok":{"start":-1,"end":4,"rest":"b"}}
-{"fn":"rangeOf","args":["a\nb","ünïcodé"],"ok":{"start":-1,"end":6,"rest":"b"}}
-{"fn":"rangeOf","args":["a\nb","ÆØÅ"],"ok":{"start":-1,"end":2,"rest":"b"}}
-{"fn":"rangeOf","args":["a\nb","中文 字"],"ok":{"start":-1,"end":3,"rest":"b"}}
-{"fn":"rangeOf","args":["a\nb","a\nb"],"ok":{"start":0,"end":3,"rest":"a\nb"}}
-{"fn":"rangeOf","args":["a\nb","0"],"ok":{"start":-1,"end":0,"rest":"b"}}
-{"fn":"rangeOf","args":["0",""],"ok":{"start":0,"end":0,"rest":"0"}}
-{"fn":"rangeOf","args":["0","a"],"ok":{"start":-1,"end":0,"rest":"0"}}
-{"fn":"rangeOf","args":["0","abc"],"ok":{"start":-1,"end":2,"rest":"0"}}
-{"fn":"rangeOf","args":["0","  "],"ok":{"start":-1,"end":1,"rest":"0"}}
-{"fn":"rangeOf","args":["0","a b  c"],"ok":{"start":-1,"end":5,"rest":"0"}}
-{"fn":"rangeOf","args":["0","x y z"],"ok":{"start":-1,"end":4,"rest":"0"}}
-{"fn":"rangeOf","args":["0","pad  "],"ok":{"start":-1,"end":4,"rest":"0"}}
-{"fn":"rangeOf","args":["0","héllo"],"ok":{"start":-1,"end":4,"rest":"0"}}
-{"fn":"rangeOf","args":["0","naïve café"],"ok":{"start":-1,"end":9,"rest":"0"}}
-{"fn":"rangeOf","args":["0","😀😀"],"ok":{"start":-1,"end":3,"rest":"0"}}
-{"fn":"rangeOf","args":["0","$5 apple"],"ok":{"start":-1,"end":7,"rest":"0"}}
-{"fn":"rangeOf","args":["0","$a$b"],"ok":{"start":-1,"end":3,"rest":"0"}}
-{"fn":"rangeOf","args":["0","$"],"ok":{"start":-1,"end":0,"rest":"0"}}
-{"fn":"rangeOf","args":["0","a$"],"ok":{"start":-1,"end":1,"rest":"0"}}
-{"fn":"rangeOf","args":["0","  \t  "],"ok":{"start":-1,"end":4,"rest":"0"}}
-{"fn":"rangeOf","args":["0","ünïcodé"],"ok":{"start":-1,"end":6,"rest":"0"}}
-{"fn":"rangeOf","args":["0","ÆØÅ"],"ok":{"start":-1,"end":2,"rest":"0"}}
-{"fn":"rangeOf","args":["0","中文 字"],"ok":{"start":-1,"end":3,"rest":"0"}}
-{"fn":"rangeOf","args":["0","a\nb"],"ok":{"start":-1,"end":2,"rest":"0"}}
-{"fn":"rangeOf","args":["0","0"],"ok":{"start":0,"end":1,"rest":"0"}}
+{"fn":"ratio","args":[0,1000000],"ok":0}
+{"fn":"ratio","args":[1,-1000000],"ok":-0.000001}
+{"fn":"ratio","args":[2,0.30000000000000004],"ok":6.666666666666666}
+{"fn":"ratio","args":[-1,3.14159],"ok":-0.31831015504887655}
+{"fn":"ratio","args":[7,0.3333333333333333],"ok":21}
+{"fn":"ratio","args":[1.5,{"$number":"-0"}],"error":"RangeError: ratio: whole must not be zero"}
+{"fn":"ratio","args":[-0.5,0],"error":"RangeError: ratio: whole must not be zero"}
+{"fn":"ratio","args":[1000000,1],"ok":1000000}
+{"fn":"ratio","args":[-1000000,2],"ok":-500000}
+{"fn":"ratio","args":[0.30000000000000004,-1],"ok":-0.30000000000000004}
+{"fn":"ratio","args":[3.14159,7],"ok":0.44879857142857144}
+{"fn":"ratio","args":[0.3333333333333333,1.5],"ok":0.2222222222222222}
+{"fn":"ratio","args":[{"$number":"-0"},-0.5],"ok":0}
 {"fn":"ratio","args":[0,0],"error":"RangeError: ratio: whole must not be zero"}
 {"fn":"ratio","args":[0,1],"ok":0}
 {"fn":"ratio","args":[0,2],"ok":0}
 {"fn":"ratio","args":[0,-1],"ok":{"$number":"-0"}}
 {"fn":"ratio","args":[0,7],"ok":0}
 {"fn":"ratio","args":[0,1.5],"ok":0}
-{"fn":"ratio","args":[0,-0.5],"ok":{"$number":"-0"}}
-{"fn":"ratio","args":[0,1000000],"ok":0}
-{"fn":"ratio","args":[0,-1000000],"ok":{"$number":"-0"}}
-{"fn":"ratio","args":[0,0.30000000000000004],"ok":0}
-{"fn":"ratio","args":[0,3.14159],"ok":0}
-{"fn":"ratio","args":[0,0.3333333333333333],"ok":0}
-{"fn":"ratio","args":[0,{"$number":"-0"}],"error":"RangeError: ratio: whole must not be zero"}
 {"fn":"ratio","args":[1,0],"error":"RangeError: ratio: whole must not be zero"}
 {"fn":"ratio","args":[1,1],"ok":1}
 {"fn":"ratio","args":[1,2],"ok":0.5}
 {"fn":"ratio","args":[1,-1],"ok":-1}
 {"fn":"ratio","args":[1,7],"ok":0.14285714285714285}
 {"fn":"ratio","args":[1,1.5],"ok":0.6666666666666666}
-{"fn":"ratio","args":[1,-0.5],"ok":-2}
-{"fn":"ratio","args":[1,1000000],"ok":0.000001}
-{"fn":"ratio","args":[1,-1000000],"ok":-0.000001}
-{"fn":"ratio","args":[1,0.30000000000000004],"ok":3.333333333333333}
-{"fn":"ratio","args":[1,3.14159],"ok":0.31831015504887655}
-{"fn":"ratio","args":[1,0.3333333333333333],"ok":3}
-{"fn":"ratio","args":[1,{"$number":"-0"}],"error":"RangeError: ratio: whole must not be zero"}
 {"fn":"ratio","args":[2,0],"error":"RangeError: ratio: whole must not be zero"}
 {"fn":"ratio","args":[2,1],"ok":2}
 {"fn":"ratio","args":[2,2],"ok":1}
 {"fn":"ratio","args":[2,-1],"ok":-2}
 {"fn":"ratio","args":[2,7],"ok":0.2857142857142857}
 {"fn":"ratio","args":[2,1.5],"ok":1.3333333333333333}
-{"fn":"ratio","args":[2,-0.5],"ok":-4}
-{"fn":"ratio","args":[2,1000000],"ok":0.000002}
-{"fn":"ratio","args":[2,-1000000],"ok":-0.000002}
-{"fn":"ratio","args":[2,0.30000000000000004],"ok":6.666666666666666}
-{"fn":"ratio","args":[2,3.14159],"ok":0.6366203100977531}
-{"fn":"ratio","args":[2,0.3333333333333333],"ok":6}
-{"fn":"ratio","args":[2,{"$number":"-0"}],"error":"RangeError: ratio: whole must not be zero"}
 {"fn":"ratio","args":[-1,0],"error":"RangeError: ratio: whole must not be zero"}
 {"fn":"ratio","args":[-1,1],"ok":-1}
 {"fn":"ratio","args":[-1,2],"ok":-0.5}
 {"fn":"ratio","args":[-1,-1],"ok":1}
 {"fn":"ratio","args":[-1,7],"ok":-0.14285714285714285}
 {"fn":"ratio","args":[-1,1.5],"ok":-0.6666666666666666}
-{"fn":"ratio","args":[-1,-0.5],"ok":2}
-{"fn":"ratio","args":[-1,1000000],"ok":-0.000001}
-{"fn":"ratio","args":[-1,-1000000],"ok":0.000001}
-{"fn":"ratio","args":[-1,0.30000000000000004],"ok":-3.333333333333333}
-{"fn":"ratio","args":[-1,3.14159],"ok":-0.31831015504887655}
-{"fn":"ratio","args":[-1,0.3333333333333333],"ok":-3}
-{"fn":"ratio","args":[-1,{"$number":"-0"}],"error":"RangeError: ratio: whole must not be zero"}
 {"fn":"ratio","args":[7,0],"error":"RangeError: ratio: whole must not be zero"}
 {"fn":"ratio","args":[7,1],"ok":7}
 {"fn":"ratio","args":[7,2],"ok":3.5}
 {"fn":"ratio","args":[7,-1],"ok":-7}
 {"fn":"ratio","args":[7,7],"ok":1}
 {"fn":"ratio","args":[7,1.5],"ok":4.666666666666667}
-{"fn":"ratio","args":[7,-0.5],"ok":-14}
-{"fn":"ratio","args":[7,1000000],"ok":0.000007}
-{"fn":"ratio","args":[7,-1000000],"ok":-0.000007}
-{"fn":"ratio","args":[7,0.30000000000000004],"ok":23.33333333333333}
-{"fn":"ratio","args":[7,3.14159],"ok":2.2281710853421357}
-{"fn":"ratio","args":[7,0.3333333333333333],"ok":21}
-{"fn":"ratio","args":[7,{"$number":"-0"}],"error":"RangeError: ratio: whole must not be zero"}
 {"fn":"ratio","args":[1.5,0],"error":"RangeError: ratio: whole must not be zero"}
 {"fn":"ratio","args":[1.5,1],"ok":1.5}
 {"fn":"ratio","args":[1.5,2],"ok":0.75}
 {"fn":"ratio","args":[1.5,-1],"ok":-1.5}
 {"fn":"ratio","args":[1.5,7],"ok":0.21428571428571427}
 {"fn":"ratio","args":[1.5,1.5],"ok":1}
-{"fn":"ratio","args":[1.5,-0.5],"ok":-3}
-{"fn":"ratio","args":[1.5,1000000],"ok":0.0000015}
-{"fn":"ratio","args":[1.5,-1000000],"ok":-0.0000015}
-{"fn":"ratio","args":[1.5,0.30000000000000004],"ok":4.999999999999999}
-{"fn":"ratio","args":[1.5,3.14159],"ok":0.4774652325733148}
-{"fn":"ratio","args":[1.5,0.3333333333333333],"ok":4.5}
-{"fn":"ratio","args":[1.5,{"$number":"-0"}],"error":"RangeError: ratio: whole must not be zero"}
-{"fn":"ratio","args":[-0.5,0],"error":"RangeError: ratio: whole must not be zero"}
-{"fn":"ratio","args":[-0.5,1],"ok":-0.5}
-{"fn":"ratio","args":[-0.5,2],"ok":-0.25}
-{"fn":"ratio","args":[-0.5,-1],"ok":0.5}
-{"fn":"ratio","args":[-0.5,7],"ok":-0.07142857142857142}
-{"fn":"ratio","args":[-0.5,1.5],"ok":-0.3333333333333333}
-{"fn":"ratio","args":[-0.5,-0.5],"ok":1}
-{"fn":"ratio","args":[-0.5,1000000],"ok":-5e-7}
-{"fn":"ratio","args":[-0.5,-1000000],"ok":5e-7}
-{"fn":"ratio","args":[-0.5,0.30000000000000004],"ok":-1.6666666666666665}
-{"fn":"ratio","args":[-0.5,3.14159],"ok":-0.15915507752443828}
-{"fn":"ratio","args":[-0.5,0.3333333333333333],"ok":-1.5}
-{"fn":"ratio","args":[-0.5,{"$number":"-0"}],"error":"RangeError: ratio: whole must not be zero"}
-{"fn":"ratio","args":[1000000,0],"error":"RangeError: ratio: whole must not be zero"}
-{"fn":"ratio","args":[1000000,1],"ok":1000000}
-{"fn":"ratio","args":[1000000,2],"ok":500000}
-{"fn":"ratio","args":[1000000,-1],"ok":-1000000}
-{"fn":"ratio","args":[1000000,7],"ok":142857.14285714287}
-{"fn":"ratio","args":[1000000,1.5],"ok":666666.6666666666}
-{"fn":"ratio","args":[1000000,-0.5],"ok":-2000000}
-{"fn":"ratio","args":[1000000,1000000],"ok":1}
-{"fn":"ratio","args":[1000000,-1000000],"ok":-1}
-{"fn":"ratio","args":[1000000,0.30000000000000004],"ok":3333333.333333333}
-{"fn":"ratio","args":[1000000,3.14159],"ok":318310.15504887654}
-{"fn":"ratio","args":[1000000,0.3333333333333333],"ok":3000000}
-{"fn":"ratio","args":[1000000,{"$number":"-0"}],"error":"RangeError: ratio: whole must not be zero"}
-{"fn":"ratio","args":[-1000000,0],"error":"RangeError: ratio: whole must not be zero"}
-{"fn":"ratio","args":[-1000000,1],"ok":-1000000}
-{"fn":"ratio","args":[-1000000,2],"ok":-500000}
-{"fn":"ratio","args":[-1000000,-1],"ok":1000000}
-{"fn":"ratio","args":[-1000000,7],"ok":-142857.14285714287}
-{"fn":"ratio","args":[-1000000,1.5],"ok":-666666.6666666666}
-{"fn":"ratio","args":[-1000000,-0.5],"ok":2000000}
-{"fn":"ratio","args":[-1000000,1000000],"ok":-1}
-{"fn":"ratio","args":[-1000000,-1000000],"ok":1}
-{"fn":"ratio","args":[-1000000,0.30000000000000004],"ok":-3333333.333333333}
-{"fn":"ratio","args":[-1000000,3.14159],"ok":-318310.15504887654}
-{"fn":"ratio","args":[-1000000,0.3333333333333333],"ok":-3000000}
-{"fn":"ratio","args":[-1000000,{"$number":"-0"}],"error":"RangeError: ratio: whole must not be zero"}
-{"fn":"ratio","args":[0.30000000000000004,0],"error":"RangeError: ratio: whole must not be zero"}
-{"fn":"ratio","args":[0.30000000000000004,1],"ok":0.30000000000000004}
-{"fn":"ratio","args":[0.30000000000000004,2],"ok":0.15000000000000002}
-{"fn":"ratio","args":[0.30000000000000004,-1],"ok":-0.30000000000000004}
-{"fn":"ratio","args":[0.30000000000000004,7],"ok":0.042857142857142864}
-{"fn":"ratio","args":[0.30000000000000004,1.5],"ok":0.20000000000000004}
-{"fn":"ratio","args":[0.30000000000000004,-0.5],"ok":-0.6000000000000001}
-{"fn":"ratio","args":[0.30000000000000004,1000000],"ok":3.0000000000000004e-7}
-{"fn":"ratio","args":[0.30000000000000004,-1000000],"ok":-3.0000000000000004e-7}
-{"fn":"ratio","args":[0.30000000000000004,0.30000000000000004],"ok":1}
-{"fn":"ratio","args":[0.30000000000000004,3.14159],"ok":0.09549304651466298}
-{"fn":"ratio","args":[0.30000000000000004,0.3333333333333333],"ok":0.9000000000000001}
-{"fn":"ratio","args":[0.30000000000000004,{"$number":"-0"}],"error":"RangeError: ratio: whole must not be zero"}
-{"fn":"ratio","args":[3.14159,0],"error":"RangeError: ratio: whole must not be zero"}
-{"fn":"ratio","args":[3.14159,1],"ok":3.14159}
-{"fn":"ratio","args":[3.14159,2],"ok":1.570795}
-{"fn":"ratio","args":[3.14159,-1],"ok":-3.14159}
-{"fn":"ratio","args":[3.14159,7],"ok":0.44879857142857144}
-{"fn":"ratio","args":[3.14159,1.5],"ok":2.094393333333333}
-{"fn":"ratio","args":[3.14159,-0.5],"ok":-6.28318}
-{"fn":"ratio","args":[3.14159,1000000],"ok":0.00000314159}
-{"fn":"ratio","args":[3.14159,-1000000],"ok":-0.00000314159}
-{"fn":"ratio","args":[3.14159,0.30000000000000004],"ok":10.471966666666665}
-{"fn":"ratio","args":[3.14159,3.14159],"ok":1}
-{"fn":"ratio","args":[3.14159,0.3333333333333333],"ok":9.42477}
-{"fn":"ratio","args":[3.14159,{"$number":"-0"}],"error":"RangeError: ratio: whole must not be zero"}
-{"fn":"ratio","args":[0.3333333333333333,0],"error":"RangeError: ratio: whole must not be zero"}
-{"fn":"ratio","args":[0.3333333333333333,1],"ok":0.3333333333333333}
-{"fn":"ratio","args":[0.3333333333333333,2],"ok":0.16666666666666666}
-{"fn":"ratio","args":[0.3333333333333333,-1],"ok":-0.3333333333333333}
-{"fn":"ratio","args":[0.3333333333333333,7],"ok":0.047619047619047616}
-{"fn":"ratio","args":[0.3333333333333333,1.5],"ok":0.2222222222222222}
-{"fn":"ratio","args":[0.3333333333333333,-0.5],"ok":-0.6666666666666666}
-{"fn":"ratio","args":[0.3333333333333333,1000000],"ok":3.333333333333333e-7}
-{"fn":"ratio","args":[0.3333333333333333,-1000000],"ok":-3.333333333333333e-7}
-{"fn":"ratio","args":[0.3333333333333333,0.30000000000000004],"ok":1.111111111111111}
-{"fn":"ratio","args":[0.3333333333333333,3.14159],"ok":0.10610338501629217}
-{"fn":"ratio","args":[0.3333333333333333,0.3333333333333333],"ok":1}
-{"fn":"ratio","args":[0.3333333333333333,{"$number":"-0"}],"error":"RangeError: ratio: whole must not be zero"}
-{"fn":"ratio","args":[{"$number":"-0"},0],"error":"RangeError: ratio: whole must not be zero"}
-{"fn":"ratio","args":[{"$number":"-0"},1],"ok":{"$number":"-0"}}
-{"fn":"ratio","args":[{"$number":"-0"},2],"ok":{"$number":"-0"}}
-{"fn":"ratio","args":[{"$number":"-0"},-1],"ok":0}
-{"fn":"ratio","args":[{"$number":"-0"},7],"ok":{"$number":"-0"}}
-{"fn":"ratio","args":[{"$number":"-0"},1.5],"ok":{"$number":"-0"}}
-{"fn":"ratio","args":[{"$number":"-0"},-0.5],"ok":0}
-{"fn":"ratio","args":[{"$number":"-0"},1000000],"ok":{"$number":"-0"}}
-{"fn":"ratio","args":[{"$number":"-0"},-1000000],"ok":0}
-{"fn":"ratio","args":[{"$number":"-0"},0.30000000000000004],"ok":{"$number":"-0"}}
-{"fn":"ratio","args":[{"$number":"-0"},3.14159],"ok":{"$number":"-0"}}
-{"fn":"ratio","args":[{"$number":"-0"},0.3333333333333333],"ok":{"$number":"-0"}}
-{"fn":"ratio","args":[{"$number":"-0"},{"$number":"-0"}],"error":"RangeError: ratio: whole must not be zero"}
 {"fn":"words","args":[""],"ok":[]}
 {"fn":"words","args":["a"],"ok":[]}
 {"fn":"words","args":["abc"],"ok":[]}

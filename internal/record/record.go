@@ -71,9 +71,15 @@ const seen = new Set()
 // stop generating for that function and say so, instead of hanging the recording.
 const BUDGET_MS = 250
 const slow = new Set()
+const big = new Map()
 // A case has to be small enough to commit and to read in a diff. An answer past this is the
 // generator's fault, not the code's: record it as skipped and stop asking that function.
 const MAX_BYTES = 64 * 1024
+// How many values of each position take part in the cross product. Six keeps a two-argument function at
+// 36 combinations instead of the whole tables against each other.
+const PAIRWISE_HEAD = 6
+// How many oversized answers a function may produce before its remaining cases are dropped.
+const MAX_OVERSIZED = 3
 const push = c => {
   const key = c.fn + '|' + JSON.stringify(c.args)
   if (seen.has(key)) return
@@ -87,9 +93,12 @@ const call = (fn, args) => {
     const ok = decode(mod[fn](...args))
     const size = JSON.stringify(ok)?.length ?? 0
     if (size > MAX_BYTES) {
-      slow.add(fn)
+      // One giant answer must not end the recording: the argument table has a 1,000,000 in it, and
+      // giving up on the first oversized case left a whole unit with no cases at all.
+      big.set(fn, (big.get(fn) ?? 0) + 1)
+      if (big.get(fn) >= MAX_OVERSIZED) slow.add(fn)
       process.stderr.write('go-anything: ' + fn + ' answers ' + size + ' bytes for ' +
-        JSON.stringify(decode(args)) + '; that case is skipped and no more are made for it\n')
+        JSON.stringify(decode(args)) + '; that case is skipped\n')
       return
     }
     push({ fn, args: decode(args), ok })
@@ -104,14 +113,31 @@ const call = (fn, args) => {
   }
 }
 
-// Generated cases: each argument position walks its own table, never a cross product.
+// cost orders a table from the values that make the smallest answer to the ones that make the largest.
+const cost = v => (typeof v === 'string' ? v.length : typeof v === 'number' ? Math.abs(v) : (JSON.stringify(v) ?? '').length)
+
+// Generated cases. The full cross product of every table against every other is what this used to do,
+// and for two string parameters that is 4,000 calls per function — most of them noise a port does not
+// learn from. Two runs replace it:
+//
+//  1. a paired walk: every value at every position, stepping the tables together (max(table) calls);
+//  2. a bounded cross product over the first PAIRWISE_HEAD values of each position, for the cases where
+//     two arguments interact.
 for (const [fn, types] of Object.entries(plan)) {
   if (typeof mod[fn] !== 'function') continue
   if (only && !only.split(',').includes(fn)) continue
-  const values = types.map(t => table[t] ?? table.any)
+  // Cheap values first: a table that starts with 1,000,000 fills the answer limit before the small
+  // ones are recorded, and a function whose three big cases are skipped ends up with no cases at all.
+  const values = types.map(t => (table[t] ?? table.any).slice().sort((a, b) => cost(a) - cost(b)))
+  const longest = Math.max(...values.map(v => v.length), 0)
+  // Offset each position by a different stride so a paired walk is not twenty copies of one diagonal.
+  for (let i = 0; i < longest; i++) {
+    call(fn, values.map((v, j) => v[(i + j * 7) % v.length]))
+  }
+  const head = values.map(v => v.slice(0, PAIRWISE_HEAD))
   const walk = (args, i) => {
-    if (i === values.length) return call(fn, args)
-    for (const v of values[i]) walk([...args, v], i + 1)
+    if (i === head.length) return call(fn, args)
+    for (const v of head[i]) walk([...args, v], i + 1)
   }
   walk([], 0)
 }
@@ -168,6 +194,9 @@ func Run(opts Options) (Summary, error) {
 		return Summary{}, err
 	}
 	if err := os.WriteFile(hooksPath, []byte(resolver), 0o644); err != nil {
+		return Summary{}, err
+	}
+	if err := os.WriteFile(filepath.Join(work, "resolve-hook.mjs"), []byte(resolveHook), 0o644); err != nil {
 		return Summary{}, err
 	}
 	// The unit's path is relative to the plan root, not to the process: find it the same way.
