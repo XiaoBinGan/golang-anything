@@ -77,3 +77,11 @@ testdata/realworld5/go-ports/*/work/
 testdata/realworld5/go-ports/*/shadow.cjs
 testdata/realworld5/go-ports/*/shadow.jsonl
 testdata/realworld5/go-ports/*/resolve*.mjs
+testdata/*/go-ports/*/resolve-hook.mjs
+testdata/sample/*/resolve-hook.mjs
+testdata/waves/*/*/resolve-hook.mjs
+testdata/realworld*/*/*/resolve-hook.mjs
+testdata/*/go-ports/*/libport.dylib
+testdata/sample/*/libport.dylib
+testdata/waves/*/*/libport.dylib
+testdata/realworld*/*/*/libport.dylib

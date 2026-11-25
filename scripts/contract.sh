@@ -36,7 +36,10 @@ check "the checks themselves can fail (make negative)" grep -q 'expect_fail' "$R
 # the committed copies are stale and a reader is looking at code the tool no longer writes.
 stale=""
 for crate in $(sed -n '/^CRATES=/,/^"}/p' "$ROOT/scripts/matrix.sh" | grep '^testdata'); do
+  # bridge and build --fast both write tracked files; wasm is left out because its output is not
+  # reproducible byte for byte, so it cannot be compared with git diff.
   "$GO" bridge "$ROOT/$crate" >/dev/null 2>&1 || stale="$stale $crate(cannot generate)"
+  "$GO" build --fast "$ROOT/$crate" >/dev/null 2>&1 || stale="$stale $crate(cannot build)"
   if ! git -C "$ROOT" diff --quiet -- "$crate"; then stale="$stale $crate"; fi
 done
 if [ -z "$stale" ]; then

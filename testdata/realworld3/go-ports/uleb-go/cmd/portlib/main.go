@@ -74,7 +74,16 @@ func go_answer_str(name *C.char, nameLen C.int, arg *C.char, argLen C.int, out *
 			return C.int(len(dst))
 		}
 	}
-	b, _ := json.Marshal(v)
+	// Anything else has to carry its markers: a port that answers []uint16, a NaN or an undefined must
+	// reach the caller as a value, and this fast path skipped the marking — jsonPointerTokens answered
+	// [[97],[98]] instead of ["a","b"] through the addon while the driver was right.
+	marked := port.Answer(string(unsafe.Slice((*byte)(unsafe.Pointer(name)), int(nameLen))),
+		[]any{C.GoStringN(arg, argLen)})
+	if e, ok := marked["error"].(string); ok {
+		dst = strconv.AppendQuote(dst, e)
+		return C.int(len(dst))
+	}
+	b, _ := json.Marshal(marked["ok"])
 	return writeOut(out, outCap, b)
 }
 

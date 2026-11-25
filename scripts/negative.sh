@@ -107,11 +107,61 @@ cp /tmp/negative-answer.go "$crate/answer.go"
 "$GO" build --fast "$crate" >/dev/null 2>&1
 node scripts/allbridges.mjs "$crate" >/dev/null 2>&1 || { printf 'FAIL  allbridges does not recover\n'; failures=$((failures + 1)); }
 
-# 7. perf: no rig, no numbers.
+# 7. shadow: an answer that differs must be recorded and reported, and a port that stopped raising must
+#    be recorded too. shadow is the only check that sees live values, so it is the only one that could
+#    notice a break in what a caller passes in.
+jp=testdata/realworld5/go-ports/jp-go
+cp "$jp/port.go" /tmp/negative-jp.go
+python3 - "$jp/port.go" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s = s.replace('return strings.ReplaceAll(strings.ReplaceAll(token, "~", "~0"), "/", "~1"), nil',
+              '_ = strings.TrimSpace\n\treturn token, nil')
+open(p, 'w').write(s)
+PY
+"$GO" build --fast "$jp" >/dev/null 2>&1
+"$GO" shadow "$jp" >/dev/null 2>&1
+rm -f "$jp/shadow.jsonl"
+node -e 'require(process.argv[1] + "/shadow.cjs").escapeJsonPointerToken("a/b")' "$(pwd)/$jp" >/dev/null 2>&1
+"$GO" shadow-report "$jp" >/dev/null 2>&1
+expect_fail "shadow-report reports an answer that differs" $?
+cp /tmp/negative-jp.go "$jp/port.go"
+"$GO" build --fast "$jp" >/dev/null 2>&1
+rm -f "$jp/shadow.jsonl"
+
+jadx=testdata/realworld4/go-ports/jadx-go
+cp "$jadx/port.go" /tmp/negative-jadx.go
+python3 - "$jadx/port.go" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s = s.replace("""if signal, ok := args[0].(AbortSignal); ok && signal.Aborted {
+		return nil, ErrJadxInterrupted
+	}""", """if signal, ok := args[0].(AbortSignal); ok && signal.Aborted && false {
+		return nil, ErrJadxInterrupted
+	}""")
+open(p, 'w').write(s)
+PY
+"$GO" build --fast "$jadx" >/dev/null 2>&1
+"$GO" shadow "$jadx" >/dev/null 2>&1
+rm -f "$jadx/shadow.jsonl"
+node --experimental-transform-types --no-warnings=ExperimentalWarning -e '
+const shr = require(process.argv[1] + "/shadow.cjs")
+const stop = () => { const c = new AbortController(); c.abort(new Error("x")); return c.signal }
+try { shr.throwIfJadxInterrupted(stop()) } catch {}
+' "$(pwd)/$jadx" >/dev/null 2>&1
+"$GO" shadow-report "$jadx" >/dev/null 2>&1
+expect_fail "shadow-report reports a throw the port stopped making" $?
+cp /tmp/negative-jadx.go "$jadx/port.go"
+"$GO" build --fast "$jadx" >/dev/null 2>&1
+rm -f "$jadx/shadow.jsonl"
+
+# 8. perf: no rig, no numbers.
 RUST_ANYTHING=/nonexistent ./scripts/perf.sh >/dev/null 2>&1
 expect_fail "perf refuses a missing rig" $?
 
-# 8. npm install: a loader that answers a hard-coded wrong value, built from a patched template.
+# 9. npm install: a loader that answers a hard-coded wrong value, built from a patched template.
 cp internal/pkg/pkg.go /tmp/negative-pkg.go
 python3 - internal/pkg/pkg.go <<'PY2'
 import sys
