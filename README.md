@@ -172,7 +172,21 @@ $ ./frontdoor --version
 
 见 [PARITY.md](PARITY.md)：26 条命令的逐项状态。**26 条全部对齐**（`analyze` `scaffold/bridge` `record` `build` `diff` `bench` `clean` `gate` `map` `doctor` `enable` `disable` `shadow` `fuzz` `refresh` `report` `package` `app record` `app replay` `app front-door` `app wire` `app lift` `profile` `go` `setup` `mcp`），外加三条自创的 `check` `fast` `shadow-report`。
 
-## 性能：进程内桥 0.73 µs/次
+## 性能：实测对照（详见 [PERF.md](PERF.md)）
+
+| 指标 | rust-anything | go-anything | 结果 |
+| --- | ---: | ---: | --- |
+| 桥接单次调用 | 0.073 µs | 0.294 µs | **慢约 4 倍**（cgo 下限） |
+| record 吞吐 | 5,966 cases/s | **10,016 cases/s** | **1.68x 更快** |
+| `--help` 启动 | 16.9 ms | 17.5 ms | 持平 |
+| `analyze` | 25.4 ms | 24.8 ms | 持平 |
+
+两种实现都是各自工具生成的桥，同一台机器、同一个单元、同一个函数、交替分块取中位。**桥接这一轴我们落后**，
+原因已量化：Rust 是进程内原生调用，Go 每次要跨 cgo（40–60 ns 下限）+ 两次 napi 字符串取值。
+
+桥接的三步优化都实测过：JSON 双向 1.4–2.0 µs → 分开传参 0.73 µs → 单字符串专用入口 **0.25–0.29 µs**。
+
+## 旧记录：进程内桥 0.73 µs/次
 
 | 路径 | 每次调用 | 每秒 |
 | --- | ---: | ---: |

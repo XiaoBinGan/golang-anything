@@ -88,6 +88,7 @@ extern "C" {
 #endif
 
 extern int go_answer_into(char* name, int nameLen, char* args, int argsLen, char* out, int outCap);
+extern int go_answer_str(char* name, int nameLen, char* arg, int argLen, char* out, int outCap);
 extern void go_free(char* p);
 
 #ifdef __cplusplus

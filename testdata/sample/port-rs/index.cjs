@@ -98,6 +98,12 @@ for (const name of functions) {
 // callSync is possible only in-process: it throws where a pipe would have to wait.
 port.callSync = (name, ...args) => {
   if (!addon) throw new Error('callSync needs the in-process addon: run go-anything build --fast')
+  // One string argument is the shape most ports have: the addon answers it without JSON on either side.
+  if (addon.answer1 && args.length === 1 && typeof args[0] === 'string') {
+    const text = addon.answer1(name, args[0])
+    if (text === null) throw new Error('go-anything: ' + name + ' failed')
+    return decode(JSON.parse(text))
+  }
   const reply = JSON.parse(addon.answer(name, JSON.stringify(args)))
   if (reply.error) throw new Error(reply.error)
   if (reply.panic) throw new Error('Rust panic: ' + reply.panic)

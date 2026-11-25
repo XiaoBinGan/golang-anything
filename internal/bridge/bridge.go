@@ -97,27 +97,33 @@ import (
 // Call answers one call with arguments as a CLI has them: strings. It turns the reply into the text a
 // command prints, and an error into the error the front door reports.
 func Call(name string, args []any) (string, error) {
-	reply := Answer(name, args)
-	if e, ok := reply["error"].(string); ok {
-		return "", fmt.Errorf("%s", e)
+	v, err := invoke(name, args)
+	if err != nil {
+		return "", err
 	}
-	b, err := json.Marshal(reply["ok"])
+	b, err := json.Marshal(v)
 	if err != nil {
 		return "", err
 	}
 	return string(b), nil
 }
 
-// Answer runs one call and never lets a panic out: the host sees a reply, not a dead process.
-func Answer(name string, args []any) map[string]any {
+// invoke is the one place a call happens: the in-process bridge and the CLI both go through it, so
+// neither allocates the reply object the other builds anyway.
+func invoke(name string, args []any) (any, error) {
 	fn, ok := Registry[name]
 	if !ok {
-		return map[string]any{"error": "not ported: " + name}
+		return nil, fmt.Errorf("not ported: %s", name)
 	}
 	defer func() {
 		_ = recover()
 	}()
-	v, err := safeCall(fn, DecodeArgs(args))
+	return safeCall(fn, DecodeArgs(args))
+}
+
+// Answer runs one call and never lets a panic out: the host sees a reply, not a dead process.
+func Answer(name string, args []any) map[string]any {
+	v, err := invoke(name, args)
 	if err != nil {
 		return map[string]any{"error": err.Error()}
 	}
@@ -276,6 +282,12 @@ for (const name of functions) {
 // callSync is possible only in-process: it throws where a pipe would have to wait.
 port.callSync = (name, ...args) => {
   if (!addon) throw new Error('callSync needs the in-process addon: run go-anything build --fast')
+  // One string argument is the shape most ports have: the addon answers it without JSON on either side.
+  if (addon.answer1 && args.length === 1 && typeof args[0] === 'string') {
+    const text = addon.answer1(name, args[0])
+    if (text === null) throw new Error('go-anything: ' + name + ' failed')
+    return decode(JSON.parse(text))
+  }
   const reply = JSON.parse(addon.answer(name, JSON.stringify(args)))
   if (reply.error) throw new Error(reply.error)
   if (reply.panic) throw new Error('Rust panic: ' + reply.panic)
