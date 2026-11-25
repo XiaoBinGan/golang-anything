@@ -16,6 +16,17 @@ try {
 } catch {}
 
 const bin = process.env.GO_ANYTHING_PORTCTL || path.join(__dirname, 'portctl')
+
+// Without either the addon or the binary there is nothing to answer with, and spawning a missing file
+// raises an unhandled 'error' event instead of a sentence a person can act on.
+const { existsSync } = require('node:fs')
+if (!addon && !existsSync(bin)) {
+  throw new Error(
+    'go-anything: no bridge in ' + __dirname + '. Build one: ' +
+    'go-anything build --fast <crate> for the in-process addon (fastest), or ' +
+    'go-anything build <crate> for the stdio binary.'
+  )
+}
 let child = null
 let queue = []
 let buffer = ''
@@ -44,7 +55,33 @@ function start() {
   return child
 }
 
-// decode turns the markers back into JS values: NaN, ±Infinity, -0, a lone surrogate, a bigint.
+function encode(v) {
+  if (v === undefined) return { $undefined: true }
+  if (typeof v === 'number') {
+    if (Number.isNaN(v)) return { $number: 'NaN' }
+    if (!Number.isFinite(v)) return { $number: v > 0 ? 'Infinity' : '-Infinity' }
+    if (Object.is(v, -0)) return { $number: '-0' }
+    return v
+  }
+  if (typeof v === 'bigint') return { $bigint: v.toString() }
+  // A platform object a caller passes in: an AbortSignal has no own enumerable fields, so without this
+  // branch it reached the port as {}, and a port that throws on an aborted signal looked like a port
+  // that never throws.
+  if (typeof AbortSignal !== 'undefined' && v instanceof AbortSignal) {
+    return { $abortSignal: { aborted: v.aborted, reason: v.aborted ? encode(v.reason) : null } }
+  }
+  if (typeof v === 'string' && !v.isWellFormed()) {
+    return { $utf16: [...Array(v.length)].map((_, i) => v.charCodeAt(i)) }
+  }
+  if (Array.isArray(v)) return v.map(encode)
+  if (v && typeof v === 'object') {
+    const out = {}
+    for (const k of Object.keys(v)) out[k] = encode(v[k])
+    return out
+  }
+  return v
+}
+
 function decode(v) {
   if (Array.isArray(v)) return v.map(decode)
   if (v && typeof v === 'object') {
@@ -67,7 +104,7 @@ function decode(v) {
 
 function ask(name, args) {
   if (addon) {
-    const reply = JSON.parse(addon.answer(name, JSON.stringify(args ?? [])))
+    const reply = JSON.parse(addon.answer(name, JSON.stringify(encode(args ?? []))))
     if (reply.error) return Promise.reject(new Error(reply.error))
     if (reply.panic) return Promise.reject(new Error('Rust panic: ' + reply.panic))
     return Promise.resolve(decode(reply.ok))
@@ -85,7 +122,7 @@ function ask(name, args) {
       if (reply.panic) return reject(new Error('Rust panic: ' + reply.panic))
       resolve(decode(reply.ok))
     })
-    proc.stdin.write(JSON.stringify({ name, args }) + '\n')
+    proc.stdin.write(JSON.stringify({ name, args: encode(args) }) + '\n')
   })
 }
 
@@ -93,7 +130,23 @@ const functions = ["rangeOf", "words", "count", "ratio"]
 
 const port = {}
 for (const name of functions) {
-  port[name] = async (...args) => ask(name, args)
+  // In-process the call is synchronous, and that is the point of building the addon: a package whose
+  // functions all return promises cannot stand in for a synchronous original. The promise form stays
+  // for the pipe, where a call has to wait for an answer.
+  port[name] = addon
+    ? (...args) => {
+        try {
+          return port.callSync(name, ...args)
+        } catch (e) {
+          // A port that throws must throw the original's error, not a rejected promise.
+          throw e
+        }
+      }
+    : async (...args) => ask(name, args)
+}
+port.async = {}
+for (const name of functions) {
+  port.async[name] = async (...args) => ask(name, args)
 }
 // callSync is possible only in-process: it throws where a pipe would have to wait.
 port.callSync = (name, ...args) => {
@@ -104,7 +157,7 @@ port.callSync = (name, ...args) => {
     if (text === null) throw new Error('go-anything: ' + name + ' failed')
     return decode(JSON.parse(text))
   }
-  const reply = JSON.parse(addon.answer(name, JSON.stringify(args)))
+  const reply = JSON.parse(addon.answer(name, JSON.stringify(encode(args))))
   if (reply.error) throw new Error(reply.error)
   if (reply.panic) throw new Error('Rust panic: ' + reply.panic)
   return decode(reply.ok)

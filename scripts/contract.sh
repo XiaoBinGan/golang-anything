@@ -29,6 +29,20 @@ check "diff: one call key, used by fuzz too" \
 check "analyze: a callback, a Promise, a Map and an iterator all stay behind" \
   go test ./internal/analyze/ -run "Promise|Container|Lazy"
 
+# The committed answer.go, index.cjs and cmd/portctl are generated: if regenerating them changes the tree,
+# the committed copies are stale and a reader is looking at code the tool no longer writes.
+stale=""
+for crate in $(sed -n '/^CRATES=/,/^"}/p' "$ROOT/scripts/matrix.sh" | grep '^testdata'); do
+  "$GO" bridge "$ROOT/$crate" >/dev/null 2>&1 || stale="$stale $crate(cannot generate)"
+  if ! git -C "$ROOT" diff --quiet -- "$crate"; then stale="$stale $crate"; fi
+done
+if [ -z "$stale" ]; then
+  printf 'ok    generated files: regenerating every crate changes nothing\n'
+else
+  printf 'FAIL  generated files: stale committed copies in%s\n' "$stale"
+  failures=$((failures + 1))
+fi
+
 echo
 echo "== both paths, per crate =="
 matrix=$(OUT=/tmp/contract-matrix.txt "$ROOT/scripts/matrix.sh" 2>&1)
