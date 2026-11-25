@@ -146,6 +146,11 @@ func runDriver(crateDir string) ([]cases.Case, error) {
 	if err != nil {
 		return nil, err
 	}
+	// No port.go means there is nothing to compare. Running the last driver binary would answer for code
+	// that is no longer in the crate, and a person would read that as a result.
+	if _, err := os.Stat(filepath.Join(abs, "port.go")); err != nil {
+		return nil, fmt.Errorf("%s has no port.go: the crate has nothing to compare", crateDir)
+	}
 	// A driver binary `build` already made is what runs: `go run` compiles on every call and costs ten
 	// milliseconds before a single case is compared.
 	cmd, built := driverCommand(abs)
@@ -336,15 +341,27 @@ func asFloat(v any) (float64, bool) {
 func show(c cases.Case) string {
 	switch {
 	case c.Err != "":
-		return "error " + c.Err
+		return clip("error "+c.Err, shownBytes)
 	case c.Panic != "":
-		return "panic " + c.Panic
+		return clip("panic "+c.Panic, shownBytes)
 	}
 	b, err := json.Marshal(c.Ok)
 	if err != nil {
-		return fmt.Sprint(c.Ok)
+		return clip(fmt.Sprint(c.Ok), shownBytes)
 	}
-	return string(b)
+	return clip(string(b), shownBytes)
+}
+
+// shownBytes is how much of a value a mismatch prints. A recorded case can hold a 100,000-character
+// string, and printing it in full turned one mismatch into 150 KB of terminal.
+const shownBytes = 160
+
+// clip shortens a value and says how much was left out, so the shape stays readable.
+func clip(s string, limit int) string {
+	if len(s) <= limit {
+		return s
+	}
+	return s[:limit] + fmt.Sprintf(" … (%d bytes more)", len(s)-limit)
 }
 
 // Markdown is the table `diff` prints under its summary.
@@ -352,7 +369,10 @@ func (o Outcome) Markdown() string {
 	var b strings.Builder
 	for _, m := range o.Mismatch {
 		args, _ := json.Marshal(m.Args)
-		fmt.Fprintf(&b, "- `%s(%s)`: expected %s, got %s (%s)\n", m.Fn, args[1:len(args)-1], m.Expected, m.Got, m.Why)
+		// The arguments are clipped the same way the answers are: one 100,000-character string in a
+		// recorded case otherwise prints a screenful per mismatch.
+		fmt.Fprintf(&b, "- `%s(%s)`: expected %s, got %s (%s)\n",
+			m.Fn, clip(string(args[1:len(args)-1]), shownBytes), m.Expected, m.Got, m.Why)
 	}
 	if o.Truncated {
 		b.WriteString("- … more mismatches, not shown\n")

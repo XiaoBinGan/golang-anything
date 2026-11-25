@@ -564,3 +564,17 @@ every claim above was checked and held
 2. **子脚本的 FAIL 没被计入** → 矩阵里坏掉的 crate 会被「every claim held」盖过去。现在解析矩阵输出计数。
 
 负向对照：把一个 crate 的端口改坏，脚本 `rc=1` 并且点名是哪一段失败。
+
+## 对抗性检查：四个真实会踩的坑（都修了）
+
+拿一个独立 crate 故意弄坏，看工具会不会说谎：
+
+| 弄坏方式 | 之前 | 现在 |
+| --- | --- | --- |
+| **`cases.jsonl` 清空**（导出没有抛错路径） | `gate` 说「every case matches」——**假绿灯** | `no recorded case for shellQuote: nothing proved it`，rc=1 |
+| **用例里有一百万字符的值** | 一条不匹配打印 **150 KB** 终端 | 参数与答案都截断到 160 字节，并说明截掉多少 |
+| **`port.go` 被删** | 用上一次编好的 driver 回答，看起来像结果 | `has no port.go: the crate has nothing to compare` |
+| **`cases.jsonl` 有一行坏 JSON** | — | `cases.jsonl:34: invalid character…`，带行号 |
+
+第一条最严重：第 16 轮加的「导出必须有录制用例」规则，实际只检查了**被 blocked 的导出**——
+因为传给它的表里只有 blocked 条目。现在表里是全部导出（可移植的用空字符串），规则才真的成立。

@@ -396,8 +396,12 @@ func runDiff(args []string, gate bool) error {
 		return err
 	}
 	checks := diff.Check(out, throws, blocked)
+	// Only an export that really stays behind gets that line: the map now names every export, portable
+	// ones with an empty reason.
 	for name, why := range blocked {
-		fmt.Printf("stays in the original: %s (%s)\n", name, why)
+		if why != "" {
+			fmt.Printf("stays in the original: %s (%s)\n", name, why)
+		}
 	}
 	if reasons := checks.Failed(out.Matched, out.Cases); len(reasons) > 0 {
 		return fmt.Errorf("gate: %s", strings.Join(reasons, "; "))
@@ -432,12 +436,13 @@ func manifestChecks(crateDir string) (map[string]int, map[string]string, error) 
 		return nil, nil, err
 	}
 	throws := map[string]int{}
+	// Every export goes in, with an empty reason when it is portable: the gate's "no recorded case"
+	// rule reads this map, and a crate with an empty cases.jsonl passed while only blocked exports were
+	// listed.
 	blocked := map[string]string{}
 	for _, e := range m.Exports {
 		throws[e.Name] = len(e.ThrowLines)
-		if e.Blocked != "" {
-			blocked[e.Name] = e.Blocked
-		}
+		blocked[e.Name] = e.Blocked
 	}
 	return throws, blocked, nil
 }

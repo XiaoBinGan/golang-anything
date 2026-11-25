@@ -3,6 +3,8 @@ package diff
 import (
 	"strings"
 	"testing"
+
+	"github.com/xiaobingan/go-anything/internal/cases"
 )
 
 func TestGateInsistsOnARecordedFailingCase(t *testing.T) {
@@ -60,5 +62,47 @@ func TestGateFailsOnAnExportWithNoRecordedCase(t *testing.T) {
 	reasons := checks.Failed(out.Matched, out.Cases)
 	if len(reasons) != 1 || !strings.Contains(reasons[0], "no recorded case for repeat") {
 		t.Fatalf("reasons: %v", reasons)
+	}
+}
+
+// A crate whose cases.jsonl is empty used to pass: the "no recorded case" rule read a map that only
+// held blocked exports, so a portable export with zero cases was invisible. Every export has to be in
+// that map for the rule to mean anything.
+func TestAnEmptyRecordingFailsForEveryExport(t *testing.T) {
+	out := Outcome{Cases: 0, Matched: 0, ErrorCases: map[string]int{}, PerFn: map[string]int{}}
+	// The gate is told about one export that stays behind and one that does not.
+	checks := Check(out, map[string]int{"portable": 0}, map[string]string{"portable": "", "blocked": "is generic"})
+	if len(checks.Untested) != 2 {
+		t.Fatalf("untested: %+v", checks.Untested)
+	}
+	reasons := checks.Failed(out.Matched, out.Cases)
+	if len(reasons) == 0 {
+		t.Fatal("an empty recording must not pass")
+	}
+	if !strings.Contains(strings.Join(reasons, " "), "portable") {
+		t.Errorf("the portable export is not named: %v", reasons)
+	}
+}
+
+// A recorded case can hold a 100,000-character string, and printing it in full turned one mismatch into
+// 150 KB of terminal. Both the arguments and the answers are clipped now.
+func TestAVeryLongValueIsClipped(t *testing.T) {
+	long := strings.Repeat("x", 100000)
+	out := Outcome{
+		Cases: 1, Matched: 0,
+		Mismatch: []Mismatch{{
+			Fn:       "f",
+			Args:     []any{long},
+			Expected: show(cases.Case{Ok: long}),
+			Got:      show(cases.Case{Ok: "y"}),
+			Why:      "the answer differs as text",
+		}},
+	}
+	text := out.Markdown()
+	if len(text) > 1000 {
+		t.Errorf("one mismatch printed %d bytes", len(text))
+	}
+	if !strings.Contains(text, "bytes more") {
+		t.Errorf("the clipping does not say how much was cut:\n%s", text)
 	}
 }
