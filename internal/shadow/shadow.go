@@ -43,8 +43,9 @@ const log = path.join(__dirname, 'shadow.jsonl')
 const counters = { calls: 0, mismatches: 0, byFunction: {} }
 let warned = 0
 
-// canon sorts keys and spells the values JSON cannot carry, so the two answers compare as values.
-const canon = v => v
+// canon sorts keys and spells the values JSON cannot carry, so the two answers compare as values. The
+// text comes from internal/jswire at write time: a copy here is the drift this project keeps paying for.
+const canon = %JSWIRE_CANON%
 
 const note = (fn, args, want, got, why) => {
   counters.mismatches++
@@ -161,7 +162,7 @@ func Run(opts Options) (string, error) {
 	for i, n := range opts.Exports {
 		names[i] = fmt.Sprintf("%q", n)
 	}
-	text := strings.ReplaceAll(module, "const canon = v => v", jswire.Canon)
+	text := strings.ReplaceAll(module, "%JSWIRE_CANON%", jswire.Canon)
 	text = strings.ReplaceAll(text, "ORIGINAL_PATH", fmt.Sprintf("%q", filepath.ToSlash(rel)))
 	text = strings.ReplaceAll(text, "FUNCTIONS", "["+strings.Join(names, ", ")+"]")
 	path := filepath.Join(dir, "shadow.cjs")
