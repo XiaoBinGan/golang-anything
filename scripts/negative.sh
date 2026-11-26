@@ -282,6 +282,33 @@ cmp -s /tmp/negative-takeover/src/text.rs /tmp/negative-takeover/original.rs ||
   { printf 'FAIL  the refused enable wrote the JavaScript block into the Rust file anyway\n'; failures=$((failures + 1)); }
 rm -rf /tmp/negative-takeover
 
+# 24. bench: a call written with literal arguments is a constant, and clang folds it out of the timing loop.
+#     The row then measures the loop, and the report says the Go port is 13.46x slower than a function whose
+#     body is `return 42` (1 ns vs 3 ns for the same crate). The check is on the harness source, not on
+#     nanoseconds: 1 vs 3 is a clock reading and this is the mechanism that produces it.
+mkdir -p /tmp/negative-bench && cd /tmp/negative-bench
+printf 'int magic(int n) { return 42; }\n' > m.c
+printf 'module negbench\n\ngo 1.24\n' > go.mod
+"$GO" scaffold --unit m.c go-ports/m-go >/dev/null 2>&1
+sed -i '' "s|example.com/m-go|negbench/go-ports/m-go|g" go-ports/m-go/*.go go-ports/m-go/golang-anything.json go-ports/m-go/cmd/*/main.go 2>/dev/null
+"$GO" record --unit m.c go-ports/m-go >/dev/null 2>&1
+"$GO" bench go-ports/m-go >/dev/null 2>&1
+python3 - go-ports/m-go/work/benchh.c <<'PYB'
+import re, sys
+try:
+    src = open(sys.argv[1]).read()
+except OSError as e:
+    sys.exit('no harness: %s' % e)
+calls = re.findall(r'\bmagic\(([^;]*)\)\s*;', src)
+if not calls:
+    sys.exit('the harness never calls magic: this control would pass on nothing')
+bad = [c for c in calls if not c.lstrip().startswith('*(volatile')]
+sys.exit(0 if not bad else 'literal argument reaches the call: %s' % bad[0])
+PYB
+expect_ok "bench keeps literals out of the timing loop" $?
+cd "$ROOT"
+rm -rf /tmp/negative-bench
+
 # 14. perf: no rig, no numbers.
 RUST_ANYTHING=/nonexistent ./scripts/perf.sh >/dev/null 2>&1
 expect_fail "perf refuses a missing rig" $?
