@@ -114,6 +114,24 @@ else
   fail "RECORD.md counts:$record_bad"
 fi
 
+# 8. every entry in RECORD.md names a commit that exists. The entries are subjects without their
+#    `type:` prefix, so the rule is a suffix match. A record that can invent a commit reads exactly like
+#    one that cannot, and this is the only part of the history a reader is asked to trust without reading
+#    git log themselves.
+record_ghosts=$(python3 - <<'PYD'
+import re, subprocess
+text = open('RECORD.md', encoding='utf-8').read()
+subjects = [s for s in subprocess.run(['git', 'log', '--format=%s'], capture_output=True, text=True).stdout.splitlines() if s]
+ghosts = [b for b in re.findall(r'^- \*\*(.+?)\*\*$', text, flags=re.M) if not any(s.endswith(b) for s in subjects)]
+print('; '.join(ghosts))
+PYD
+)
+if [ -z "$record_ghosts" ]; then
+  pass "every RECORD.md entry names a commit that exists"
+else
+  fail "RECORD.md names commits git log does not have:$record_ghosts"
+fi
+
 echo
 if [ "$failures" -eq 0 ]; then
   echo "the documents match the tool"
