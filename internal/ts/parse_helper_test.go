@@ -12,12 +12,12 @@ import (
 // with a fork error, and that is what this pins down.
 func TestAMissingHelperSaysWhatToDo(t *testing.T) {
 	shared = helper{} // a fresh helper, so the failure path is exercised
-	t.Setenv("GO_ANYTHING_PARSE", filepath.Join(t.TempDir(), "absent"))
+	t.Setenv("GOLANG_ANYTHING_PARSE", filepath.Join(t.TempDir(), "absent"))
 	_, err := Parse(source)
 	if err == nil {
 		t.Fatal("a missing helper must be an error")
 	}
-	for _, want := range []string{"parser helper", "GO_ANYTHING_PARSE", "CGO_ENABLED=1"} {
+	for _, want := range []string{"parser helper", "GOLANG_ANYTHING_PARSE", "CGO_ENABLED=1"} {
 		if !contains(err.Error(), want) {
 			t.Errorf("the error should mention %q:\n%s", want, err)
 		}
@@ -26,12 +26,12 @@ func TestAMissingHelperSaysWhatToDo(t *testing.T) {
 
 // With a helper that answers, the same file parses the same way the cgo build would.
 func TestTheHelperAnswersWhatTheCgoBuildWould(t *testing.T) {
-	helperPath := os.Getenv("GO_ANYTHING_PARSE_FOR_TEST")
+	helperPath := os.Getenv("GOLANG_ANYTHING_PARSE_FOR_TEST")
 	if helperPath == "" {
-		t.Skip("set GO_ANYTHING_PARSE_FOR_TEST to a built go-anything-parse to run this")
+		t.Skip("set GOLANG_ANYTHING_PARSE_FOR_TEST to a built golang-anything-parse to run this")
 	}
 	shared = helper{}
-	t.Setenv("GO_ANYTHING_PARSE", helperPath)
+	t.Setenv("GOLANG_ANYTHING_PARSE", helperPath)
 	file, err := Parse(source)
 	if err != nil {
 		t.Fatalf("parse: %v", err)

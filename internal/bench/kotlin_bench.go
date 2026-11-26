@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/xiaobingan/go-anything/internal/record"
+	"github.com/XiaoBinGan/golang-anything/internal/record"
 )
 
 // kotlinBenchSource writes Bench.kt for a Kotlin unit: the same literal calls the recorder makes, repeated

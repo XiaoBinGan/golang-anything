@@ -16,7 +16,7 @@ import (
 	"strconv"
 	"unsafe"
 
-	port "github.com/xiaobingan/go-anything/testdata/realworld3/go-ports/uleb-go"
+	port "github.com/XiaoBinGan/golang-anything/testdata/realworld3/go-ports/uleb-go"
 )
 
 //export go_answer_into

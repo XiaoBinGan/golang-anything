@@ -16,7 +16,7 @@ import (
 	"strconv"
 	"unsafe"
 
-	port "github.com/xiaobingan/go-anything/testdata/realworld/go-ports/byteToHex-go"
+	port "github.com/XiaoBinGan/golang-anything/testdata/realworld/go-ports/byteToHex-go"
 )
 
 //export go_answer_into

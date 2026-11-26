@@ -1,4 +1,4 @@
-# 评测：go-anything vs rust-anything
+# 评测：golang-anything vs rust-anything
 
 一条命令复现：`./scripts/eval.sh`（`ROUNDS=40` 可加采样）。规则：
 
@@ -11,7 +11,7 @@
 
 Load average at the start: **17.51**. Paired rounds, medians with a bootstrap 95% interval.
 
-| axis | go-anything | rust-anything | difference | verdict |
+| axis | golang-anything | rust-anything | difference | verdict |
 | --- | ---: | ---: | ---: | --- |
 | startup --help (cpu) | 1.57 ms | 1.64 ms | -0.06 ms [-0.12, -0.02] | faster |
 | startup --help (wall, best of 40) | 2.19 ms | 2.29 ms | -0.11 ms | faster |
@@ -25,9 +25,9 @@ Load average at the start: **17.51**. Paired rounds, medians with a bootstrap 95
 | binary size | 1.7 MB | 27.3 MB | | |
 
 ```
-go-anything callSync (cgo addon)   0.245 µs/call   4,083,855 calls/s
+golang-anything callSync (cgo addon)   0.245 µs/call   4,083,855 calls/s
   rust-anything napi                 0.116 µs/call   8,652,390 calls/s
-  go-anything wasm (in-process)      0.084 µs/call   11,970,077 calls/s
+  golang-anything wasm (in-process)      0.084 µs/call   11,970,077 calls/s
 VERDICT wasm faster than napi: 1.38x (wasm 0.084 µs, napi 0.116 µs)
 ```
 

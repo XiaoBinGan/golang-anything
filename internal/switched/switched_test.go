@@ -20,7 +20,7 @@ func crate(t *testing.T, unit string) (dir, path string) {
 			t.Fatal(err)
 		}
 	}
-	if err := os.WriteFile(filepath.Join(dir, "go-anything.json"), []byte(`{"unit":"`+unit+`","crate":"example.com/x/port-rs","exports":[{"name":"pad"},{"name":"count"}]}`), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "golang-anything.json"), []byte(`{"unit":"`+unit+`","crate":"example.com/x/port-rs","exports":[{"name":"pad"},{"name":"count"}]}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	src := "export function pad(t: string, w: number): string { return t }\nexport function count(t: string): number { return 0 }\n"
@@ -48,7 +48,7 @@ func TestEnableThenDisableGivesTheOriginalBackByteForByte(t *testing.T) {
 		t.Fatal(err)
 	}
 	block := string(on)
-	for _, want := range []string{">>> go-anything: port-rs is on", `callSync("pad"`, `callSync("count"`, "<<< go-anything: port-rs"} {
+	for _, want := range []string{">>> golang-anything: port-rs is on", `callSync("pad"`, `callSync("count"`, "<<< golang-anything: port-rs"} {
 		if !strings.Contains(block, want) {
 			t.Errorf("the block is missing %q:\n%s", want, block)
 		}
@@ -59,7 +59,7 @@ func TestEnableThenDisableGivesTheOriginalBackByteForByte(t *testing.T) {
 		t.Fatal(err)
 	}
 	twice, _ := os.ReadFile(path)
-	if strings.Count(string(twice), ">>> go-anything") != 1 {
+	if strings.Count(string(twice), ">>> golang-anything") != 1 {
 		t.Errorf("the block landed twice:\n%s", twice)
 	}
 
@@ -122,7 +122,7 @@ func TestAConstExportCanBeSwitchedAndRestored(t *testing.T) {
 		}
 	}
 	manifest := `{"unit":"src/unit.ts","crate":"example.com/x/uleb-go","exports":[{"name":"read"}]}`
-	if err := os.WriteFile(filepath.Join(dir, "go-anything.json"), []byte(manifest), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "golang-anything.json"), []byte(manifest), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	src := "// A const arrow, the way most TypeScript is written today.\nexport const read = (n: number): number => n\n"
@@ -171,7 +171,7 @@ func TestATruncatedBlockIsReportedNotRemoved(t *testing.T) {
 	lines := strings.Split(string(raw), "\n")
 	var kept []string
 	for _, line := range lines {
-		if strings.HasPrefix(line, "// <<< go-anything") {
+		if strings.HasPrefix(line, "// <<< golang-anything") {
 			continue
 		}
 		kept = append(kept, line)

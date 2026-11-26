@@ -14,23 +14,23 @@ mkdir -p "$out"
 
 # Two binaries: the front answers --help and --version and execs the engine for everything else, so the
 # help path does not pay for the twenty-seven commands it is describing. The engine is the whole tool.
-CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o "$out/go-anything-engine" .
-CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o "$out/go-anything" ./cmd/front
+CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o "$out/golang-anything-engine" .
+CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o "$out/golang-anything" ./cmd/front
 # The same program with cgo, which answers `__parse`: the fast build starts it for the commands that
 # read TypeScript. One source, two builds, no separate helper to keep in step.
-CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" -o "$out/go-anything-cgo" .
+CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" -o "$out/golang-anything-cgo" .
 
 # The front binary must not have grown the engine's dependencies: that is its whole reason to exist.
-if go version -m "$out/go-anything" 2>/dev/null | grep -q 'CGO_ENABLED=1'; then
-  echo "build.sh: $out/go-anything was built with cgo; the help path will be slow" >&2
+if go version -m "$out/golang-anything" 2>/dev/null | grep -q 'CGO_ENABLED=1'; then
+  echo "build.sh: $out/golang-anything was built with cgo; the help path will be slow" >&2
   exit 1
 fi
 
 # The fast binary has to actually be the fast one. Copying a cgo build over it adds ~0.15 ms of startup
 # and looks like a regression in the tool rather than a mistake in the shell — it happened twice.
-if ! go version -m "$out/go-anything-engine" 2>/dev/null | grep -q 'CGO_ENABLED=0'; then
-  echo "build.sh: $out/go-anything-engine was not built without cgo; startup measurements will lie" >&2
+if ! go version -m "$out/golang-anything-engine" 2>/dev/null | grep -q 'CGO_ENABLED=0'; then
+  echo "build.sh: $out/golang-anything-engine was not built without cgo; startup measurements will lie" >&2
   exit 1
 fi
 
-echo "built $out/go-anything (no cgo, 2.4 ms startup) and $out/go-anything-cgo (parser)"
+echo "built $out/golang-anything (no cgo, 2.4 ms startup) and $out/golang-anything-cgo (parser)"

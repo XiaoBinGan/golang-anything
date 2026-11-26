@@ -19,7 +19,7 @@ func TestCardSaysHowMuchWasProvedAndWhere(t *testing.T) {
 		"10 / 10",
 		"2 of 2",
 		"in-process addon",
-		"go-anything report",
+		"golang-anything report",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("report is missing %q:\n%s", want, text)
@@ -48,7 +48,7 @@ func TestAFailingCardIsDrawnInTheOtherColour(t *testing.T) {
 
 func TestRunWritesBothFiles(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "go-anything.json"),
+	if err := os.WriteFile(filepath.Join(dir, "golang-anything.json"),
 		[]byte(`{"unit":"src/a.ts","crate":"example.com/x","exports":[{"name":"f","throw_lines":[3]}]}`), 0o644); err != nil {
 		t.Fatal(err)
 	}

@@ -21,7 +21,7 @@ import (
 )
 
 // Dir is where a repository's app cases live.
-const Dir = "go-anything-cases"
+const Dir = "golang-anything-cases"
 
 // Case is one invocation and what it did.
 type Case struct {
@@ -72,7 +72,7 @@ type Outcome struct {
 	Seconds float64  `json:"seconds"`
 }
 
-// Record runs the program on the cases and stores them under <repo>/go-anything-cases/.
+// Record runs the program on the cases and stores them under <repo>/golang-anything-cases/.
 func Record(opts Options) (Outcome, error) {
 	repo, err := filepath.Abs(opts.Repo)
 	if err != nil {
@@ -159,7 +159,7 @@ func Replay(opts Options) (Outcome, error) {
 	dir := filepath.Join(repo, Dir)
 	raw, err := os.ReadFile(filepath.Join(dir, "cases.json"))
 	if err != nil {
-		return Outcome{}, fmt.Errorf("nothing recorded here: run `go-anything app record %s` first", opts.Repo)
+		return Outcome{}, fmt.Errorf("nothing recorded here: run `golang-anything app record %s` first", opts.Repo)
 	}
 	aliases := append([]string{}, opts.Aliases...)
 	if ev, err := Recorded(repo); err == nil && ev.Original != "" {
@@ -325,7 +325,7 @@ func Recorded(repo string) (Evidence, error) {
 	dir := filepath.Join(repo, Dir)
 	raw, err := os.ReadFile(filepath.Join(dir, "cases.json"))
 	if err != nil {
-		return Evidence{}, fmt.Errorf("nothing recorded here: run `go-anything app record %s` first", repo)
+		return Evidence{}, fmt.Errorf("nothing recorded here: run `golang-anything app record %s` first", repo)
 	}
 	var cases []Case
 	if err := json.Unmarshal(raw, &cases); err != nil {

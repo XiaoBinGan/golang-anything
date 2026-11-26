@@ -6,15 +6,15 @@
 #      a real run against a failed one measures how fast failure is.
 #   2. Every number is a median over alternating rounds, because a single run on a busy machine lies.
 #
-# Requires: ./bin/go-anything and ./bin/go-anything-cgo (scripts/build.sh), a rust-anything release
+# Requires: ./bin/golang-anything and ./bin/golang-anything-cgo (scripts/build.sh), a rust-anything release
 # binary in $RUST_ANYTHING, and its crate in $RUST_CRATE.
 set -uo pipefail
 
 # The toolchain this machine actually has: see scripts/env.sh.
 . "$(dirname "$0")/env.sh"
 
-GO=${GO:-./bin/go-anything}
-GO_CGO=${GO_CGO:-./bin/go-anything-cgo}
+GO=${GO:-./bin/golang-anything}
+GO_CGO=${GO_CGO:-./bin/golang-anything-cgo}
 RUST_ANYTHING=${RUST_ANYTHING:-/tmp/ra-39/target/release/rust-anything}
 GO_CRATE=${GO_CRATE:-testdata/sample/port-rs}
 RUST_CRATE=${RUST_CRATE:-/tmp/racmp2/rust/text-rs}
@@ -47,7 +47,7 @@ if ! "$RUST_ANYTHING" diff "$RUST_CRATE" >/dev/null 2>&1; then
   exit 2
 fi
 
-export GO_ANYTHING_PARSE=${GO_ANYTHING_PARSE:-$GO_CGO}
+export GOLANG_ANYTHING_PARSE=${GOLANG_ANYTHING_PARSE:-$GO_CGO}
 
 python3 - "$GO" "$RUST_ANYTHING" "$GO_CRATE" "$RUST_CRATE" "$ROUNDS" <<'PY' | tee "$OUT"
 import subprocess, sys, time, statistics, os, resource, random
@@ -85,7 +85,7 @@ def cpu_ms(cmd):
     after = resource.getrusage(resource.RUSAGE_CHILDREN)
     return ((after.ru_utime - before.ru_utime) + (after.ru_stime - before.ru_stime)) * 1000
 
-pairs = [("go-anything --help", [go, "--help"]), ("rust-anything --help", [rust, "--help"])]
+pairs = [("golang-anything --help", [go, "--help"]), ("rust-anything --help", [rust, "--help"])]
 samples = max(rounds * 6, 40)
 wall = {name: [] for name, _ in pairs}
 cpu = {name: [] for name, _ in pairs}
@@ -122,7 +122,7 @@ def cases_of(path):
         return sum(1 for line in f if line.strip())
 record = []
 for name, cmd, crate in (
-    ("go-anything record", [go, "record", "--unit", "src/text.ts", go_crate], go_crate),
+    ("golang-anything record", [go, "record", "--unit", "src/text.ts", go_crate], go_crate),
     ("rust-anything record", [rust, "record", rust_crate], rust_crate),
 ):
     got = []
@@ -145,10 +145,10 @@ def cases(path):
         return sum(1 for line in f if line.strip())
 gc, rc = cases(go_crate), cases(rust_crate)
 diff = interleaved([
-    ("go-anything diff", [go, "diff", go_crate]),
+    ("golang-anything diff", [go, "diff", go_crate]),
     ("rust-anything diff", [rust, "diff", rust_crate]),
 ])
-for k, n in (("go-anything diff", gc), ("rust-anything diff", rc)):
+for k, n in (("golang-anything diff", gc), ("rust-anything diff", rc)):
     v = diff[k]
     print(f"  {k:24} {v:6.2f} ms   {n:5d} cases   {n/(v/1000):9,.0f} cases/s   {v/n*1000:5.1f} µs/case")
 

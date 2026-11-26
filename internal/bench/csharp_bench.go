@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/xiaobingan/go-anything/internal/record"
+	"github.com/XiaoBinGan/golang-anything/internal/record"
 )
 
 // csharpBenchSource writes a Bench.cs for a C# unit: literal calls in a timing loop, printing rows.

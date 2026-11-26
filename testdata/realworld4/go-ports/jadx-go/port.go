@@ -1,4 +1,4 @@
-// Package port is the Go port of src/android/JadxInterruption.ts, made by go-anything, then filled in by
+// Package port is the Go port of src/android/JadxInterruption.ts, made by golang-anything, then filled in by
 // hand. The whole unit is one line: an aborted signal throws. Everything else about it — the class that
 // carries the reason, the `cause` option, the name it sets — only matters to the caller that catches it.
 package port

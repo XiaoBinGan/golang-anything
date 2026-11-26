@@ -16,7 +16,7 @@ import (
 	"strconv"
 	"unsafe"
 
-	port "github.com/xiaobingan/go-anything/testdata/sample/port-rs"
+	port "github.com/XiaoBinGan/golang-anything/testdata/sample/port-rs"
 )
 
 //export go_answer_into

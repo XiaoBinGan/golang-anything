@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xiaobingan/go-anything/internal/bench"
-	"github.com/xiaobingan/go-anything/internal/diff"
+	"github.com/XiaoBinGan/golang-anything/internal/bench"
+	"github.com/XiaoBinGan/golang-anything/internal/diff"
 )
 
 // Options is one report run.
@@ -113,7 +113,7 @@ func Run(opts Options) (Card, error) {
 	return card, nil
 }
 
-// manifest is the part of go-anything.json a report needs.
+// manifest is the part of golang-anything.json a report needs.
 type manifest struct {
 	Unit    string `json:"unit"`
 	Crate   string `json:"crate"`
@@ -146,7 +146,7 @@ func (m manifest) BlockedNames() []string {
 
 func readManifest(dir string) (manifest, error) {
 	var m manifest
-	raw, err := os.ReadFile(filepath.Join(dir, "go-anything.json"))
+	raw, err := os.ReadFile(filepath.Join(dir, "golang-anything.json"))
 	if err != nil {
 		return m, err
 	}
@@ -197,8 +197,8 @@ func (c Card) Text() string {
 				ns(r.OriginalNS), ns(r.PortNS), r.Speedup)
 		}
 	}
-	b.WriteString("\nEvery number above comes from `go-anything diff` and `go-anything bench` on this crate; ")
-	b.WriteString("regenerate with `go-anything report " + c.Crate + "`.\n")
+	b.WriteString("\nEvery number above comes from `golang-anything diff` and `golang-anything bench` on this crate; ")
+	b.WriteString("regenerate with `golang-anything report " + c.Crate + "`.\n")
 	return b.String()
 }
 
@@ -213,7 +213,7 @@ func (c Card) svg() string {
 		speed = fmt.Sprintf("%.2fx", c.Speedup)
 	}
 	var b strings.Builder
-	b.WriteString(`<svg xmlns="http://www.w3.org/2000/svg" width="840" height="240" viewBox="0 0 840 240" role="img" aria-label="go-anything report">` + "\n")
+	b.WriteString(`<svg xmlns="http://www.w3.org/2000/svg" width="840" height="240" viewBox="0 0 840 240" role="img" aria-label="golang-anything report">` + "\n")
 	fmt.Fprintf(&b, `<rect width="840" height="240" rx="16" fill="#0f0d0b"/>`+"\n")
 	fmt.Fprintf(&b, `<rect x="1" y="1" width="838" height="238" rx="15" fill="none" stroke="%s" stroke-opacity=".7"/>`+"\n", accent)
 	fmt.Fprintf(&b, `<text x="40" y="72" font-family="ui-serif,Georgia,serif" font-size="30" fill="#f4ecdc">%s</text>`+"\n", esc(c.Unit))

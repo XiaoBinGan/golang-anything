@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/xiaobingan/go-anything/testdata/realworld5/go-ports/jp-go"
+	"github.com/XiaoBinGan/golang-anything/testdata/realworld5/go-ports/jp-go"
 )
 
 type testCase struct {

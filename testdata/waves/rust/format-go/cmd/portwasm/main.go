@@ -11,7 +11,7 @@ import (
 	"encoding/json"
 	"unsafe"
 
-	port "github.com/xiaobingan/go-anything/testdata/waves/rust/format-go"
+	port "github.com/XiaoBinGan/golang-anything/testdata/waves/rust/format-go"
 )
 
 const (

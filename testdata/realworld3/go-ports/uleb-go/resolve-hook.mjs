@@ -1,4 +1,4 @@
-// Written by go-anything: resolve a TypeScript import the way a bundler does.
+// Written by golang-anything: resolve a TypeScript import the way a bundler does.
 const TYPE_SCRIPT = /\.[cm]?[jt]sx?$/
 const JS_SUFFIX = /\.(js|mjs|cjs)$/
 

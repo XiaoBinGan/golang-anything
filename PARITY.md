@@ -9,7 +9,7 @@
 
 图例：`✅` 已实现并测过 · `🟡` 部分（说明差在哪） · `⬜` 未做
 
-| # | rust-anything | go-anything | 状态 | 说明 |
+| # | rust-anything | golang-anything | 状态 | 说明 |
 | --- | --- | --- | --- | --- |
 | 1 | `analyze` | `analyze` | ✅ | tree-sitter 解析 TS/TSX/JS：导出、参数与返回类型、`throw` 行、导入、风险；波次、readiness、priority、start_here 用同一套公式 |
 | 2 | `bridge` | `scaffold` + `bridge` | ✅ | `scaffold` 生成 `port.go` 骨架/驱动/清单；`bridge` 生成 `index.cjs`、`port.py`、stdio 桥 |
@@ -30,7 +30,7 @@
 | 17 | `package` | `package` | ✅ | 三种形态（library / cli / service）：npm 主包 + 每平台子包 + Go module + Dockerfile + GitHub Actions；重跑只替换上次写的文件 |
 | 18 | `app record` | `app record` | ✅ | 黑盒跑整程序（argv/stdin/env 进，stdout/stderr/exit 出），每例跑两次以识别不稳定输出 |
 | 19 | `app replay` | `app replay` | ✅ | 任意构建回放；自动把程序路径替换成 `<prog>`，所以换路径不等于是行为变化 |
-| 20 | `app front-door` | `front-door new` | ✅ | 生成接管入口的 Go 二进制：录制到的命令按 argv 分发，接管的走 Go，其余原样转给原程序（可 `GO_ANYTHING_TRACE` 计数） |
+| 20 | `app front-door` | `front-door new` | ✅ | 生成接管入口的 Go 二进制：录制到的命令按 argv 分发，接管的走 Go，其余原样转给原程序（可 `GOLANG_ANYTHING_TRACE` 计数） |
 | 21 | `app wire` | `front-door wire` | ✅ | 把某条录制命令接到端口的某个函数；未录制的命令拒绝（没有证据） |
 | 22 | `app lift` | `front-door lift` | ✅ | 全部命令接管后才允许：删掉 fallback 分支与其 import，变成纯 Go 应用 |
 | 23 | `setup` / `mcp` | `setup` + `mcp` | ✅ | `mcp` 是 JSON-RPC over stdio：**15 个工具**——CLI 已经实现的命令全部委托过去（`check`/`doctor`/`bench`/`shadow-report`/`enable`/`disable`/`clean`/`refresh` 通过捕获命令输出来回答，不写第二份实现），加上原本就有的 7 个；`setup` 把服务器注册进已装 agent。用官方 MCP SDK 客户端核对过（`scripts/mcp-client.mjs`） 的配置，只加自己的键 |
@@ -43,7 +43,7 @@
 
 ## 性能（本机 macOS arm64，Node 22.22，Go 1.26，rust-anything 4.0.0 本地编出）
 
-| 指标 | rust-anything | go-anything | 结果 |
+| 指标 | rust-anything | golang-anything | 结果 |
 | --- | ---: | ---: | --- |
 | 桥接单次（wasm 直调） | 0.070 µs | **0.051 µs** | **快 27%** |
 | 桥接单次（N-API 口径） | 0.070 µs | 0.201 µs | 慢 2.9 倍（cgo ABI 下限） |
@@ -52,7 +52,7 @@
 | `analyze` 真实仓库（7,390 个 .ts） | 42.0 s | **8.46 s** | **快 5.0 倍** |
 | 启动 `--help` | 2.03–2.21 ms | 2.14–2.28 ms | 点估计慢 0.07–0.11 ms，95% CI 跨零（**打平**） |
 
-逐项方法与负向对照在 [PERF.md](PERF.md)。一条命令复现：`GO_ANYTHING_PARSE=bin/go-anything-cgo ./scripts/perf.sh`。
+逐项方法与负向对照在 [PERF.md](PERF.md)。一条命令复现：`GOLANG_ANYTHING_PARSE=bin/golang-anything-cgo ./scripts/perf.sh`。
 
 ### 启动这一轴：测量上打平，点估计略慢
 
@@ -64,7 +64,7 @@ Go 程序启动 1.93 ms，比 rust-anything 还快——所以差距不在语言
 
 这一节是本文件里唯一一处**明确落后**的地方，写清楚比含糊过去好。
 
-| 语言 | rust-anything | go-anything |
+| 语言 | rust-anything | golang-anything |
 | --- | --- | --- |
 | TypeScript / JavaScript | ✅ | ✅ 完整（analyze → scaffold → record → gate → check → bench → fuzz → shadow → enable） |
 | **Python** | ✅ | 🟡 analyze / scaffold / record / gate / diff / check / bench / report / map ✅；`fuzz`、`shadow` 还没有 Python 驱动（会明说原因） |
@@ -116,9 +116,9 @@ Go 程序启动 1.93 ms，比 rust-anything 还快——所以差距不在语言
 按字节移除。实测（`make smoke` 里每次重跑）：
 
 ```
-$ go-anything enable go-ports/u-go && ruby -I. -e 'require "util"; puts Util.double(21)'
+$ golang-anything enable go-ports/u-go && ruby -I. -e 'require "util"; puts Util.double(21)'
 42
-$ go-anything disable go-ports/u-go && cmp util.rb util.before   # 字节一致
+$ golang-anything disable go-ports/u-go && cmp util.rb util.before   # 字节一致
 ```
 
 PHP 的 `enable` 仍缺：PHP 不能重定义已声明的函数，接管必须改类体内部，那不是「末尾插块」能做的。
@@ -129,7 +129,7 @@ PHP 的 `enable` 仍缺：PHP 不能重定义已声明的函数，接管必须�
 一条命令看出差别：
 
 ```
-$ go-anything analyze /path/to/java-repo
+$ golang-anything analyze /path/to/java-repo
 # Port plan: java-repo (nothing this tool reads)
 
 812 source file(s) in languages this tool does not read: .java ×812

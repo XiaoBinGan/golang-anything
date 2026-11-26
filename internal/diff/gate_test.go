@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xiaobingan/go-anything/internal/cases"
+	"github.com/XiaoBinGan/golang-anything/internal/cases"
 )
 
 func TestGateInsistsOnARecordedFailingCase(t *testing.T) {

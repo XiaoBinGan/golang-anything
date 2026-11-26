@@ -9,7 +9,7 @@ package switched
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/xiaobingan/go-anything/internal/fingerprint"
+	"github.com/XiaoBinGan/golang-anything/internal/fingerprint"
 	"os"
 	"path/filepath"
 	"sort"
@@ -62,10 +62,10 @@ func takeover(unit string) (string, bool) {
 
 // markOpen is the first line of the block: a reader and `disable` both find it by this prefix.
 func markOpen(crate string) string {
-	return "// >>> go-anything: " + crate + " is on. `go-anything disable` removes this block."
+	return "// >>> golang-anything: " + crate + " is on. `golang-anything disable` removes this block."
 }
 
-func markClose(crate string) string { return "// <<< go-anything: " + crate }
+func markClose(crate string) string { return "// <<< golang-anything: " + crate }
 
 // Enable inserts the block into the unit's file and returns the file it changed.
 func Enable(opts Options) (string, error) {
@@ -102,14 +102,14 @@ func Enable(opts Options) (string, error) {
 	// What a switched call needs depends on where the block lands: a JavaScript unit talks to the addon,
 	// a Ruby unit talks to the stdio binary through port.rb.
 	needed := []string{"index.cjs", "addon.node"}
-	how := "go-anything build --fast"
+	how := "golang-anything build --fast"
 	if kind == "ruby" {
 		needed = []string{"port.rb", "portctl"}
-		how = "go-anything build"
+		how = "golang-anything build"
 	}
 	for _, file := range needed {
 		if _, err := os.Stat(filepath.Join(opts.CrateDir, file)); err != nil {
-			return "", fmt.Errorf("run `go-anything bridge %s` and `%s %s` first: %s is missing",
+			return "", fmt.Errorf("run `golang-anything bridge %s` and `%s %s` first: %s is missing",
 				opts.CrateDir, how, opts.CrateDir, file)
 		}
 	}
@@ -128,7 +128,7 @@ func Enable(opts Options) (string, error) {
 	}
 	text := string(raw)
 	name := filepath.Base(crateDir)
-	if strings.Contains(text, markOpen(name)) || strings.Contains(text, "# >>> go-anything: "+name) {
+	if strings.Contains(text, markOpen(name)) || strings.Contains(text, "# >>> golang-anything: "+name) {
 		// Already on: enabling twice must not add a second block.
 		return path, nil
 	}
@@ -194,7 +194,7 @@ func IsOn(crateDir, unit, crate string) (bool, error) {
 		return false, err
 	}
 	text := string(raw)
-	return strings.Contains(text, markOpen(crateName)) || strings.Contains(text, "# >>> go-anything: "+crateName), nil
+	return strings.Contains(text, markOpen(crateName)) || strings.Contains(text, "# >>> golang-anything: "+crateName), nil
 }
 
 // render builds the block. Everything it needs comes from the caller, so the block is the same on every
@@ -253,10 +253,10 @@ func remove(text, crate string) (string, bool) {
 func removeChecked(text, crate string) (string, bool, bool) {
 	open := markOpen(crate)
 	close := markClose(crate)
-	if strings.Contains(text, "# >>> go-anything: "+crate) {
+	if strings.Contains(text, "# >>> golang-anything: "+crate) {
 		// The Ruby block says the same thing in that language's comment.
-		open = "# >>> go-anything: " + crate
-		close = "# <<< go-anything: " + crate
+		open = "# >>> golang-anything: " + crate
+		close = "# <<< golang-anything: " + crate
 	}
 	start := strings.Index(text, open)
 	if start < 0 {
@@ -294,7 +294,7 @@ func planRoot(crateDir, rel string) (string, error) {
 
 // ExportsOf lists what a manifest can switch on, so the CLI and the tests agree.
 func ExportsOf(crateDir string) ([]string, error) {
-	raw, err := os.ReadFile(filepath.Join(crateDir, "go-anything.json"))
+	raw, err := os.ReadFile(filepath.Join(crateDir, "golang-anything.json"))
 	if err != nil {
 		return nil, err
 	}
@@ -318,7 +318,7 @@ func ExportsOf(crateDir string) ([]string, error) {
 
 // UnitOf reads the unit a manifest names.
 func UnitOf(crateDir string) (string, error) {
-	raw, err := os.ReadFile(filepath.Join(crateDir, "go-anything.json"))
+	raw, err := os.ReadFile(filepath.Join(crateDir, "golang-anything.json"))
 	if err != nil {
 		return "", err
 	}
@@ -401,7 +401,7 @@ func clearLoosened(crateDir, unitPath string) { os.Remove(loosenedPath(crateDir,
 // reopened the same way.
 func renderRuby(opts Options, names []string, rel, name string) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "# >>> go-anything: %s is on. `go-anything disable` removes this block.\n", name)
+	fmt.Fprintf(&b, "# >>> golang-anything: %s is on. `golang-anything disable` removes this block.\n", name)
 	b.WriteString("# The original below is unchanged; every call now goes to the Go port over the stdio bridge.\n")
 	fmt.Fprintf(&b, "require_relative %q\n", rel+"/port")
 	owners := map[string][]string{}
@@ -430,7 +430,7 @@ func renderRuby(opts Options, names []string, rel, name string) string {
 			b.WriteString("  end\nend\n")
 		}
 	}
-	fmt.Fprintf(&b, "# <<< go-anything: %s\n", name)
+	fmt.Fprintf(&b, "# <<< golang-anything: %s\n", name)
 	return b.String()
 }
 

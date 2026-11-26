@@ -16,9 +16,9 @@ import (
 	"time"
 	"unicode/utf16"
 
-	"github.com/xiaobingan/go-anything/internal/cases"
-	"github.com/xiaobingan/go-anything/internal/toolchain"
-	"github.com/xiaobingan/go-anything/internal/wire"
+	"github.com/XiaoBinGan/golang-anything/internal/cases"
+	"github.com/XiaoBinGan/golang-anything/internal/toolchain"
+	"github.com/XiaoBinGan/golang-anything/internal/wire"
 )
 
 // Options is one diff run.

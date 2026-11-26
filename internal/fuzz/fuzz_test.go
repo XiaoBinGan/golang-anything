@@ -37,7 +37,7 @@ func draw(kind string, seed int64, n int) []any {
 
 func TestRunRefusesWithoutACrate(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "go-anything.json"),
+	if err := os.WriteFile(filepath.Join(dir, "golang-anything.json"),
 		[]byte(`{"unit":"src/a.ts","exports":[]}`), 0o644); err != nil {
 		t.Fatal(err)
 	}

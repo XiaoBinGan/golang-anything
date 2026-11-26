@@ -12,7 +12,7 @@ CRATE=${1:-testdata/realworld5/go-ports/jp-go}
 NAME=${NAME:-jp}
 VERSION=${VERSION:-1.0.0}
 PORT=${PORT:-$((40000 + RANDOM % 20000))}
-GO=${GO:-./bin/go-anything}
+GO=${GO:-./bin/golang-anything}
 
 work=$(mktemp -d)
 trap 'pkill -f "registry.mjs --work $work" 2>/dev/null; rm -rf "$work"' EXIT

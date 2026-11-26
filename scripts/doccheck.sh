@@ -9,7 +9,7 @@ set -uo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT" || exit 1
-GO=${GO:-./bin/go-anything}
+GO=${GO:-./bin/golang-anything}
 failures=0
 
 fail() { printf 'FAIL  %s\n' "$1"; failures=$((failures + 1)); }
@@ -24,7 +24,7 @@ while read -r cmd; do
   # A subcommand is documented as part of a compound name (`app record`), so the bare name is not enough.
   grep -q "\`$cmd\`\|\`$cmd [a-z-]*\`" PARITY.md || undocumented="$undocumented $cmd"
   grep -q "\`$cmd\`" README.md || undocumented="$undocumented $cmd(readme)"
-done < <(printf '%s\n' "$help_text" | sed -n 's/^  go-anything \([a-z][a-z-]*\).*/\1/p' | sort -u)
+done < <(printf '%s\n' "$help_text" | sed -n 's/^  golang-anything \([a-z][a-z-]*\).*/\1/p' | sort -u)
 if [ -z "$undocumented" ]; then
   pass "every command in --help is in PARITY.md and README.md"
 else
@@ -36,7 +36,7 @@ invented=$(python3 - "$GO" <<'PY'
 import re, subprocess, sys
 help_text = subprocess.run([sys.argv[1], '--help'], capture_output=True, text=True).stdout
 mine = sorted({m.group(1) for line in help_text.splitlines()
-               if (m := re.match(r'\s+go-anything ([a-z][a-z-]*)', line))})
+               if (m := re.match(r'\s+golang-anything ([a-z][a-z-]*)', line))})
 theirs = set()
 for row in open('PARITY.md'):
     if not row.startswith('|'):
@@ -56,7 +56,7 @@ done
 
 # 3. the counts the document states have to match the tool
 stated=$(grep -o '[0-9]*/26' PARITY.md | head -1 | cut -d/ -f1)
-actual=$(printf '%s\n' "$help_text" | sed -n 's/^  go-anything \([a-z][a-z-]*\).*/\1/p' | sort -u | wc -l | tr -d ' ')
+actual=$(printf '%s\n' "$help_text" | sed -n 's/^  golang-anything \([a-z][a-z-]*\).*/\1/p' | sort -u | wc -l | tr -d ' ')
 echo "      commands: --help says $actual, PARITY states $stated/26"
 
 # 4. every MCP tool is named in README.md
@@ -83,7 +83,7 @@ else
 fi
 
 # 6. the doctor checks it lists have to be the checks doctor runs
-doctor_checks=$(GO_ANYTHING_PARSE=$PWD/bin/go-anything-cgo "$GO" doctor 2>&1 | grep -cE '^(ok|MISS)')
+doctor_checks=$(GOLANG_ANYTHING_PARSE=$PWD/bin/golang-anything-cgo "$GO" doctor 2>&1 | grep -cE '^(ok|MISS)')
 stated_doctor=$(grep -o '七项' PARITY.md | head -1)
 if [ "$doctor_checks" -ne 7 ]; then
   fail "doctor runs $doctor_checks checks; PARITY.md and this script both say seven"

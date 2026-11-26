@@ -22,7 +22,7 @@ register(pathToFileURL(new URL('./resolve-hook.mjs', import.meta.url).pathname))
 
 // resolveHook is registered by resolver above: TypeScript's own convention writes './foo.js' for a
 // file called 'foo.ts', because the emit would be JavaScript. Both spellings are tried.
-const resolveHook = `// Written by go-anything: resolve a TypeScript import the way a bundler does.
+const resolveHook = `// Written by golang-anything: resolve a TypeScript import the way a bundler does.
 const TYPE_SCRIPT = /\.[cm]?[jt]sx?$/
 const JS_SUFFIX = /\.(js|mjs|cjs)$/
 

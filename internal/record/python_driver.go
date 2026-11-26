@@ -128,15 +128,15 @@ def main():
     # package context. The module name and the import root come from the Go side; the file load stays as a
     # fallback for a module that is not part of a package at all.
     import importlib.util, os
-    root = os.environ.get('GO_ANYTHING_PY_ROOT', '')
-    modname = os.environ.get('GO_ANYTHING_PY_MODULE', '')
+    root = os.environ.get('GOLANG_ANYTHING_PY_ROOT', '')
+    modname = os.environ.get('GOLANG_ANYTHING_PY_MODULE', '')
     module = None
     if root and modname:
         sys.path.insert(0, root)
         try:
             module = importlib.import_module(modname)
         except Exception as exc:
-            print('go-anything: importing %s failed (%s); falling back to a file load' % (modname, exc),
+            print('golang-anything: importing %s failed (%s); falling back to a file load' % (modname, exc),
                   file=sys.stderr)
     if module is None:
         spec = importlib.util.spec_from_file_location('unit_under_test', unit)

@@ -14,11 +14,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/xiaobingan/go-anything/internal/cases"
-	"github.com/xiaobingan/go-anything/internal/diff"
-	"github.com/xiaobingan/go-anything/internal/nodeflags"
-	"github.com/xiaobingan/go-anything/internal/pool"
-	"github.com/xiaobingan/go-anything/internal/record"
+	"github.com/XiaoBinGan/golang-anything/internal/cases"
+	"github.com/XiaoBinGan/golang-anything/internal/diff"
+	"github.com/XiaoBinGan/golang-anything/internal/nodeflags"
+	"github.com/XiaoBinGan/golang-anything/internal/pool"
+	"github.com/XiaoBinGan/golang-anything/internal/record"
 )
 
 // Options is one fuzz run.
@@ -73,7 +73,7 @@ const decode = v => {
 // A call that big is skipped for both sides, which keeps the comparison honest: neither is asked.
 const MAX_BYTES = 64 * 1024
 const started = Date.now()
-const BUDGET_MS = Number(process.env.GO_ANYTHING_FUZZ_BUDGET_MS || 120000)
+const BUDGET_MS = Number(process.env.GOLANG_ANYTHING_FUZZ_BUDGET_MS || 120000)
 const answers = []
 for (const c of calls) {
   if (Date.now() - started > BUDGET_MS) {
@@ -260,7 +260,7 @@ func Run(opts Options) (Result, error) {
 	return out, nil
 }
 
-// manifest is the part of go-anything.json fuzz needs: where the unit is and what each export takes.
+// manifest is the part of golang-anything.json fuzz needs: where the unit is and what each export takes.
 type manifest struct {
 	Unit    string `json:"unit"`
 	Exports []struct {
@@ -272,7 +272,7 @@ type manifest struct {
 
 func readManifest(dir string) (manifest, error) {
 	var m manifest
-	raw, err := os.ReadFile(filepath.Join(dir, "go-anything.json"))
+	raw, err := os.ReadFile(filepath.Join(dir, "golang-anything.json"))
 	if err != nil {
 		return m, err
 	}

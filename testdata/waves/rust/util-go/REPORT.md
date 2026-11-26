@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| Crate | `github.com/xiaobingan/go-anything/testdata/waves/rust/util-go` |
+| Crate | `github.com/XiaoBinGan/golang-anything/testdata/waves/rust/util-go` |
 | Recorded cases matched | 108 / 108 (100.0%) |
 | Speedup, call included | 0.44x (geometric mean) |
 | Throw paths with a recorded failing case | 0 of 0 |
@@ -14,4 +14,4 @@
 | `pad` | 54 | 16 ns | 35 ns | 0.46x |
 | `repeat` | 54 | 15 ns | 35 ns | 0.42x |
 
-Every number above comes from `go-anything diff` and `go-anything bench` on this crate; regenerate with `go-anything report github.com/xiaobingan/go-anything/testdata/waves/rust/util-go`.
+Every number above comes from `golang-anything diff` and `golang-anything bench` on this crate; regenerate with `golang-anything report github.com/XiaoBinGan/golang-anything/testdata/waves/rust/util-go`.

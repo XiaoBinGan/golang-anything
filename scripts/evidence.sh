@@ -9,9 +9,9 @@ set -uo pipefail
 # The toolchain this machine actually has: see scripts/env.sh.
 . "$(dirname "$0")/env.sh"
 
-GO=${GO:-./bin/go-anything}
-GO_CGO=${GO_CGO:-./bin/go-anything-cgo}
-export GO_ANYTHING_PARSE=${GO_ANYTHING_PARSE:-$GO_CGO}
+GO=${GO:-./bin/golang-anything}
+GO_CGO=${GO_CGO:-./bin/golang-anything-cgo}
+export GOLANG_ANYTHING_PARSE=${GOLANG_ANYTHING_PARSE:-$GO_CGO}
 WORK=${WORK:-/tmp/evidence}
 OUT=${OUT:-/tmp/evidence.txt}
 rm -rf "$WORK" && mkdir -p "$WORK"

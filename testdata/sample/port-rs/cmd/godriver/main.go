@@ -8,7 +8,7 @@ import (
 	"math"
 	"os"
 
-	"github.com/xiaobingan/go-anything/testdata/sample/port-rs"
+	"github.com/XiaoBinGan/golang-anything/testdata/sample/port-rs"
 )
 
 type testCase struct {

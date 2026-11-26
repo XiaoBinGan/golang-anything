@@ -14,11 +14,11 @@ import (
 func String() string {
 	info, ok := debug.ReadBuildInfo()
 	if !ok {
-		return "go-anything (unknown build)"
+		return "golang-anything (unknown build)"
 	}
 	v := info.Main.Version
 	if v == "" || v == "(devel)" {
 		v = "devel"
 	}
-	return fmt.Sprintf("go-anything %s (%s)", v, runtime.Version())
+	return fmt.Sprintf("golang-anything %s (%s)", v, runtime.Version())
 }

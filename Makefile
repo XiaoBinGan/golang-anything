@@ -24,20 +24,20 @@ check: build test contract matrix evidence smoke
 	@echo "all checks passed"
 
 contract:
-	GO=$(BIN)/go-anything ./scripts/contract.sh
+	GO=$(BIN)/golang-anything ./scripts/contract.sh
 
 matrix:
-	GO=$(BIN)/go-anything ./scripts/matrix.sh
+	GO=$(BIN)/golang-anything ./scripts/matrix.sh
 
 evidence:
-	GO=$(BIN)/go-anything ./scripts/evidence.sh
+	GO=$(BIN)/golang-anything ./scripts/evidence.sh
 
 # Every command and every flag that changes behaviour, once, on a throwaway copy.
 smoke:
-	GO=$(BIN)/go-anything ./scripts/smoke.sh
+	GO=$(BIN)/golang-anything ./scripts/smoke.sh
 
 perf:
-	GO=$(BIN)/go-anything GO_ANYTHING_PARSE=$(BIN)/go-anything-cgo ./scripts/perf.sh
+	GO=$(BIN)/golang-anything GOLANG_ANYTHING_PARSE=$(BIN)/golang-anything-cgo ./scripts/perf.sh
 
 # Slow and destructive on purpose: every check is run against a known break and must fail. This is the
 # reason to believe `make check`, so it is its own target rather than part of it.

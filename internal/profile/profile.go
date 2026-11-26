@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xiaobingan/go-anything/internal/analyze"
+	"github.com/XiaoBinGan/golang-anything/internal/analyze"
 )
 
 // Options is one profiling run.

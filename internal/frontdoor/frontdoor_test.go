@@ -11,7 +11,7 @@ import (
 func repo(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	cases := filepath.Join(dir, "go-anything-cases")
+	cases := filepath.Join(dir, "golang-anything-cases")
 	if err := os.MkdirAll(cases, 0o755); err != nil {
 		t.Fatal(err)
 	}

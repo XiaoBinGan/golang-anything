@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/xiaobingan/go-anything/internal/record"
+	"github.com/XiaoBinGan/golang-anything/internal/record"
 )
 
 // benchCalls is the recorder's own call planner: the workload timed here is the workload recorded.

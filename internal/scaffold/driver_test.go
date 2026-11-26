@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xiaobingan/go-anything/internal/analyze"
-	"github.com/xiaobingan/go-anything/internal/ts"
+	"github.com/XiaoBinGan/golang-anything/internal/analyze"
+	"github.com/XiaoBinGan/golang-anything/internal/ts"
 )
 
 // A recording of nothing leaves an empty line, and the generated driver failed on it with "unexpected

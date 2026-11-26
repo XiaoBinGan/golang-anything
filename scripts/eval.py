@@ -13,7 +13,7 @@ queue for a process, so CPU time decides the startup axis and is printed beside 
 import json, os, random, resource, shutil, statistics, subprocess, sys, tempfile, time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-GO = os.environ.get("GO", os.path.join(ROOT, "bin/go-anything"))
+GO = os.environ.get("GO", os.path.join(ROOT, "bin/golang-anything"))
 RUST = os.environ.get("RUST_ANYTHING", "/tmp/ra-39/target/release/rust-anything")
 GO_CRATE = os.path.join(ROOT, os.environ.get("GO_CRATE", "testdata/sample/port-rs"))
 RUST_CRATE = os.environ.get("RUST_CRATE", "/tmp/racmp2/rust/text-rs")
@@ -88,7 +88,7 @@ def main():
     notes.append(f"load average {load:.2f} at the start")
 
     # A comparison is only worth reading if both sides are correct on the crates being timed.
-    for name, cmd in (("go-anything", [GO, "diff", GO_CRATE]), ("rust-anything", [RUST, "diff", RUST_CRATE])):
+    for name, cmd in (("golang-anything", [GO, "diff", GO_CRATE]), ("rust-anything", [RUST, "diff", RUST_CRATE])):
         r = run(cmd)
         if r.returncode != 0:
             print(f"eval: {name} does not pass its own diff; timing it would measure failure:\n{r.stdout}{r.stderr}",
@@ -194,9 +194,9 @@ def main():
     return 0
 
 def markdown(results, load):
-    out = [f"# go-anything vs rust-anything", "",
+    out = [f"# golang-anything vs rust-anything", "",
            f"Load average at the start: **{load:.2f}**. Paired rounds, medians with a bootstrap 95% interval.",
-           "", "| axis | go-anything | rust-anything | difference | verdict |", "| --- | ---: | ---: | ---: | --- |"]
+           "", "| axis | golang-anything | rust-anything | difference | verdict |", "| --- | ---: | ---: | ---: | --- |"]
     for label, r in results.items():
         if not isinstance(r, dict) or "verdict" not in r:
             continue

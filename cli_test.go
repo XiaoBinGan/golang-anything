@@ -16,7 +16,7 @@ func runWith(t *testing.T, args ...string) (string, string) {
 	outR, outW, _ := os.Pipe()
 	errR, errW, _ := os.Pipe()
 	os.Stdout, os.Stderr = outW, errW
-	os.Args = append([]string{"go-anything"}, args...)
+	os.Args = append([]string{"golang-anything"}, args...)
 
 	done := make(chan [2]string, 1)
 	go func() {
@@ -40,7 +40,7 @@ func runWith(t *testing.T, args ...string) (string, string) {
 func TestVersionAnswersWithoutASubcommand(t *testing.T) {
 	for _, arg := range []string{"--version", "version", "-version"} {
 		out, _ := runWith(t, arg)
-		if !strings.Contains(out, "go-anything ") {
+		if !strings.Contains(out, "golang-anything ") {
 			t.Errorf("%s printed %q", arg, out)
 		}
 	}
@@ -49,7 +49,7 @@ func TestVersionAnswersWithoutASubcommand(t *testing.T) {
 // --help goes to stdout, the way a person and a script both expect.
 func TestHelpGoesToStdout(t *testing.T) {
 	out, errOut := runWith(t, "--help")
-	if !strings.Contains(out, "go-anything analyze") {
+	if !strings.Contains(out, "golang-anything analyze") {
 		t.Errorf("stdout: %q", out)
 	}
 	if strings.TrimSpace(errOut) != "" {

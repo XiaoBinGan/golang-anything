@@ -1,4 +1,4 @@
-// Package port is the Go port of src/kernel/byteToHex.ts, made by go-anything, then filled in by hand.
+// Package port is the Go port of src/kernel/byteToHex.ts, made by golang-anything, then filled in by hand.
 //
 // The original answers `byte.toString(16).padStart(2, "0")` for every number it is given, not only for
 // 0..255: `byteToHex(1.5)` is "1.8" and `byteToHex(-1000)` is "-3e8". So this is not a byte formatter;

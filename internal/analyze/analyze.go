@@ -13,7 +13,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/xiaobingan/go-anything/internal/ts"
+	"github.com/XiaoBinGan/golang-anything/internal/ts"
 )
 
 // Export is one function a bridge could carry.
@@ -91,7 +91,7 @@ var riskWeights = map[string]float64{
 var skipDir = map[string]bool{
 	"node_modules": true, "dist": true, "build": true, "out": true, ".git": true,
 	"coverage": true, ".next": true, ".nuxt": true, "vendor": true, "__pycache__": true,
-	"rust": true, "port": true, "go-anything": true,
+	"rust": true, "port": true, "golang-anything": true,
 }
 
 // Reasons tallies, per blocking reason, how many exports stay in the original. A plan for a real
@@ -145,7 +145,7 @@ func Run(root string) (*Report, error) {
 			}
 			// A folder that holds a crate is this tool's output, not source a person wrote: its helper
 			// files (resolve.mjs, check.mjs) would otherwise appear in the plan as units of their own.
-			if _, err := os.Stat(filepath.Join(path, "go-anything.json")); err == nil {
+			if _, err := os.Stat(filepath.Join(path, "golang-anything.json")); err == nil {
 				return filepath.SkipDir
 			}
 			return nil

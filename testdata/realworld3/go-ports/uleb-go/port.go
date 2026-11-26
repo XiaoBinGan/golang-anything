@@ -1,4 +1,4 @@
-// Package port is the Go port of src/domain/elfAttributeUleb.ts, made by go-anything, then filled in by
+// Package port is the Go port of src/domain/elfAttributeUleb.ts, made by golang-anything, then filled in by
 // hand. The unit is three lines and its whole content is the call it makes: leb128's reader, with the
 // 32-bit cap, answering `undefined` where the reader reports failure.
 package port

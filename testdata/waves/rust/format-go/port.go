@@ -1,4 +1,4 @@
-// Package port is the Go port of src/format.ts, made by go-anything, then filled in by hand.
+// Package port is the Go port of src/format.ts, made by golang-anything, then filled in by hand.
 //
 // box is built out of util.ts's pad and repeat. It ports its own copies rather than importing the other
 // crate: a crate is the unit of proof, and a crate that depended on a second one would make `gate`

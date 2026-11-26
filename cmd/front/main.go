@@ -11,13 +11,13 @@ package main
 import (
 	"fmt"
 
-	"github.com/xiaobingan/go-anything/internal/version"
+	"github.com/XiaoBinGan/golang-anything/internal/version"
 	"os"
 	"path/filepath"
 	"runtime"
 	"syscall"
 
-	"github.com/xiaobingan/go-anything/internal/usage"
+	"github.com/XiaoBinGan/golang-anything/internal/usage"
 )
 
 func main() {
@@ -40,12 +40,12 @@ func main() {
 
 	engine, err := findEngine()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "go-anything:", err)
+		fmt.Fprintln(os.Stderr, "golang-anything:", err)
 		os.Exit(1)
 	}
 	// exec, so there is no second process to wait for and no signal forwarding to get wrong.
 	if err := syscall.Exec(engine, append([]string{engine}, os.Args[1:]...), os.Environ()); err != nil {
-		fmt.Fprintln(os.Stderr, "go-anything: cannot start the engine:", err)
+		fmt.Fprintln(os.Stderr, "golang-anything: cannot start the engine:", err)
 		os.Exit(1)
 	}
 }
@@ -53,16 +53,16 @@ func main() {
 // findEngine looks beside this binary first, then on PATH.
 func findEngine() (string, error) {
 	if self, err := os.Executable(); err == nil {
-		candidate := filepath.Join(filepath.Dir(self), "go-anything-engine")
+		candidate := filepath.Join(filepath.Dir(self), "golang-anything-engine")
 		if _, err := os.Stat(candidate); err == nil {
 			return candidate, nil
 		}
 	}
 	if path, err := filepath.Abs(os.Args[0]); err == nil {
-		candidate := filepath.Join(filepath.Dir(path), "go-anything-engine")
+		candidate := filepath.Join(filepath.Dir(path), "golang-anything-engine")
 		if _, err := os.Stat(candidate); err == nil {
 			return candidate, nil
 		}
 	}
-	return "", fmt.Errorf("cannot find go-anything-engine beside %s", os.Args[0])
+	return "", fmt.Errorf("cannot find golang-anything-engine beside %s", os.Args[0])
 }

@@ -1,4 +1,4 @@
-// Package port is the Go port of src/util.ts, made by go-anything, then filled in by hand.
+// Package port is the Go port of src/util.ts, made by golang-anything, then filled in by hand.
 //
 // Both functions pad by UTF-16 code units, not by runes: `pad('😀', 3)` is two units wide, so the
 // port works on units and the wire spells what Go cannot hold.

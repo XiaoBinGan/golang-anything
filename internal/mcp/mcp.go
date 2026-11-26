@@ -18,12 +18,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/xiaobingan/go-anything/internal/analyze"
-	"github.com/xiaobingan/go-anything/internal/diff"
-	"github.com/xiaobingan/go-anything/internal/fuzz"
-	"github.com/xiaobingan/go-anything/internal/mapdoc"
-	"github.com/xiaobingan/go-anything/internal/profile"
-	"github.com/xiaobingan/go-anything/internal/record"
+	"github.com/XiaoBinGan/golang-anything/internal/analyze"
+	"github.com/XiaoBinGan/golang-anything/internal/diff"
+	"github.com/XiaoBinGan/golang-anything/internal/fuzz"
+	"github.com/XiaoBinGan/golang-anything/internal/mapdoc"
+	"github.com/XiaoBinGan/golang-anything/internal/profile"
+	"github.com/XiaoBinGan/golang-anything/internal/record"
 )
 
 // Version is what the server reports at initialize.
@@ -295,7 +295,7 @@ func handle(req request, log io.Writer) (response, bool) {
 	case "initialize":
 		reply.Result = map[string]any{
 			"protocolVersion": "2024-11-05",
-			"serverInfo":      map[string]any{"name": "go-anything", "version": Version},
+			"serverInfo":      map[string]any{"name": "golang-anything", "version": Version},
 			"capabilities":    map[string]any{"tools": map[string]any{}},
 		}
 	case "notifications/initialized", "initialized":
@@ -334,7 +334,7 @@ func handle(req request, log io.Writer) (response, bool) {
 
 // callTool runs one tool and answers text: JSON for a plan, a verdict sentence for the gate.
 // commands holds the tools the CLI implements. main fills it, so the tool and the command are the same
-// code: `go-anything check` and tools/call "check" cannot drift apart.
+// code: `golang-anything check` and tools/call "check" cannot drift apart.
 var commands = map[string]func(map[string]any) (string, error){}
 
 // SetCommands installs the delegated tools.
@@ -511,7 +511,7 @@ func planRoot(crateDir, rel string) string {
 
 // manifestChecks reads the throw counts and the blocked exports the gate needs.
 func manifestChecks(crateDir string) (map[string]int, map[string]string, error) {
-	raw, err := os.ReadFile(filepath.Join(crateDir, "go-anything.json"))
+	raw, err := os.ReadFile(filepath.Join(crateDir, "golang-anything.json"))
 	if err != nil {
 		return nil, nil, err
 	}

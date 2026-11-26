@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xiaobingan/go-anything/internal/analyze"
-	"github.com/xiaobingan/go-anything/internal/ts"
+	"github.com/XiaoBinGan/golang-anything/internal/analyze"
+	"github.com/XiaoBinGan/golang-anything/internal/ts"
 )
 
 // A unit that imports './util' — a bundler's spelling — must record. Node's resolver wants the
@@ -38,10 +38,10 @@ func TestAUnitThatImportsWithoutAnExtensionRecords(t *testing.T) {
 	if err := os.MkdirAll(crate, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	manifest := `{"schema":"go-anything/port@1","unit":"src/frame.ts","crate":"example.com/frame",` +
+	manifest := `{"schema":"golang-anything/port@1","unit":"src/frame.ts","crate":"example.com/frame",` +
 		`"files":["src/frame.ts"],"exports":[{"name":"frame","params":["string","number"],` +
 		`"returns":"string","line":3,"throw_lines":[4],"blocked":""}],"wire":"json"}`
-	write("rust/frame-go/go-anything.json", manifest)
+	write("rust/frame-go/golang-anything.json", manifest)
 
 	unit := analyze.Unit{
 		ID:    "src/frame.ts",

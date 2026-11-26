@@ -1,4 +1,4 @@
-// Package port is the Go port of src/text.ts, made by go-anything, then filled in by hand.
+// Package port is the Go port of src/text.ts, made by golang-anything, then filled in by hand.
 //
 // The two functions that look trivial are not:
 //

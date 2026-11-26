@@ -11,12 +11,12 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { resolve } from 'node:path'
 
 const root = resolve(process.argv[2] ?? '.')
-const bin = resolve(root, 'bin/go-anything')
+const bin = resolve(root, 'bin/golang-anything')
 const crate = resolve(root, process.env.CRATE ?? 'testdata/realworld5/go-ports/jp-go')
 const repo = resolve(root, process.env.REPO ?? 'testdata/realworld5')
 const unit = process.env.UNIT ?? 'src/domain/jsonPointer.ts'
 
-const client = new Client({ name: 'go-anything-check', version: '1.0.0' }, { capabilities: {} })
+const client = new Client({ name: 'golang-anything-check', version: '1.0.0' }, { capabilities: {} })
 const transport = new StdioClientTransport({ command: bin, args: ['mcp'], cwd: root })
 await client.connect(transport)
 

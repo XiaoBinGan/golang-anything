@@ -10,7 +10,7 @@
 - **a method that touches state is not a function, and two controls had gone stale**
   - Carbon's static factories read and write class variables; analyze offered all 506 of them as portable, and a port would have recorded answers that depend on a call order nobody wrote down. A method body that touches @ivar, self.x, $this, self:: or static:: now blocks with that sentence: Carbon drops to 199 portable of 506, sinatra to 47 of 55.
 - **the smoke test used a relative binary path and the language blocks cd away from it**
-  - make smoke runs GO=bin/go-anything, and the per-language checks cd into a temporary repository, so the relative path stopped resolving and four cases failed there while passing when run by hand with an absolute path. It is absolute from the top now.
+  - make smoke runs GO=bin/golang-anything, and the per-language checks cd into a temporary repository, so the relative path stopped resolving and four cases failed there while passing when run by hand with an absolute path. It is absolute from the top now.
 - **crypto out of the binary, and a guard against my own cgo trap**
   - sha256 was used for one thing: a stable short id written into recorded-from.json and into the name of the block enable writes. It dragged crypto/internal/fips140, sha3 and sha256 into a CLI that does no cryptography — 0.19 ms of init for a value FNV-1a computes in nanoseconds. go list -deps now has no crypto at all, and the fingerprints were regenerated for all nine crates.
 - **addon.node was tracked and changes on every build, and a pack test left a directory in the tree**
@@ -28,7 +28,7 @@
 - **three scripts reported verdicts and always exited 0, and a target that proves it**
   - matrix printed FAIL in a column for a broken port and exited 0, perf printed a traceback or a table of zeroes for a missing rig and exited 0, and the contract had no way to notice either. All three now carry their status out; perf refuses to measure when either side is missing or does not diff, which is what its own header already claimed.
 - **doctor searched for the parser itself and disagreed with the code that starts it**
-  - The second run of the real MCP client made doctor report MISS parser available while go-anything-cgo sat beside the binary: doctor had its own copy of the search, looking at GO_ANYTHING_PARSE and PATH but not next to the executable, while ts.helperPath looked in all three.
+  - The second run of the real MCP client made doctor report MISS parser available while golang-anything-cgo sat beside the binary: doctor had its own copy of the search, looking at GOLANG_ANYTHING_PARSE and PATH but not next to the executable, while ts.helperPath looked in all three.
 - **three committed generated files were stale, and a rule that would have said so**
   - Regenerating every crate in a fresh clone changed three tracked files: port-rs's answer.go still lacked the Undefined marker, and two index.cjs files still carried the wire helpers inline before round 44 moved them to internal/jswire. Anyone reading those files in the repository was reading code the tool no longer writes.
 - **a fresh clone has none of the generated files, and the matrix assumed it did**
@@ -61,7 +61,7 @@
 - **an empty recording passed the gate, and one long value printed 150 KB**
   - Four adversarial cases against a throwaway crate, three of which the tool got wrong.
 - **doctor trusted a broken toolchain, and the plan listed the tool's own output**
-  - doctor said 'ok go' and 'ok cgo' while GOROOT pointed at a directory that does not exist — the exact state that had earlier rounds chasing 'compile: version go1.22.5 does not match go tool version go1.26.2'. It now compiles a one-line program and reports the compiler's own sentence when that fails. It also reports whether the parser is available: a cgo build is its own parser, a fast build needs go-anything-cgo, which the fast build now finds on PATH as well as beside it.
+  - doctor said 'ok go' and 'ok cgo' while GOROOT pointed at a directory that does not exist — the exact state that had earlier rounds chasing 'compile: version go1.22.5 does not match go tool version go1.26.2'. It now compiles a one-line program and reports the compiler's own sentence when that fails. It also reports whether the parser is available: a cgo build is its own parser, a fast build needs golang-anything-cgo, which the fast build now finds on PATH as well as beside it.
 - **two ways a green gate lied, and the table that let the second one happen**
   - The first: diff reused the driver binary that 'build' had left, without checking whether the port still compiled. So a shellQuote port with an unused import, which cannot build at all, came back 'every case matches' — it was answering from the old binary. The driver is rebuilt when any .go file in the crate is newer than it.
 - **a packaged port answered promises, and three commands could not load a unit with imports**
@@ -80,15 +80,15 @@
 - **the dispatcher split is worth 1 to 4.5 percent, measured three ways**
   - Three prototypes, measured in one run against the same rust-anything binary: a help-only dispatcher is 1.745 ms of CPU against 1.827, keeping every non-parsing command lands at 1.809, and the single binary is 1.917.
 - **CPU time pins the startup gap at 0.076 ms, and three more attempts to close it**
-  - Wall clock cannot resolve it, so the measurement moved to children CPU time, which scheduling noise does not move: go-anything 1.768 ms, rust-anything 1.692, a Go program that only prints 1.558.
+  - Wall clock cannot resolve it, so the measurement moved to children CPU time, which scheduling noise does not move: golang-anything 1.768 ms, rust-anything 1.692, a Go program that only prints 1.558.
 - **the 0.1 ms startup gap is real, and it is the Go runtime**
-  - 20 rounds of 40 spawns, alternating, bootstrapped 2000 times: go-anything 2.194 ms against rust-anything 2.066, difference +0.129 ms with a 95% interval of [+0.100, +0.149]. It is not noise.
+  - 20 rounds of 40 spawns, alternating, bootstrapped 2000 times: golang-anything 2.194 ms against rust-anything 2.066, difference +0.129 ms with a 95% interval of [+0.100, +0.149]. It is not noise.
 - **diff is four times faster, and the harness now proves both sides run**
   - diff went from 14.6 to 8.8 ms for 609 cases because the driver binary build already makes is what runs: 'go run' compiled on every comparison and cost ten milliseconds before a case was read.
 - **measure analyze on a real repository, where the helper overhead disappears**
-  - 7390 .ts plus 3839 .js: go-anything analyzes it in 8.46 s, rust-anything in 42.00 s. On 2000 .ts files it is 0.044 s against 0.201 s. The 3 ms process start the fast build pays for its parser is noise against real work, and the startup axis reads differently per command: help is a tie at 2.42 against 2.35, analyze on a tiny fixture loses, analyze on a real repo wins five times over.
+  - 7390 .ts plus 3839 .js: golang-anything analyzes it in 8.46 s, rust-anything in 42.00 s. On 2000 .ts files it is 0.044 s against 0.201 s. The 3 ms process start the fast build pays for its parser is noise against real work, and the startup axis reads differently per command: help is a tie at 2.42 against 2.35, analyze on a tiny fixture loses, analyze on a real repo wins five times over.
 - **take cgo out of the fast path, and measure what it was worth**
-  - cgo costs a fixed 1.2 ms before any of this tool's code runs: a program that only imports C and calls malloc starts in 3.19 ms against 2.00 ms for an empty Go binary. So the tool is built without cgo (2.42 ms) and the parser is a second build of the same program, started as 'go-anything __parse' by the commands that read TypeScript. One source, two builds, no sidecar to keep in step.
+  - cgo costs a fixed 1.2 ms before any of this tool's code runs: a program that only imports C and calls malloc starts in 3.19 ms against 2.00 ms for an empty Go binary. So the tool is built without cgo (2.42 ms) and the parser is a second build of the same program, started as 'golang-anything __parse' by the commands that read TypeScript. One source, two builds, no sidecar to keep in step.
 - **four architectures measured, three rejected, and the reason each falls**
   - wasip1 leaf export: 18.1 ns per call, four times faster than napi, and it aborts the runtime the moment the function does real string work (exports run on a fixed g0 stack, so utf16.Encode's growstack lands in badmorestackg0). js/wasm callbacks that do work: 10.3 us per call, 140 times slower, because every call goes through the Go scheduler. The ring was already rejected at 182 ns.
 - **measure the floor of two architectures before building either**
@@ -121,7 +121,7 @@
 - **the documents are checked against the tool, which found the invented-command count wrong**
   - PARITY.md said three invented commands; the set difference between --help and its own left column is four — scaffold was never listed. scripts/doccheck.sh computes it instead of trusting the sentence, checks every command against PARITY.md and README.md, and checks every MCP tool against README.md. It runs in contract.sh and has a negative control of its own.
 - **each of the three bridges gets its own negative control, and the pipe can be forced**
-  - allbridges.mjs asked the addon and the wasm module and called the third column 'stdio' while it was the addon again through a different entry point: the pipe was never tested on a machine where the addon is built. GO_ANYTHING_NO_ADDON=1 forces it, and allbridges now runs a second pass through it and compares against the wasm bridge.
+  - allbridges.mjs asked the addon and the wasm module and called the third column 'stdio' while it was the addon again through a different entry point: the pipe was never tested on a machine where the addon is built. GOLANG_ANYTHING_NO_ADDON=1 forces it, and allbridges now runs a second pass through it and compares against the wasm bridge.
 - **install the package the way a consumer does, through npm and a registry**
   - The package path had only ever been tested by hand-assembling node_modules, which skips everything npm does: optionalDependencies resolution, tarball packing, integrity checks.
 - **the MCP server answers as many commands as the CLI, and one client proved it**
@@ -133,7 +133,7 @@
 - **package writes the step that turns an artifact into the platform package**
   - The generated npm loader asks for '<name>-<platform>', and nothing produced that package: the workflow builds and uploads artifacts, which is where the story stopped. package now also writes pack.mjs, which takes one built artifact and writes the platform package next to it; a test runs it and checks the manifest, and a real assembly of the markers crate answers -0 through the installed package.
 - **record the tool against itself, and give the CLI a version**
-  - app record/replay had only ever been exercised on a throwaway CLI in /tmp. Recording go-anything's own behaviour and replaying it is a stronger test: six cases, all identical, and after changing one character of the help text three of them name the difference (--help stdout, --version stderr, no arguments stderr).
+  - app record/replay had only ever been exercised on a throwaway CLI in /tmp. Recording golang-anything's own behaviour and replaying it is a stronger test: six cases, all identical, and after changing one character of the help text three of them name the difference (--help stdout, --version stderr, no arguments stderr).
 - **load parameter properties, and give a signal a value on the wire**
   - Two more real units. throwIfJadxInterrupted(signal?: AbortSignal) is the whole shape at once: an optional parameter, a platform object, and a throw path.
 - **a byte-container dialect, an undefined marker, and a real uint8 unit that found both**
@@ -147,7 +147,7 @@
 - **the wasm bridge works, and the blocked reason last round was wrong**
   - wasip1 without -buildmode=c-shared is a command module: it initialises in _start and every export aborts with notInitialized. With -buildmode=c-shared it is a reactor, real Go runs inside the exports, and strings and allocation are fine. I had diagnosed that abort as a fixed g0 stack and was wrong; PERF.md now carries the correction.
 - **front-door, wire and lift — the last three commands, 26 of 26 aligned**
-  - front-door new lays out a Go binary that owns the entry point: dispatch matches the recorded argv, a wired command runs the port, everything else runs the original with the same argv, stdin and environment, and GO_ANYTHING_TRACE records which path each command took. wire connects one recorded command to a port function and refuses a command that was never recorded. lift only removes the fallback when every command is wired, and takes os/exec with it.
+  - front-door new lays out a Go binary that owns the entry point: dispatch matches the recorded argv, a wired command runs the port, everything else runs the original with the same argv, stdin and environment, and GOLANG_ANYTHING_TRACE records which path each command took. wire connects one recorded command to a port function and refuses a command that was never recorded. lift only removes the fallback when every command is wired, and takes os/exec with it.
 - **mcp and setup — an agent can plan and check a port without a shell**
   - mcp answers JSON-RPC on stdio with seven tools (analyze, map, diff, gate, record, fuzz, profile). Protocol details are the ones a client depends on: notifications get no reply, an unknown method is -32601, a non-JSON line is -32700, and a tool that fails answers content with isError so the agent can read why instead of seeing a broken stream. setup registers the server with the agents already on the machine, adds only its own key, and is idempotent.
 - **profile and go — decide what to port from what actually runs**

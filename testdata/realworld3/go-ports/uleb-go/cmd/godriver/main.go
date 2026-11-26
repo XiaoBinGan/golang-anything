@@ -8,7 +8,7 @@ import (
 	"math"
 	"os"
 
-	"github.com/xiaobingan/go-anything/testdata/realworld3/go-ports/uleb-go"
+	"github.com/XiaoBinGan/golang-anything/testdata/realworld3/go-ports/uleb-go"
 )
 
 type testCase struct {

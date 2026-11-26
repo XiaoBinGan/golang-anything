@@ -1,7 +1,7 @@
 {
-  "schema": "go-anything/port@1",
+  "schema": "golang-anything/port@1",
   "unit": "src/format.ts",
-  "crate": "github.com/xiaobingan/go-anything/testdata/waves/rust/format-go",
+  "crate": "github.com/XiaoBinGan/golang-anything/testdata/waves/rust/format-go",
   "files": ["src/format.ts"],
   "exports": [{"name":"box","params":["string","number"],"returns":"string","line":3,"throw_lines":[4],"blocked":""}],
   "wire": "json"

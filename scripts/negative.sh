@@ -9,7 +9,7 @@ set -uo pipefail
 # The toolchain this machine actually has: see scripts/env.sh.
 . "$(dirname "$0")/env.sh"
 
-GO=${GO:-./bin/go-anything}
+GO=${GO:-./bin/golang-anything}
 # Absolute: several controls cd into a temporary crate, and a relative path stops resolving there. A control
 # that "passes" with exit 127 is a control that never ran.
 case "$GO" in
@@ -233,27 +233,27 @@ cp /tmp/negative-parity.md PARITY.md
 
 # 11. the startup axis only means something when it measures the fast build. A cgo binary in its place adds
 #     ~0.15 ms and reads as a regression in the tool; that happened twice, so the guard has a control.
-cp bin/go-anything /tmp/negative-fast-build 2>/dev/null || true
-CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" -o bin/go-anything .
+cp bin/golang-anything /tmp/negative-fast-build 2>/dev/null || true
+CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" -o bin/golang-anything .
 ./scripts/perf.sh >/dev/null 2>&1
 expect_fail "perf refuses a cgo build in the fast binary's place" $?
-cp /tmp/negative-fast-build bin/go-anything 2>/dev/null || ./scripts/build.sh bin >/dev/null 2>&1
+cp /tmp/negative-fast-build bin/golang-anything 2>/dev/null || ./scripts/build.sh bin >/dev/null 2>&1
 
 # 12. the front binary: without its engine it must say so, not answer as if it were the whole tool.
-cp bin/go-anything-engine /tmp/negative-engine
-rm -f bin/go-anything-engine
-./bin/go-anything diff testdata/sample/port-rs >/dev/null 2>&1
+cp bin/golang-anything-engine /tmp/negative-engine
+rm -f bin/golang-anything-engine
+./bin/golang-anything diff testdata/sample/port-rs >/dev/null 2>&1
 expect_fail "the front says it cannot find its engine" $?
-cp /tmp/negative-engine bin/go-anything-engine
-./bin/go-anything diff testdata/sample/port-rs >/dev/null 2>&1 || { printf 'FAIL  the front does not recover\n'; failures=$((failures + 1)); }
+cp /tmp/negative-engine bin/golang-anything-engine
+./bin/golang-anything diff testdata/sample/port-rs >/dev/null 2>&1 || { printf 'FAIL  the front does not recover\n'; failures=$((failures + 1)); }
 
 # 13. the smoke test: a command that cannot run must be reported. Renaming the engine makes every engine
 #     command fail, and the smoke test has to say so rather than pass on the front's two answers.
-cp bin/go-anything-engine /tmp/negative-engine2
-mv bin/go-anything-engine /tmp/negative-engine-moved
+cp bin/golang-anything-engine /tmp/negative-engine2
+mv bin/golang-anything-engine /tmp/negative-engine-moved
 ./scripts/smoke.sh >/dev/null 2>&1
 expect_fail "smoke notices a tool that cannot run its commands" $?
-mv /tmp/negative-engine-moved bin/go-anything-engine
+mv /tmp/negative-engine-moved bin/golang-anything-engine
 ./scripts/smoke.sh >/dev/null 2>&1 || { printf 'FAIL  smoke does not recover\n'; failures=$((failures + 1)); }
 
 # 22. enable in a language with no block must refuse, not write the JavaScript one into a .rs file. The
@@ -266,7 +266,7 @@ pub fn range_of(s: &str, sub: &str) -> Option<(usize, usize)> {
     Some((start, start + sub.len()))
 }
 RS
-cat > /tmp/negative-takeover/go-anything.json <<'JSON'
+cat > /tmp/negative-takeover/golang-anything.json <<'JSON'
 {"unit":"src/text.rs","crate":"neg/takeover","exports":[{"name":"range_of","params":["string"],"returns":""}]}
 JSON
 # The pre-fix tool reached the write with these present, which is what made the corruption silent: a
@@ -316,17 +316,17 @@ RB
 cd /tmp/negative-rb/crate
 printf 'module negrb\n\ngo 1.24\n' > go.mod
 "$GO" scaffold --unit util.rb go-ports/u-go >/dev/null 2>&1
-sed -i '' "s|example.com/u-go|negrb/go-ports/u-go|g" go-ports/u-go/*.go go-ports/u-go/go-anything.json go-ports/u-go/cmd/*/main.go 2>/dev/null
+sed -i '' "s|example.com/u-go|negrb/go-ports/u-go|g" go-ports/u-go/*.go go-ports/u-go/golang-anything.json go-ports/u-go/cmd/*/main.go 2>/dev/null
 "$GO" record --unit util.rb go-ports/u-go >/dev/null 2>&1
 "$GO" bridge go-ports/u-go >/dev/null 2>&1
 "$GO" build go-ports/u-go >/dev/null 2>&1
 cp util.rb /tmp/negative-rb/original.rb
 "$GO" enable go-ports/u-go >/dev/null 2>&1
 # A silent enable failure would make the rest of this control test nothing: say so here.
-grep -q '^# >>> go-anything' util.rb || { printf 'FAIL  enable did not write a block\n'; failures=$((failures + 1)); }
+grep -q '^# >>> golang-anything' util.rb || { printf 'FAIL  enable did not write a block\n'; failures=$((failures + 1)); }
 cp util.rb /tmp/negative-rb/on.rb
 # delete the closing marker: disable must refuse, not swallow the rest of the file
-sed '/^# <<< go-anything/d' util.rb > /tmp/negative-rb/edited.rb
+sed '/^# <<< golang-anything/d' util.rb > /tmp/negative-rb/edited.rb
 cp /tmp/negative-rb/edited.rb util.rb
 "$GO" disable go-ports/u-go >/tmp/negative-rb/disable.err 2>&1
 expect_fail "disable refuses a hand-edited block" $?
@@ -352,7 +352,7 @@ s = s.replace("""let port
 try {
   port = require(PACKAGES[key] || PACKAGES[process.platform + '-' + process.arch])
 } catch (e) {
-  throw new Error('go-anything: no port package for ' + key + '; the release workflow builds ' +
+  throw new Error('golang-anything: no port package for ' + key + '; the release workflow builds ' +
     Object.keys(PACKAGES).join(', '))
 }
 

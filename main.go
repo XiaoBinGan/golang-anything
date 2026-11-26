@@ -1,4 +1,4 @@
-// Command go-anything is the Go counterpart of rust-anything: it plans, records, scaffolds and
+// Command golang-anything is the Go counterpart of rust-anything: it plans, records, scaffolds and
 // proves a port into Go, one unit at a time.
 package main
 
@@ -7,8 +7,8 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/xiaobingan/go-anything/internal/usage"
-	"github.com/xiaobingan/go-anything/internal/version"
+	"github.com/XiaoBinGan/golang-anything/internal/usage"
+	"github.com/XiaoBinGan/golang-anything/internal/version"
 	"io"
 	"os"
 	"os/exec"
@@ -17,29 +17,29 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xiaobingan/go-anything/internal/analyze"
-	"github.com/xiaobingan/go-anything/internal/app"
-	"github.com/xiaobingan/go-anything/internal/bench"
-	"github.com/xiaobingan/go-anything/internal/bridge"
-	"github.com/xiaobingan/go-anything/internal/buildinfo"
-	"github.com/xiaobingan/go-anything/internal/diff"
-	"github.com/xiaobingan/go-anything/internal/fastbridge"
-	"github.com/xiaobingan/go-anything/internal/frontdoor"
-	"github.com/xiaobingan/go-anything/internal/fuzz"
-	"github.com/xiaobingan/go-anything/internal/jswire"
-	"github.com/xiaobingan/go-anything/internal/mapdoc"
-	"github.com/xiaobingan/go-anything/internal/mcp"
-	"github.com/xiaobingan/go-anything/internal/parsehelper"
-	"github.com/xiaobingan/go-anything/internal/pkg"
-	"github.com/xiaobingan/go-anything/internal/profile"
-	"github.com/xiaobingan/go-anything/internal/record"
-	"github.com/xiaobingan/go-anything/internal/report"
-	"github.com/xiaobingan/go-anything/internal/scaffold"
-	"github.com/xiaobingan/go-anything/internal/shadow"
-	"github.com/xiaobingan/go-anything/internal/switched"
-	"github.com/xiaobingan/go-anything/internal/toolchain"
-	"github.com/xiaobingan/go-anything/internal/ts"
-	"github.com/xiaobingan/go-anything/internal/wasmbridge"
+	"github.com/XiaoBinGan/golang-anything/internal/analyze"
+	"github.com/XiaoBinGan/golang-anything/internal/app"
+	"github.com/XiaoBinGan/golang-anything/internal/bench"
+	"github.com/XiaoBinGan/golang-anything/internal/bridge"
+	"github.com/XiaoBinGan/golang-anything/internal/buildinfo"
+	"github.com/XiaoBinGan/golang-anything/internal/diff"
+	"github.com/XiaoBinGan/golang-anything/internal/fastbridge"
+	"github.com/XiaoBinGan/golang-anything/internal/frontdoor"
+	"github.com/XiaoBinGan/golang-anything/internal/fuzz"
+	"github.com/XiaoBinGan/golang-anything/internal/jswire"
+	"github.com/XiaoBinGan/golang-anything/internal/mapdoc"
+	"github.com/XiaoBinGan/golang-anything/internal/mcp"
+	"github.com/XiaoBinGan/golang-anything/internal/parsehelper"
+	"github.com/XiaoBinGan/golang-anything/internal/pkg"
+	"github.com/XiaoBinGan/golang-anything/internal/profile"
+	"github.com/XiaoBinGan/golang-anything/internal/record"
+	"github.com/XiaoBinGan/golang-anything/internal/report"
+	"github.com/XiaoBinGan/golang-anything/internal/scaffold"
+	"github.com/XiaoBinGan/golang-anything/internal/shadow"
+	"github.com/XiaoBinGan/golang-anything/internal/switched"
+	"github.com/XiaoBinGan/golang-anything/internal/toolchain"
+	"github.com/XiaoBinGan/golang-anything/internal/ts"
+	"github.com/XiaoBinGan/golang-anything/internal/wasmbridge"
 )
 
 // version is what the tool says about itself: the module version when the binary carries one, and the
@@ -136,7 +136,7 @@ func realMain() {
 		err = fmt.Errorf("unknown command %q\n\n%s", os.Args[1], usage.Text)
 	}
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "go-anything:", err)
+		fmt.Fprintln(os.Stderr, "golang-anything:", err)
 		os.Exit(1)
 	}
 }
@@ -419,7 +419,7 @@ func joinInts(lines []int) string {
 
 // manifestChecks reads the crate's manifest for the throw counts and the exports that stay behind.
 func manifestChecks(crateDir string) (map[string]int, map[string]string, error) {
-	raw, err := os.ReadFile(filepath.Join(crateDir, "go-anything.json"))
+	raw, err := os.ReadFile(filepath.Join(crateDir, "golang-anything.json"))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -489,7 +489,7 @@ func runBuild(args []string) error {
 	if *fast {
 		return buildFast(dir, *nodeInclude)
 	}
-	fmt.Println("Copy it next to index.cjs (or set GO_ANYTHING_PORTCTL) and the wrappers will use it.")
+	fmt.Println("Copy it next to index.cjs (or set GOLANG_ANYTHING_PORTCTL) and the wrappers will use it.")
 	fmt.Println("For the in-process path, add --fast.")
 	return nil
 }
@@ -502,7 +502,7 @@ func runBridge(args []string) error {
 		return fmt.Errorf("bridge takes one crate folder")
 	}
 	dir := fs.Arg(0)
-	raw, err := os.ReadFile(filepath.Join(dir, "go-anything.json"))
+	raw, err := os.ReadFile(filepath.Join(dir, "golang-anything.json"))
 	if err != nil {
 		return err
 	}
@@ -669,7 +669,7 @@ func runDoctor(args []string) error {
 	// "compile: version go1.22.5 does not match go tool version go1.26.2". It cost an hour here, so the
 	// check compiles something instead of trusting `go env`.
 	{
-		dir, err := os.MkdirTemp("", "go-anything-doctor")
+		dir, err := os.MkdirTemp("", "golang-anything-doctor")
 		if err == nil {
 			defer os.RemoveAll(dir)
 			src := filepath.Join(dir, "main.go")
@@ -693,7 +693,7 @@ func runDoctor(args []string) error {
 		}
 	}
 	// The parser is a second build of this tool. A build made with cgo is its own parser; a fast build
-	// needs one next to it or named by GO_ANYTHING_PARSE.
+	// needs one next to it or named by GOLANG_ANYTHING_PARSE.
 	{
 		ok, note := true, "this build parses TypeScript itself (cgo)"
 		if !buildinfo.Cgo {
@@ -703,12 +703,12 @@ func runDoctor(args []string) error {
 				ok, note = true, path
 			} else {
 				ok = false
-				note = "no cgo in this build: set GO_ANYTHING_PARSE or put go-anything-cgo beside it"
+				note = "no cgo in this build: set GOLANG_ANYTHING_PARSE or put golang-anything-cgo beside it"
 			}
 		}
 		checks = append(checks, check{
 			Name: "parser available", OK: ok, Note: note,
-			Fix: "CGO_ENABLED=1 go build -o go-anything-cgo . — needed by analyze, record, scaffold and refresh",
+			Fix: "CGO_ENABLED=1 go build -o golang-anything-cgo . — needed by analyze, record, scaffold and refresh",
 		})
 	}
 	// cgo must be on: tree-sitter is C.
@@ -806,7 +806,7 @@ func buildFast(dir, nodeInclude string) error {
 	return nil
 }
 
-// manifest is what the CLI needs from go-anything.json.
+// manifest is what the CLI needs from golang-anything.json.
 type manifest struct {
 	Crate   string   `json:"crate"`
 	Unit    string   `json:"unit"`
@@ -836,7 +836,7 @@ func (m manifest) Names() []string {
 
 func readManifest(dir string) (manifest, error) {
 	var m manifest
-	raw, err := os.ReadFile(filepath.Join(dir, "go-anything.json"))
+	raw, err := os.ReadFile(filepath.Join(dir, "golang-anything.json"))
 	if err != nil {
 		return m, err
 	}
@@ -1021,7 +1021,7 @@ func runEnable(args []string) error {
 	}
 	fmt.Printf("%s now calls the Go port (%s mode).\n", filepath.ToSlash(m.Unit), mode)
 	fmt.Printf("  %s\n", path)
-	fmt.Println("`go-anything disable` puts the file back byte for byte.")
+	fmt.Println("`golang-anything disable` puts the file back byte for byte.")
 	return nil
 }
 
@@ -1078,7 +1078,7 @@ func runShadow(args []string, reportOnly bool) error {
 	}
 	fmt.Printf("Wrote %s for %d export(s).\n", path, len(m.Names()))
 	fmt.Println("Require it where you require the original: it answers the original's value and logs differences.")
-	fmt.Println("`go-anything shadow-report` summarizes shadow.jsonl.")
+	fmt.Println("`golang-anything shadow-report` summarizes shadow.jsonl.")
 	return nil
 }
 
@@ -1374,7 +1374,7 @@ func runGo(args []string) error {
 	}
 	fmt.Printf("Scaffolded %d file(s), recorded %d cases, wrote %d wrapper file(s) for `%s`.\n",
 		len(files), sum.Cases, len(wrappers), target)
-	fmt.Printf("Next: fill in %s, then `go-anything gate %s`.\n", filepath.Join(out, "port.go"), out)
+	fmt.Printf("Next: fill in %s, then `golang-anything gate %s`.\n", filepath.Join(out, "port.go"), out)
 	return nil
 }
 
@@ -1478,7 +1478,7 @@ func runSetup(args []string) error {
 	}
 	cfg := map[string]any{
 		"mcpServers": map[string]any{
-			"go-anything": map[string]any{"command": exe, "args": []string{"mcp"}},
+			"golang-anything": map[string]any{"command": exe, "args": []string{"mcp"}},
 		},
 	}
 	raw, err := json.MarshalIndent(cfg, "", "  ")
@@ -1525,7 +1525,7 @@ func runSetup(args []string) error {
 		return nil
 	}
 	for _, w := range wrote {
-		fmt.Printf("Registered go-anything with %s\n", w)
+		fmt.Printf("Registered golang-anything with %s\n", w)
 	}
 	return nil
 }
@@ -1586,7 +1586,7 @@ func runFrontDoor(args []string) error {
 		for _, f := range res.Files {
 			fmt.Printf("  %s\n", f)
 		}
-		fmt.Println("Next: `go-anything front-door wire --command … --port … --call … <dir>`, then build it.")
+		fmt.Println("Next: `golang-anything front-door wire --command … --port … --call … <dir>`, then build it.")
 		return nil
 	case "wire":
 		given := false

@@ -39,7 +39,7 @@ pick_go() {
 }
 
 if ! root=$(pick_go); then
-  echo "go-anything: no usable Go toolchain." >&2
+  echo "golang-anything: no usable Go toolchain." >&2
   echo "  Set GOROOT to the installation your go binary belongs to, for example:" >&2
   echo "    export GOROOT=\$(brew --prefix go)/libexec" >&2
   exit 2
@@ -56,7 +56,7 @@ export CGO_ENABLED="${CGO_ENABLED:-1}"
 # tools. A missing node made a control pass for the wrong reason once — nothing ran, so nothing differed —
 # so it is a hard requirement with a sentence rather than a silent skip.
 if [ "${REQUIRE_NODE:-1}" = "1" ] && ! command -v node >/dev/null 2>&1; then
-  echo "go-anything: node is required by the checks in this folder." >&2
+  echo "golang-anything: node is required by the checks in this folder." >&2
   echo "  Put it on PATH, or set REQUIRE_NODE=0 for the ones that do not need it." >&2
   exit 2
 fi

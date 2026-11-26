@@ -1,4 +1,4 @@
-module github.com/xiaobingan/go-anything
+module github.com/XiaoBinGan/golang-anything
 
 go 1.24
 

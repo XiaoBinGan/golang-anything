@@ -1,4 +1,4 @@
-// Package port is the Go port of src/domain/desktop/shellQuote.ts, made by go-anything, then filled in
+// Package port is the Go port of src/domain/desktop/shellQuote.ts, made by golang-anything, then filled in
 // by hand. It is three lines of TypeScript and the whole job is in the replaceAll: every single quote
 // becomes `'"'"'`, which closes the quote, writes a double-quoted quote, and reopens.
 package port

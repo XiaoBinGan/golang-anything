@@ -9,7 +9,7 @@ set -uo pipefail
 . "$(dirname "$0")/env.sh"
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-GO=${GO:-$ROOT/bin/go-anything}
+GO=${GO:-$ROOT/bin/golang-anything}
 DIR=${1:?usage: survey-real.sh <directory of checkouts>}
 
 printf '%-22s %6s %8s %10s %8s %8s %s\n' project units exports bridgeable blocked files time

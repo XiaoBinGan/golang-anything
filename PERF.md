@@ -11,7 +11,7 @@
 
 ```sh
 ./scripts/build.sh bin
-GO_ANYTHING_PARSE=bin/go-anything-cgo ./scripts/perf.sh
+GOLANG_ANYTHING_PARSE=bin/golang-anything-cgo ./scripts/perf.sh
 ```
 
 ## 汇总
@@ -20,7 +20,7 @@ GO_ANYTHING_PARSE=bin/go-anything-cgo ./scripts/perf.sh
 因为第 16 轮把「全笛卡尔积」改成了「成对走 + 有界叉积」。所以 `cases/s` 会偏向生成更多用例的一方；
 **一个人真正等的是「一个单元多久录完」**，那一列是 66 ms vs 142 ms。两个数都列出来，不挑对自己有利的。
 
-| 指标 | rust-anything | go-anything | 结果 |
+| 指标 | rust-anything | golang-anything | 结果 |
 | --- | ---: | ---: | --- |
 | 桥接单次调用（napi vs wasm） | 0.068–0.073 µs | **0.049–0.055 µs** | **快 27%** ✅ |
 | 桥接单次调用（napi vs cgo addon） | 0.070 µs | 0.201 µs | 慢 2.9 倍 |
@@ -124,7 +124,7 @@ node scripts/floor/wasm-floor.mjs          # 进程内 wasm 调用
 209 条录制用例经 wasm 回放全部一致（`check` 走 N-API 也是 609/609）。
 
 复现脚本：`scripts/floor/ring-floor.mjs`、`scripts/floor/wasm-floor.mjs`；
-真实端口：`go-anything wasm <crate>` → `node testdata/sample/port-rs/index.wasm.mjs`。
+真实端口：`golang-anything wasm <crate>` → `node testdata/sample/port-rs/index.wasm.mjs`。
 
 ## 1c. 启动：把 cgo 挪出快路径
 
@@ -144,7 +144,7 @@ node scripts/floor/wasm-floor.mjs          # 进程内 wasm 调用
 分位数比中位数干净（噪声小的一侧）：
 
 ```
-go-anything   p10 2.162 ms   median 2.277 ms
+golang-anything   p10 2.162 ms   median 2.277 ms
 rust-anything p10 2.051 ms   median 2.207 ms
 ```
 
@@ -154,7 +154,7 @@ rust-anything p10 2.051 ms   median 2.207 ms
 | --- | ---: |
 | 只打印的 Go 程序（1.4 MB） | 1.558 ms |
 | **rust-anything** | **1.692 ms** |
-| **go-anything** | **1.768 ms** |
+| **golang-anything** | **1.768 ms** |
 
 即：比 rust-anything 多 **0.076 ms（4.5%）**，比「只打印的 Go 程序」多 0.21 ms。
 本轮为了这 0.21 ms 又试了三件事，**都没用**：
@@ -173,7 +173,7 @@ rust-anything p10 2.051 ms   median 2.207 ms
 | Go 空程序（1.1 MB） | 1.80–1.96 ms | **+0.6–0.7 ms（Go 运行时）** |
 | Go + `os` + 打印 3 KB 静态串（1.4 MB） | 1.93 ms | +0.67 ms ← **任何 Go CLI 的下限** |
 | 与本工具同依赖、main 只打印（1.8 MB） | 2.20 ms | +0.94 ms |
-| go-anything（3.5 MB） | 2.14–2.28 ms | +0.9–1.0 ms |
+| golang-anything（3.5 MB） | 2.14–2.28 ms | +0.9–1.0 ms |
 | rust-anything（26 MB） | 2.03–2.21 ms | +0.8–0.95 ms |
 
 **「Go CLI 只要打印就能到 1.93 ms」**——比 rust-anything 还快。所以差距不在语言，在本工具引的 133 个包
@@ -209,16 +209,16 @@ rust-anything p10 2.051 ms   median 2.207 ms
 | --- | ---: | --- |
 | `/usr/bin/true` | 1.26 ms | 进程创建下界 |
 | Go 空程序（无 cgo） | 2.00 ms | Go 运行时下界 |
-| **go-anything（无 cgo 构建）** | **2.42 ms** | 只比空程序多 0.4 ms |
-| go-anything（cgo 构建） | 3.24–3.28 ms | cgo 固定 +1.2 ms |
+| **golang-anything（无 cgo 构建）** | **2.42 ms** | 只比空程序多 0.4 ms |
+| golang-anything（cgo 构建） | 3.24–3.28 ms | cgo 固定 +1.2 ms |
 | rust-anything | 2.26–2.35 ms | 对照 |
 
 **cgo 的 1.2 ms 是固定成本**：一个只 `import "C"`、`main` 里 `C.malloc(1)` 的最小程序就要 3.19 ms
 （空程序 2.0 ms）。所以做法不是优化，而是**把 cgo 挪出快路径**：
 
 - 工具本体用 `CGO_ENABLED=0` 构建 → 2.42 ms
-- 解析器（tree-sitter，必须 cgo）编成**同一个程序的第二个构建**（`go-anything-cgo`），
-  只在需要 parse 的命令里以 `go-anything __parse` 子进程启动，JSON 行协议
+- 解析器（tree-sitter，必须 cgo）编成**同一个程序的第二个构建**（`golang-anything-cgo`），
+  只在需要 parse 的命令里以 `golang-anything __parse` 子进程启动，JSON 行协议
 - 两条构建共享全部源码，没有需要同步的 sidecar
 
 代价：`analyze` 6.92 ms vs 4.09 ms（多一次进程启动 + 0.55 MB 交接）。`--help`、`gate`、`diff`、
@@ -226,7 +226,7 @@ rust-anything p10 2.051 ms   median 2.207 ms
 
 **但在真实仓库上量，结论反过来。** 同一个仓库（`rea`：7,390 个 `.ts` + 3,839 个 `.js`）：
 
-| 命令 | go-anything | rust-anything | 结果 |
+| 命令 | golang-anything | rust-anything | 结果 |
 | --- | ---: | ---: | --- |
 | `analyze rea` | **8.46 s** | 42.00 s | **快 5.0 倍** |
 
@@ -240,7 +240,7 @@ rust-anything p10 2.051 ms   median 2.207 ms
 
 ## 2. record 与 diff：墙钟是给人看的，每例成本是给设计看的
 
-| 指标 | rust-anything | go-anything | 说明 |
+| 指标 | rust-anything | golang-anything | 说明 |
 | --- | ---: | ---: | --- |
 | record 一个单元（墙钟） | 142 ms | **66 ms** | 快 2.1 倍；用例数 145 vs 917，是设计差异下的真实数字 |
 | record 每例成本 | 155 µs | 458 µs | 例数不同，`cases/s` 会偏向生成更多的一方 |
@@ -252,14 +252,14 @@ rust-anything p10 2.051 ms   median 2.207 ms
 
 | 实现 | 墙钟 |
 | --- | ---: |
-| **go-anything** | **8.46 s** |
+| **golang-anything** | **8.46 s** |
 | rust-anything | 42.00 s |
 
 **快 5.0 倍**。小样本（2,000 个 `.ts`）是 0.044 s vs 0.201 s，同样是 4.6 倍。
 
 ## 4. 启动（冷启动，一次 spawn，交替分块取中位）
 
-| 命令 | rust-anything | go-anything | 结果 |
+| 命令 | rust-anything | golang-anything | 结果 |
 | --- | ---: | ---: | --- |
 | `--help` | 2.03 ms | 2.14 ms | 慢 0.10 ms（95% CI [+0.06, +0.15]） |
 | `analyze` 小样本 | 4.09 ms | 6.92 ms | 慢 1.7 倍（要起解析子进程） |
@@ -312,7 +312,7 @@ rust-anything p10 2.051 ms   median 2.207 ms
 机器一忙就变。现在 `perf.sh` 用**子进程 CPU 时间**定这一轴，wall 只作参考：
 
 ```
-go-anything --help       cpu 1.77 ms   wall 2.65 ms
+golang-anything --help       cpu 1.77 ms   wall 2.65 ms
 rust-anything --help     cpu 1.61 ms   wall 2.46 ms
 cpu difference          +0.15 ms (slower by 9.5%)
 ```
@@ -323,7 +323,7 @@ cpu difference          +0.15 ms (slower by 9.5%)
 
 ### 6c. 还有一个我自己的坑
 
-`cp /tmp/go-anything bin/go-anything` 覆盖了 `build.sh` 产出的**非 cgo** 二进制——而 cgo 版本启动多 ~1.6 ms。
+`cp /tmp/golang-anything bin/golang-anything` 覆盖了 `build.sh` 产出的**非 cgo** 二进制——而 cgo 版本启动多 ~1.6 ms。
 第 55 轮第一次测出「4.0 ms vs 2.7 ms」就是这个原因，不是工具变慢了。**测之前先 `./scripts/build.sh bin`。**
 
 ## 7. 启动这一轴：把两处浪费找出来之后（第 60 轮之后）
@@ -343,7 +343,7 @@ init 合计                              # 之前 0.185 ms，现在 ~0.19 ms（�
 
 ### 7b. 「快二进制」里放的是 cgo 构建（我自己的坑，踩了两次）
 
-`cp <cgo 构建> bin/go-anything` 会覆盖 `build.sh` 的非 cgo 产物，启动多 ~0.15 ms。现在：
+`cp <cgo 构建> bin/golang-anything` 会覆盖 `build.sh` 的非 cgo 产物，启动多 ~0.15 ms。现在：
 
 * `scripts/build.sh` 构建后**校验** `go version -m` 里有 `CGO_ENABLED=0`，否则直接失败；
 * `scripts/perf.sh` 在测之前校验同一个条件，不满足就 `exit 2`；
@@ -355,7 +355,7 @@ init 合计                              # 之前 0.185 ms，现在 ~0.19 ms（�
 | --- | ---: |
 | 2 KB 的 Go 程序（只打印） | 1.89–1.96 ms |
 | 我们的全部 import，`main` 只打印一行 | 1.92–1.97 ms |
-| **go-anything `--help`（非 cgo，当前）** | **2.07–2.18 ms** |
+| **golang-anything `--help`（非 cgo，当前）** | **2.07–2.18 ms** |
 | rust-anything `--help` | 1.93–2.04 ms |
 
 Go 的进程底价本身就**比 rust-anything 快**；我们多出来的 0.1–0.2 ms 是自己的初始化与代码。剩下这 0.1 ms
@@ -370,7 +370,7 @@ Go 的进程底价本身就**比 rust-anything 快**；我们多出来的 0.1–
 | 2 KB 的 Go 程序 | 60 B | 1.4 MB | 2.05–2.08 ms |
 | 同一程序打印**同样的 2866 B 帮助** | 2866 B | 1.4 MB | 2.08–2.21 ms |
 | 再加 2 MB 不可丢弃的数据 | 2866 B | **3.6 MB** | 2.08 ms（**+0.00 ms**） |
-| **go-anything `--help`** | 2866 B | 3.6 MB | **2.30 ms** |
+| **golang-anything `--help`** | 2866 B | 3.6 MB | **2.30 ms** |
 | rust-anything `--help` | 3444 B | 27 MB | 2.21–2.32 ms |
 
 三个结论：
@@ -406,9 +406,9 @@ Go 的进程底价本身就**比 rust-anything 快**；我们多出来的 0.1–
 
 | 二进制 | 内容 | 大小 |
 | --- | --- | ---: |
-| `go-anything` | 只答 `--help` / `--version` / 无参数；其余 `exec` 引擎 | **1.7 MB** |
-| `go-anything-engine` | 整个工具（27 条命令） | 3.6 MB |
-| `go-anything-cgo` | 解析器 | 7.1 MB |
+| `golang-anything` | 只答 `--help` / `--version` / 无参数；其余 `exec` 引擎 | **1.7 MB** |
+| `golang-anything-engine` | 整个工具（27 条命令） | 3.6 MB |
+| `golang-anything-cgo` | 解析器 | 7.1 MB |
 
 交接用 `syscall.Exec`——引擎**替换**当前进程，不留第二个进程、不用转发信号。真命令多一次 exec。
 

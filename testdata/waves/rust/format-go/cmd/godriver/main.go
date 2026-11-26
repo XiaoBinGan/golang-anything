@@ -8,7 +8,7 @@ import (
 	"math"
 	"os"
 
-	"github.com/xiaobingan/go-anything/testdata/waves/rust/format-go"
+	"github.com/XiaoBinGan/golang-anything/testdata/waves/rust/format-go"
 )
 
 type testCase struct {

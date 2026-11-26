@@ -10,7 +10,7 @@ const dir = resolve(process.argv[2])
 const cjs = require(dir + '/index.cjs')
 const wasm = (await import(dir + '/index.wasm.mjs')).default
 
-// The three bridges, each asked directly: the addon through callSync, the pipe through GO_ANYTHING_NO_ADDON
+// The three bridges, each asked directly: the addon through callSync, the pipe through GOLANG_ANYTHING_NO_ADDON
 // (set below, in a second pass), and the wasm module on its own.
 const cases = [
   ['negativeZero', [], '-0'],
@@ -38,7 +38,7 @@ for (const [fn, args, label] of cases) {
   console.log(`${agree ? 'ok  ' : 'DIFF'} ${label.padEnd(18)} addon=${show(inProc)} wasm=${show(overWasm)} stdio=${show(async)}`)
 }
 // The pipe, with the addon switched off: the fallback is a real path and gets its own column.
-process.env.GO_ANYTHING_NO_ADDON = '1'
+process.env.GOLANG_ANYTHING_NO_ADDON = '1'
 delete require.cache[require.resolve(dir + '/index.cjs')]
 const piped = require(dir + '/index.cjs')
 let pipeBad = 0

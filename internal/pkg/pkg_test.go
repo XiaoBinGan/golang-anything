@@ -16,7 +16,7 @@ func crate(t *testing.T) string {
 		t.Fatal(err)
 	}
 	body := `{"unit":"src/text.ts","crate":"example.com/x/port-rs","exports":[{"name":"count"},{"name":"pad"},{"name":"generic","blocked":"is generic"}]}`
-	if err := os.WriteFile(filepath.Join(dir, "go-anything.json"), []byte(body), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "golang-anything.json"), []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	return dir

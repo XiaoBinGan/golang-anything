@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xiaobingan/go-anything/internal/analyze"
-	"github.com/xiaobingan/go-anything/internal/pool"
-	"github.com/xiaobingan/go-anything/internal/ts"
+	"github.com/XiaoBinGan/golang-anything/internal/analyze"
+	"github.com/XiaoBinGan/golang-anything/internal/pool"
+	"github.com/XiaoBinGan/golang-anything/internal/ts"
 )
 
 // writeRepo lays out a unit and a crate for it, and answers the unit.

@@ -10,8 +10,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/xiaobingan/go-anything/internal/analyze"
-	"github.com/xiaobingan/go-anything/internal/diff"
+	"github.com/XiaoBinGan/golang-anything/internal/analyze"
+	"github.com/XiaoBinGan/golang-anything/internal/diff"
 )
 
 // Crate is one port this tool made, as its manifest describes it.
@@ -102,7 +102,7 @@ func cratesUnder(root string) ([]Crate, error) {
 			}
 			return nil
 		}
-		if d.Name() != "go-anything.json" {
+		if d.Name() != "golang-anything.json" {
 			return nil
 		}
 		dir := filepath.Dir(path)

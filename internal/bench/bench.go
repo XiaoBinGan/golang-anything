@@ -16,11 +16,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/xiaobingan/go-anything/internal/cases"
-	"github.com/xiaobingan/go-anything/internal/nodeflags"
-	"github.com/xiaobingan/go-anything/internal/record"
+	"github.com/XiaoBinGan/golang-anything/internal/cases"
+	"github.com/XiaoBinGan/golang-anything/internal/nodeflags"
+	"github.com/XiaoBinGan/golang-anything/internal/record"
 
-	"github.com/xiaobingan/go-anything/internal/toolchain"
+	"github.com/XiaoBinGan/golang-anything/internal/toolchain"
 )
 
 // Options is one bench run.
@@ -224,7 +224,7 @@ func Run(opts Options) (Result, error) {
 	}
 
 	// The manifest says where the unit and the crate are.
-	raw, err := os.ReadFile(filepath.Join(dir, "go-anything.json"))
+	raw, err := os.ReadFile(filepath.Join(dir, "golang-anything.json"))
 	if err != nil {
 		return Result{}, err
 	}

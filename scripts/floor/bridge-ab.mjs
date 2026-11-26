@@ -16,7 +16,7 @@ let wasm = null
 try {
   wasm = (await import(goCrate + '/index.wasm.mjs')).default
 } catch {
-  wasm = null // the crate was not built with `go-anything wasm`
+  wasm = null // the crate was not built with `golang-anything wasm`
 }
 
 const text = 'a b  c'
@@ -30,14 +30,14 @@ function nsPer(fn) {
 const med = xs => xs.slice().sort((a, b) => a - b)[Math.floor(xs.length / 2)]
 
 const rounds = {
-  'go-anything callSync (cgo addon)': [],
+  'golang-anything callSync (cgo addon)': [],
   'rust-anything napi': [],
 }
-if (wasm) rounds['go-anything wasm (in-process)'] = []
+if (wasm) rounds['golang-anything wasm (in-process)'] = []
 for (let r = 0; r < 7; r++) {
-  rounds['go-anything callSync (cgo addon)'].push(nsPer(() => go.callSync('count', text)))
+  rounds['golang-anything callSync (cgo addon)'].push(nsPer(() => go.callSync('count', text)))
   rounds['rust-anything napi'].push(nsPer(() => rust.count(text)))
-  if (wasm) rounds['go-anything wasm (in-process)'].push(nsPer(() => wasm.count(text)))
+  if (wasm) rounds['golang-anything wasm (in-process)'].push(nsPer(() => wasm.count(text)))
 }
 for (const [name, xs] of Object.entries(rounds)) {
   const v = med(xs)
@@ -47,10 +47,10 @@ for (const [name, xs] of Object.entries(rounds)) {
 // The wasm bridge is the reason the goal's first axis is won, and it stopped being fast once without
 // anything noticing: portStyle was never filled, every wrapper went through the registry, and the number
 // in the document was nine rounds stale. A measurement that cannot fail is a document.
-const wasmNs = wasm ? med(rounds['go-anything wasm (in-process)']) : null
+const wasmNs = wasm ? med(rounds['golang-anything wasm (in-process)']) : null
 const napiNs = med(rounds['rust-anything napi'])
 if (wasmNs === null) {
-  console.log('VERDICT wasm-missing: build the crate with `go-anything wasm` to measure this axis')
+  console.log('VERDICT wasm-missing: build the crate with `golang-anything wasm` to measure this axis')
   go.close?.()
   process.exit(1)
 }

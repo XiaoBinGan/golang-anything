@@ -6,7 +6,7 @@ set -uo pipefail
 # The toolchain this machine actually has: see scripts/env.sh.
 . "$(dirname "$0")/env.sh"
 
-GO=${GO:-./bin/go-anything}
+GO=${GO:-./bin/golang-anything}
 ROOT=${ROOT:-.}
 failures=0
 check() {

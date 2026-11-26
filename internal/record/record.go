@@ -10,7 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/xiaobingan/go-anything/internal/fingerprint"
+	"github.com/XiaoBinGan/golang-anything/internal/fingerprint"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -18,11 +18,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xiaobingan/go-anything/internal/analyze"
-	"github.com/xiaobingan/go-anything/internal/cases"
-	"github.com/xiaobingan/go-anything/internal/nodeflags"
-	"github.com/xiaobingan/go-anything/internal/pool"
-	"github.com/xiaobingan/go-anything/internal/ts"
+	"github.com/XiaoBinGan/golang-anything/internal/analyze"
+	"github.com/XiaoBinGan/golang-anything/internal/cases"
+	"github.com/XiaoBinGan/golang-anything/internal/nodeflags"
+	"github.com/XiaoBinGan/golang-anything/internal/pool"
+	"github.com/XiaoBinGan/golang-anything/internal/ts"
 )
 
 // driver is the JS the tool writes into the work folder and runs with node.
@@ -126,7 +126,7 @@ const call = (fn, args) => {
     const raw = target(...args)
     if (!canCarry(raw)) {
       slow.add(fn)
-      process.stderr.write('go-anything: ' + fn + ' answers a ' + (raw.constructor?.name ?? 'class instance') +
+      process.stderr.write('golang-anything: ' + fn + ' answers a ' + (raw.constructor?.name ?? 'class instance') +
         ', which JSON cannot carry: no case proves it, so it is left unproven\n')
       return
     }
@@ -137,7 +137,7 @@ const call = (fn, args) => {
       // giving up on the first oversized case left a whole unit with no cases at all.
       big.set(fn, (big.get(fn) ?? 0) + 1)
       if (big.get(fn) >= MAX_OVERSIZED) slow.add(fn)
-      process.stderr.write('go-anything: ' + fn + ' answers ' + size + ' bytes for ' +
+      process.stderr.write('golang-anything: ' + fn + ' answers ' + size + ' bytes for ' +
         JSON.stringify(decode(args)) + '; that case is skipped\n')
       return
     }
@@ -148,7 +148,7 @@ const call = (fn, args) => {
   }
   if (Date.now() - started > BUDGET_MS) {
     slow.add(fn)
-    process.stderr.write('go-anything: ' + fn + ' took ' + (Date.now() - started) + 'ms on ' +
+    process.stderr.write('golang-anything: ' + fn + ' took ' + (Date.now() - started) + 'ms on ' +
       JSON.stringify(args) + '; no more cases for it\n')
   }
 }
@@ -169,7 +169,7 @@ const resolve = path => path.split('.').reduce((value, key) => (value == null ? 
 for (const [fn, entry] of Object.entries(plan)) {
   const types = entry.types ?? entry
   if (typeof resolve(entry.path ?? fn) !== 'function') {
-    process.stderr.write('go-anything: ' + (entry.path ?? fn) + ' is not a function in the original; ' +
+    process.stderr.write('golang-anything: ' + (entry.path ?? fn) + ' is not a function in the original; ' +
       'it is skipped, so no case proves it\n')
     continue
   }
@@ -306,8 +306,8 @@ func Run(opts Options) (Summary, error) {
 		// root the package sits under, which is the plan root this tool already knows.
 		if root := planRoot(opts.CrateDir, opts.Unit.Files[0]); root != "" {
 			cmd.Env = append(os.Environ(),
-				"GO_ANYTHING_PY_ROOT="+root,
-				"GO_ANYTHING_PY_MODULE="+pythonModuleName(opts.Unit.Files[0]))
+				"GOLANG_ANYTHING_PY_ROOT="+root,
+				"GOLANG_ANYTHING_PY_MODULE="+pythonModuleName(opts.Unit.Files[0]))
 		}
 	case "c", "cpp":
 		// A C or C++ unit cannot be handed JSON either: the program that calls it is generated and compiled
@@ -562,7 +562,7 @@ func summarise(list []cases.Case, unitPath string, opts Options, work string, th
 	if len(opts.TestCommand) > 0 {
 		s.Untested, err = coverage(work, opts.Unit, opts.TestCommand)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "go-anything: test coverage: %v\n", err)
+			fmt.Fprintf(os.Stderr, "golang-anything: test coverage: %v\n", err)
 		}
 	}
 	return s, nil

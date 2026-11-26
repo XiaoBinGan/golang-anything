@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	port "github.com/xiaobingan/go-anything/testdata/sample/port-rs"
+	port "github.com/XiaoBinGan/golang-anything/testdata/sample/port-rs"
 )
 
 type testCase struct {

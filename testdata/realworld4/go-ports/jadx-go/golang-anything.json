@@ -1,7 +1,7 @@
 {
-  "schema": "go-anything/port@1",
+  "schema": "golang-anything/port@1",
   "unit": "src/android/JadxInterruption.ts",
-  "crate": "github.com/xiaobingan/go-anything/testdata/realworld4/go-ports/jadx-go",
+  "crate": "github.com/XiaoBinGan/golang-anything/testdata/realworld4/go-ports/jadx-go",
   "files": ["src/android/JadxInterruption.ts"],
   "exports": [{"name":"throwIfJadxInterrupted","params":["AbortSignal"],"returns":"void","line":9,"throw_lines":[10],"blocked":""}],
   "wire": "json"

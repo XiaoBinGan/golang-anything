@@ -5,7 +5,7 @@
 set -uo pipefail
 . "$(dirname "$0")/env.sh"
 
-GO=${GO:-$(pwd)/bin/go-anything}
+GO=${GO:-$(pwd)/bin/golang-anything}
 case "$GO" in
   /*) ;;
   *) GO=$(cd "$(dirname "$GO")" && pwd)/$(basename "$GO") ;;
@@ -38,7 +38,7 @@ try "map"                       "$GO" map "$REPO"
 mkdir -p "$REPO/go-ports"
 try "scaffold --unit"           "$GO" scaffold --unit "$UNIT" "$REPO/go-ports/one-go"
 sed -i '' "s|example.com/one-go|smoke/go-ports/one-go|g" "$REPO/go-ports/one-go"/*.go \
-  "$REPO/go-ports/one-go/go-anything.json" "$REPO/go-ports/one-go"/cmd/*/main.go 2>/dev/null
+  "$REPO/go-ports/one-go/golang-anything.json" "$REPO/go-ports/one-go"/cmd/*/main.go 2>/dev/null
 printf 'module smoke\n\ngo 1.24\n' > "$REPO/go.mod"
 CRATE="$REPO/go-ports/one-go"
 
@@ -134,7 +134,7 @@ PYEOF
 try "analyze names python"      bash -c "$GO analyze '$WORK/pyroot' | head -1 | grep -q python"
 try "scaffold a .py unit"       "$GO" scaffold --unit mathx.py "$WORK/pyroot/go-ports/mathx-go"
 sed -i '' "s|example.com/mathx-go|pyroot/go-ports/mathx-go|g" "$WORK/pyroot/go-ports/mathx-go"/*.go \
-  "$WORK/pyroot/go-ports/mathx-go/go-anything.json" "$WORK/pyroot/go-ports/mathx-go"/cmd/*/main.go 2>/dev/null
+  "$WORK/pyroot/go-ports/mathx-go/golang-anything.json" "$WORK/pyroot/go-ports/mathx-go"/cmd/*/main.go 2>/dev/null
 printf 'module pyroot\n\ngo 1.24\n' > "$WORK/pyroot/go.mod"
 try "record a .py unit"         "$GO" record --unit mathx.py "$WORK/pyroot/go-ports/mathx-go"
 try "record caught the raise"   bash -c "grep -q 'division by zero' '$WORK/pyroot/go-ports/mathx-go/cases.jsonl'"
@@ -184,7 +184,7 @@ end
 RB
   ( cd "$d" && printf 'module rbt\n\ngo 1.24\n' > go.mod
     "$GO" scaffold --unit util.rb go-ports/u-go >/dev/null 2>&1
-    sed -i '' "s|example.com/u-go|rbt/go-ports/u-go|g" go-ports/u-go/*.go go-ports/u-go/go-anything.json go-ports/u-go/cmd/*/main.go 2>/dev/null
+    sed -i '' "s|example.com/u-go|rbt/go-ports/u-go|g" go-ports/u-go/*.go go-ports/u-go/golang-anything.json go-ports/u-go/cmd/*/main.go 2>/dev/null
     "$GO" record --unit util.rb go-ports/u-go >/dev/null 2>&1
     cat > go-ports/u-go/port.go <<'GO'
 package port

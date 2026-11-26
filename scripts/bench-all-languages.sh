@@ -10,14 +10,14 @@ set -uo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 W=$(mktemp -d)
 trap 'rm -rf "$W"' EXIT
-G=${GO:-$ROOT/bin/go-anything}
+G=${GO:-$ROOT/bin/golang-anything}
 run() {
   local name=$1 file=$2 unit=$3
   local d=$W/$name; mkdir -p $d
   cp "$file" $d/
   ( cd $d && printf 'module %s\n\ngo 1.24\n' "$name" > go.mod
     $G scaffold --unit "$unit" go-ports/m-go >/dev/null 2>&1
-    sed -i '' "s|example.com/m-go|$name/go-ports/m-go|g" go-ports/m-go/*.go go-ports/m-go/go-anything.json go-ports/m-go/cmd/*/main.go 2>/dev/null
+    sed -i '' "s|example.com/m-go|$name/go-ports/m-go|g" go-ports/m-go/*.go go-ports/m-go/golang-anything.json go-ports/m-go/cmd/*/main.go 2>/dev/null
     $G record --unit "$unit" go-ports/m-go >/dev/null 2>&1
     $G build --fast go-ports/m-go >/dev/null 2>&1
     out=$($G bench go-ports/m-go 2>&1) || { echo "FAIL $name: $(echo "$out"|tail -1)"; return; }

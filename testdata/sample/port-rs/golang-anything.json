@@ -1,7 +1,7 @@
 {
-  "schema": "go-anything/port@1",
+  "schema": "golang-anything/port@1",
   "unit": "src/text.ts",
-  "crate": "github.com/xiaobingan/go-anything/testdata/sample/port-rs",
+  "crate": "github.com/XiaoBinGan/golang-anything/testdata/sample/port-rs",
   "files": ["src/text.ts"],
   "exports": [{"name":"rangeOf","params":["string","string"],"returns":"","line":3,"throw_lines":[],"blocked":""},{"name":"words","params":["string"],"returns":"string[]","line":8,"throw_lines":[],"blocked":""},{"name":"count","params":["string"],"returns":"number","line":14,"throw_lines":[],"blocked":""},{"name":"ratio","params":["number","number"],"returns":"number","line":22,"throw_lines":[23],"blocked":""}],
   "wire": "json"

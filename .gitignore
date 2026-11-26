@@ -1,5 +1,5 @@
 # built binaries
-go-anything
+golang-anything
 portctl
 testdata/*/rust/*/portctl
 # per-run work
@@ -11,7 +11,7 @@ testdata/*/work/
 testdata/*/rust/*/work/
 testdata/**/work/
 testdata/**/shadow.jsonl
-go-anything
+golang-anything
 scripts/floor/probe.wasm
 bin/
 testdata/waves/rust/*/work/

@@ -9,10 +9,10 @@ set -uo pipefail
 # The toolchain this machine actually has: see scripts/env.sh.
 . "$(dirname "$0")/env.sh"
 
-GO=${GO:-./bin/go-anything}
-GO_CGO=${GO_CGO:-./bin/go-anything-cgo}
+GO=${GO:-./bin/golang-anything}
+GO_CGO=${GO_CGO:-./bin/golang-anything-cgo}
 OUT=${OUT:-/tmp/matrix.txt}
-export GO_ANYTHING_PARSE=${GO_ANYTHING_PARSE:-$GO_CGO}
+export GOLANG_ANYTHING_PARSE=${GOLANG_ANYTHING_PARSE:-$GO_CGO}
 
 CRATES=${CRATES:-"
 testdata/sample/port-rs

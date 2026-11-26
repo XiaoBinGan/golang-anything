@@ -26,7 +26,7 @@ markers-go             82    ok     ok addon     4.88x faster
 
 ## 性能（本机实测，两工具在同一台机器、各自 crate、各自 `diff` 都通过）
 
-| 轴 | go-anything | rust-anything | 结果 |
+| 轴 | golang-anything | rust-anything | 结果 |
 | --- | --- | --- | --- |
 | 桥接单次调用（win） | **0.048–0.056 µs** | 0.070–0.071 µs | **快 1.26–1.49 倍** ✅ |
 | diff 吞吐 | 7.7–8.9 ms / 328 例 | 53.8–57.9 ms / 917 例 | **快 6.1–7.4 倍** ✅ |
@@ -40,7 +40,7 @@ markers-go             82    ok     ok addon     4.88x faster
 
 ### 为什么这两项输
 
-* **启动**：第 60 轮之后赢下来了——办法是**拆二进制**（`go-anything` 1.7 MB 只答 help/version，其余 `exec` 引擎；
+* **启动**：第 60 轮之后赢下来了——办法是**拆二进制**（`golang-anything` 1.7 MB 只答 help/version，其余 `exec` 引擎；
 引擎 3.6 MB 装 27 条命令）。早先的分解仍然成立：
   * 去掉了整个 `crypto` 栈（`sha256` 只用来算稳定 id，换成 FNV-1a）：`go list -deps | grep -c crypto` 从 12 到 0；
   * 发现自己两次把 **cgo 构建**覆盖到快二进制上（+0.15 ms 全是假的），现在 `build.sh`/`perf.sh` 都会校验

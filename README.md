@@ -1,41 +1,41 @@
-# go-anything
+# golang-anything
 
 把代码移植到 Go 的完整流水线：**analyze → record → scaffold → diff → gate → bridge/build**，
 一个单元一个单元地过，每一步都有可复现的证据。
 
 ```sh
 export GOROOT=$(brew --prefix go)/libexec   # 本机 goenv 与 brew 的 GOROOT 曾不一致
-CGO_ENABLED=1 go build -o go-anything .
+CGO_ENABLED=1 go build -o golang-anything .
 
-./go-anything analyze testdata/sample
-./go-anything record  --unit src/text.ts testdata/sample/port-rs
-./go-anything scaffold --unit src/text.ts --crate <module>/testdata/sample/port-rs testdata/sample/port-rs
-./go-anything gate    testdata/sample/port-rs
-./go-anything bridge  testdata/sample/port-rs && ./go-anything build testdata/sample/port-rs
+./golang-anything analyze testdata/sample
+./golang-anything record  --unit src/text.ts testdata/sample/port-rs
+./golang-anything scaffold --unit src/text.ts --crate <module>/testdata/sample/port-rs testdata/sample/port-rs
+./golang-anything gate    testdata/sample/port-rs
+./golang-anything bridge  testdata/sample/port-rs && ./golang-anything build testdata/sample/port-rs
 ```
 
 ## 端口真的被用起来：enable / shadow
 
 ```sh
-go-anything enable testdata/sample/port-rs     # 原式末尾插入一段标记块
+golang-anything enable testdata/sample/port-rs     # 原式末尾插入一段标记块
 # 现在 import 来的 count 走 Go：count("a b  c") === 3，String(count) 里是 callSync 包装
-go-anything disable testdata/sample/port-rs    # 移除该块，文件回到字节一致
+golang-anything disable testdata/sample/port-rs    # 移除该块，文件回到字节一致
 ```
 
 ```
 $ node -e 'import("./src/text.ts").then(m => console.log(m.count("a b  c")))'
 3                                     # 已切到 Go（sync 模式，签名不变）
-$ go-anything disable port-rs && cmp src/text.ts 原件   # 字节一致 ✅
+$ golang-anything disable port-rs && cmp src/text.ts 原件   # 字节一致 ✅
 ```
 
 `shadow` 是切换前的保险：同一调用跑原式与端口，**返回原式的答案**，差异写进 `shadow.jsonl`。
 
 ```
-$ go-anything shadow testdata/sample/port-rs
+$ golang-anything shadow testdata/sample/port-rs
 $ node -e 'require("./port-rs/shadow.cjs").count("pad  ")'
-go-anything shadow: count differs (the answers differ)
+golang-anything shadow: count differs (the answers differ)
 2                                     # 调用方拿到的仍是原式的答案
-$ go-anything shadow-report testdata/sample/port-rs
+$ golang-anything shadow-report testdata/sample/port-rs
 1 mismatch(es) recorded: count ×1
 | `count` | `["pad  "]` | `2` | `1` | the answers differ |
 ```
@@ -45,17 +45,17 @@ $ go-anything shadow-report testdata/sample/port-rs
 ## fuzz：新种子找录不到的分歧
 
 ```sh
-$ go-anything fuzz --count 25 --seed 3 testdata/sample/port-rs
+$ golang-anything fuzz --count 25 --seed 3 testdata/sample/port-rs
 100/100 fresh calls match (seed 3).
 
 # 端口被我改成 off-by-one（末尾空格少算）之后：
-$ go-anything fuzz --count 30 --seed 7 testdata/sample/port-rs
+$ golang-anything fuzz --count 30 --seed 7 testdata/sample/port-rs
 116/120 fresh calls match (seed 7).
 - `count("_	$ 😀 ")`: expected 2, got 1 (the answer differs)
-$ go-anything fuzz --count 30 --seed 7 --keep testdata/sample/port-rs
+$ golang-anything fuzz --count 30 --seed 7 --keep testdata/sample/port-rs
 kept 4 failing call(s) in cases.jsonl: `diff` and `gate` now check them.
-$ go-anything gate testdata/sample/port-rs
-go-anything: gate: 7 of 640 cases do not match      ← 从此这条分歧是常驻用例
+$ golang-anything gate testdata/sample/port-rs
+golang-anything: gate: 7 of 640 cases do not match      ← 从此这条分歧是常驻用例
 ```
 
 `--seed` 固定就能重放同一次运行；`--keep` 把失败调用变成正式用例。
@@ -63,7 +63,7 @@ go-anything: gate: 7 of 640 cases do not match      ← 从此这条分歧是常
 ## report：给 PR 和 README 的结果
 
 ```sh
-$ go-anything report testdata/sample/port-rs
+$ golang-anything report testdata/sample/port-rs
 ## `src/text.ts` ported to Go
 | Recorded cases matched | 609 / 609 (100.0%) |
 | Speedup, call included | 1.91x (geometric mean) |
@@ -80,24 +80,24 @@ $ go-anything report testdata/sample/port-rs
 （`work/resolve.mjs`）依次试 `.ts`/`.tsx`/`.js`/`.mjs`/`.cjs`，所以这样的单元照样能录：
 
 ```sh
-$ go-anything record --unit src/format.ts testdata/waves/rust/format-go
+$ golang-anything record --unit src/format.ts testdata/waves/rust/format-go
 Recorded 7 cases for 1 functions (74d57a3e64c9d0aa) from src/format.ts
-$ go-anything gate testdata/waves/rust/format-go
+$ golang-anything gate testdata/waves/rust/format-go
 gate: every case matches, every export is in the port, and every throw path has a failing case.
 ```
 
 ## app：整程序黑盒录制与回放
 
 ```sh
-$ go-anything app record --command /tmp/textcli --inputs cases.jsonl /tmp/appcli
+$ golang-anything app record --command /tmp/textcli --inputs cases.jsonl /tmp/appcli
 6/6 cases replay identically in 0.12s.
-Wrote 6 case(s) to /tmp/appcli/go-anything-cases
+Wrote 6 case(s) to /tmp/appcli/golang-anything-cases
 
-$ go-anything app replay --command /tmp/textcli /tmp/appcli
+$ golang-anything app replay --command /tmp/textcli /tmp/appcli
 6/6 cases replay identically in 0.01s.
 
 # 换了版本的构建：
-$ go-anything app replay --command /tmp/textcli2 /tmp/appcli
+$ golang-anything app replay --command /tmp/textcli2 /tmp/appcli
 5/6 cases replay identically; 1 differ:
 - --version: stdout differs
 ```
@@ -108,7 +108,7 @@ $ go-anything app replay --command /tmp/textcli2 /tmp/appcli
 ## package：让别人能装上
 
 ```sh
-$ go-anything package --name port-rs --version 1.2.3 <crate>
+$ golang-anything package --name port-rs --version 1.2.3 <crate>
 port-rs 1.2.3 (library) → <crate>/package
   .github/workflows/release.yml
   README.md
@@ -123,16 +123,16 @@ port-rs 1.2.3 (library) → <crate>/package
 ## profile / go：按真实负载决定先移植什么
 
 ```
-$ go-anything profile --command workload.mjs --top 5 testdata/sample
+$ golang-anything profile --command workload.mjs --top 5 testdata/sample
 | Function | Where | Share | Unit | Port? |
 | `words` | `src/text.ts:8` | 15.7% | `src/text.ts` | yes |
 | `(top level)` | `workload.mjs:1` | 13.7% | — | not part of a unit |
 | `count` | `src/text.ts:14` | 2.0% | `src/text.ts` | yes |
 
-$ go-anything go --command workload.mjs .
+$ golang-anything go --command workload.mjs .
 Hottest portable unit: `src/text.ts`
 Scaffolded 4 file(s), recorded 609 cases, wrote 4 wrapper file(s) for `src/text.ts`.
-Next: fill in go-ports/text-go/port.go, then `go-anything gate go-ports/text-go`.
+Next: fill in go-ports/text-go/port.go, then `golang-anything gate go-ports/text-go`.
 ```
 
 `profile` 按**自身耗时**排（不是总耗时），剔除 runtime 帧与 `node_modules`；`go` 把
@@ -143,13 +143,13 @@ profile → 选单元 → scaffold → record → 包装器串成一条。刚生
 
 ```sh
 $ printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' \
-    '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | go-anything mcp
-initialize → {'name': 'go-anything', 'version': '0.5.0'}
+    '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | golang-anything mcp
+initialize → {'name': 'golang-anything', 'version': '0.5.0'}
 tools → ['analyze', 'map', 'diff', 'gate', 'record', 'fuzz', 'profile']
 
-$ go-anything setup --print          # 只打印，不写
-$ go-anything setup                  # 注册进已安装 agent 的配置
-Registered go-anything with claude (~/.claude.json)
+$ golang-anything setup --print          # 只打印，不写
+$ golang-anything setup                  # 注册进已安装 agent 的配置
+Registered golang-anything with claude (~/.claude.json)
 ```
 
 协议行为都按规范：通知不回包（客户端按位置读流）、未知方法回 `-32601`、非 JSON 回 `-32700`、
@@ -159,21 +159,21 @@ Registered go-anything with claude (~/.claude.json)
 ## front-door / wire / lift：让 Go 接管入口
 
 ```sh
-$ go-anything front-door new --name textcli <repo>      # 6 条录制命令
-$ go-anything front-door wire --command "--count a b  c" --call count go-app
+$ golang-anything front-door new --name textcli <repo>      # 6 条录制命令
+$ golang-anything front-door wire --command "--count a b  c" --call count go-app
 $ cd go-app && go build -o frontdoor .
 
-$ GO_ANYTHING_TRACE=/tmp/t.txt ./frontdoor "--count a b  c"
+$ GOLANG_ANYTHING_TRACE=/tmp/t.txt ./frontdoor "--count a b  c"
 3                                    # 走 Go
-$ GO_ANYTHING_TRACE=/tmp/t.txt ./frontdoor --version
+$ GOLANG_ANYTHING_TRACE=/tmp/t.txt ./frontdoor --version
 textcli 0.3.1                        # 转给原程序
 {"command":"--count a b  c","fallback":false}
 {"command":"--version","fallback":true}
 
-$ go-anything front-door lift go-app
-go-anything: 1 of 6 commands are wired: wire the rest, or keep the fallback   ← 不许提前收工
+$ golang-anything front-door lift go-app
+golang-anything: 1 of 6 commands are wired: wire the rest, or keep the fallback   ← 不许提前收工
 # 全部接管后：
-$ go-anything front-door lift go-app && cd go-app && go build -o frontdoor .
+$ golang-anything front-door lift go-app && cd go-app && go build -o frontdoor .
 $ ./frontdoor --version
 {"args":[],"port":"echo"}            # 纯 Go，原程序已不在
 ```
@@ -186,7 +186,7 @@ $ ./frontdoor --version
 
 ## 性能：实测对照（详见 [PERF.md](PERF.md)）
 
-| 指标 | rust-anything | go-anything | 结果 |
+| 指标 | rust-anything | golang-anything | 结果 |
 | --- | ---: | ---: | --- |
 | 桥接单次调用（wasm 直调） | 0.070 µs | **0.051 µs** | **快 27%** ✅ |
 | 桥接单次调用（N-API 默认口径） | 0.070 µs | 0.201 µs | 慢 2.9 倍（cgo 下限） |
@@ -206,12 +206,12 @@ Go 走 cgo 每次要付 40–60 ns 再加两次 napi 取串。
 ## 两个构建：快的那个不带 cgo
 
 ```sh
-./scripts/build.sh bin      # bin/go-anything（无 cgo）+ bin/go-anything-cgo（解析器）
+./scripts/build.sh bin      # bin/golang-anything（无 cgo）+ bin/golang-anything-cgo（解析器）
 ```
 
 cgo 有 1.2 ms 的固定启动成本（一个只 `import "C"` 的最小程序就要 3.19 ms，空程序 2.0 ms）。
 所以工具本体不带 cgo（2.42 ms 启动），解析器是**同一个程序的 cgo 构建**，只在需要 parse 的命令里
-以 `go-anything __parse` 子进程启动，JSON 行协议交接。`--help`/`gate`/`diff`/`check` 全部走快路径。
+以 `golang-anything __parse` 子进程启动，JSON 行协议交接。`--help`/`gate`/`diff`/`check` 全部走快路径。
 
 ## 三条架构的下界（实测，见 PERF.md）
 
@@ -224,7 +224,7 @@ cgo 有 1.2 ms 的固定启动成本（一个只 `import "C"` 的最小程序就
 | cgo + napi（现在） | 215 ns |
 
 复现：`node scripts/floor/ring-floor.mjs`、`node scripts/floor/wasm-floor.mjs`。
-真实端口：`go-anything wasm <crate>` 生成 `port.wasm` + `index.wasm.mjs`，Node 里直接调用。
+真实端口：`golang-anything wasm <crate>` 生成 `port.wasm` + `index.wasm.mjs`，Node 里直接调用。
 
 ## 批量接口：`callNumbers`
 
@@ -241,8 +241,8 @@ port.callNumbers('count', ['a b  c', 'pad  ', '', 'x y z'])   // Float64Array [3
 | 路径 | 每次调用 | 每秒 |
 | --- | ---: | ---: |
 | 原式（TS，被 V8 内联） | 0.05 µs | 20,500,000 |
-| **go-anything 进程内（c-shared + N-API）** | **0.73 µs** | **1,360,000** |
-| go-anything stdio | 12.02 µs | 83,000 |
+| **golang-anything 进程内（c-shared + N-API）** | **0.73 µs** | **1,360,000** |
+| golang-anything stdio | 12.02 µs | 83,000 |
 | rust-anything 宣称（napi-rs） | ~1 µs | ~1,000,000 |
 
 进程内桥比 rust-anything 宣称的快约 27%；三口是同一台机器、同一个函数 `count("a b  c")`、每组 2 万次。
@@ -262,7 +262,7 @@ Geometric mean: 1.52x faster
 ## 真跑出来的输出
 
 ```
-$ ./go-anything analyze testdata/sample
+$ ./golang-anything analyze testdata/sample
 | Unit | Lines | Exports | Wave | Readiness | Priority |
 | `src/text.ts` | 25 | 4 | 0 | 86 | 70 |
 Start here: src/text.ts
@@ -273,10 +273,10 @@ Start here: src/text.ts
 - `count(text: string): number`
 - `ratio(part: number, whole: number): number` — 1 throw path(s) at 23
 
-$ ./go-anything record --unit src/text.ts testdata/sample/port-rs
+$ ./golang-anything record --unit src/text.ts testdata/sample/port-rs
 Recorded 636 cases for 4 functions (13d623b7382de4d1) from src/text.ts; 1 throw paths need a failing case each.
 
-$ ./go-anything gate testdata/sample/port-rs
+$ ./golang-anything gate testdata/sample/port-rs
 636/636 recorded cases match.
 gate: every case matches, every export is in the port, and every throw path has a failing case.
 ```
@@ -305,14 +305,14 @@ $ python3 -c 'import sys; sys.path.insert(0,"testdata/sample/port-rs"); import p
 | --- | --- |
 | `analyze` | tree-sitter（TS/TSX/JS）解析出导出、参数与返回类型、`throw` 行、导入；按导入排波次；readiness/priority 与 rust-anything 同一套公式 |
 | `record` | 从**声明的类型**生成边界值（字符串含 emoji/代理对/组合字符，数字含 `-0`/`1/3`），可选 `--inputs` 回放真实调用，可选 `--test-coverage` 跑原式测试看哪些导出没人碰 |
-| `scaffold` | 写 `port.go` 骨架（带 TS 签名注释）、`wire.go`（编解码）、`cmd/godriver`、`go-anything.json` |
+| `scaffold` | 写 `port.go` 骨架（带 TS 签名注释）、`wire.go`（编解码）、`cmd/godriver`、`golang-anything.json` |
 | `diff` | 按**调用**而非行号配对；键序无关、浮点容差、错误**类型**必须一致、Go panic 可对应原式的异常 |
 | `gate` | 每条 `throw` 必须有录到的失败用例；导出不能缺；出现 panic 即失败 |
 | `bridge`/`build` | 长驻 stdio 进程 + `index.cjs`/`port.py` 薄包装，每次调用约几十微秒 |
 
 ## 与 rust-anything 的差异（设计上最要紧的部分）
 
-| 环节 | rust-anything | go-anything |
+| 环节 | rust-anything | golang-anything |
 | --- | --- | --- |
 | 解析 | 每种语言一棵 tree-sitter 树 | TS/TSX/JS 用 tree-sitter（`smacker/go-tree-sitter`）；其他语言待接 |
 | 跨语言 | napi-rs / PyO3 / JNI / FFI 插件 | **Go 没有对等物**：先给长驻 stdio 桥（任何 runtime 都能 spawn），c-shared 快路径留给热点函数 |
@@ -336,7 +336,7 @@ main.go                 CLI：analyze / record / scaffold / diff / gate / bridge
 internal/ts             tree-sitter 解析：导出、类型、throw 行、导入、风险
 internal/analyze        单元、波次、readiness/priority、start_here、blocked 原因
 internal/record         类型定向生成、--inputs 回放、--test-coverage、指纹
-internal/scaffold       port.go / wire.go / cmd/godriver / go-anything.json
+internal/scaffold       port.go / wire.go / cmd/godriver / golang-anything.json
 internal/diff           逐例比对 + gate 的附加条件
 internal/bridge         stdio 桥与 index.cjs / port.py
 internal/wire           NaN / ±Inf / -0 / 孤立代理项 的编解码
@@ -489,16 +489,16 @@ every crate gates and answers through a real bridge
 
 ## `app record` / `app replay` 在真实 CLI 上
 
-拿 **go-anything 自己**当被测程序（它是个真 CLI）：
+拿 **golang-anything 自己**当被测程序（它是个真 CLI）：
 
 ```
-$ go-anything app record --command ./bin/go-anything --inputs inputs.jsonl /tmp/appwise
+$ golang-anything app record --command ./bin/golang-anything --inputs inputs.jsonl /tmp/appwise
 6/6 cases replay identically
-$ go-anything app replay --command ./bin/go-anything /tmp/appwise
+$ golang-anything app replay --command ./bin/golang-anything /tmp/appwise
 6/6 cases replay identically
 
 # 负向对照：只把 help 文案改一个感叹号
-$ go-anything app replay --command /tmp/go-changed /tmp/appwise
+$ golang-anything app replay --command /tmp/go-changed /tmp/appwise
 3/6 cases replay identically; 3 differ:
 - --help: stdout differs
 - --version: stderr differs
@@ -508,7 +508,7 @@ $ go-anything app replay --command /tmp/go-changed /tmp/appwise
 **一个字符的改动，三个用例同时点名**——这正是 `app` 层存在的意义。
 
 顺手补了 CLI 的常识：`--version`/`version` 之前是「unknown command」，现在答
-`go-anything v0.0.0-... (go1.26.2)`；`--help` 走 stdout 且退出码 0。有测试直接调 dispatch 验这两条。
+`golang-anything v0.0.0-... (go1.26.2)`；`--help` 走 stdout 且退出码 0。有测试直接调 dispatch 验这两条。
 
 ## `mcp` 在真实 crate 上
 
@@ -522,18 +522,18 @@ tools/call fuzz  {crate: shellQuote-go}  → {"calls":15,"matched":15,"seed":7}
 
 | 命令 | 真实 crate 上的结果 |
 | --- | --- |
-| `doctor` | 新增两项检查：**真编译一个程序**（`GOROOT` 与 `go` 二进制不匹配时立刻暴露）、**解析器是否可用**（cgo 构建能自己解析，快构建要边上有个 `go-anything-cgo`） |
+| `doctor` | 新增两项检查：**真编译一个程序**（`GOROOT` 与 `go` 二进制不匹配时立刻暴露）、**解析器是否可用**（cgo 构建能自己解析，快构建要边上有个 `golang-anything-cgo`） |
 | `clean` | `uleb-go` 清掉 3 项 / 6.0 MB（`portctl`、`cmd/gobench`、`work`），清完 `gate` 仍绿、`check` 229/229 |
 | `refresh` | `jadx-go` 重写 4 个文件后 `gate` 仍绿 |
 | `map` | 发现计划里混进了工具自己的产物（`resolve-hook.mjs` 被当成一个单元） |
 
 最后一条是真 bug：`analyze` 会把 crate 文件夹里的生成文件（`resolve.mjs`、`check.mjs`、`shadow.cjs`）
-当成源码。现在**含有 `go-anything.json` 的目录整个跳过**——工具的输出不该出现在计划里。
+当成源码。现在**含有 `golang-anything.json` 的目录整个跳过**——工具的输出不该出现在计划里。
 
 `doctor` 的负向对照：
 
 ```
-$ GOROOT=/nonexistent go-anything doctor
+$ GOROOT=/nonexistent golang-anything doctor
 MISS go builds a program  go: cannot find GOROOT directory: /nonexistent
      fix: the go binary and its GOROOT disagree: set GOROOT to the installation the binary came from
 ```
@@ -646,7 +646,7 @@ every claim above was checked and held
 ## 三个桥必须给出同一个答案（`scripts/allbridges.mjs`）
 
 ```sh
-go-anything build <crate> && go-anything build --fast <crate> && go-anything wasm <crate>
+golang-anything build <crate> && golang-anything build --fast <crate> && golang-anything wasm <crate>
 node scripts/allbridges.mjs testdata/markers/go-ports/markers-go
 ```
 
@@ -752,7 +752,7 @@ ready 6,092 → 5,954      blocked 1,859 → 1,997
 修法：
 
 1. 录制计划从「函数名 → 类型表」改成「函数名 → { 路径, 类型表 }」，静态方法按 `Class.name` 解析；
-2. 解析不到时报出来（此前静默）：`go-anything: X.y is not a function in the original; it is skipped`
+2. 解析不到时报出来（此前静默）：`golang-anything: X.y is not a function in the original; it is skipped`
 3. 答案无法过线时（类实例）明确拒绝：`forHost answers a KunaRunSlots, which JSON cannot carry: no case proves it`
 
 `canCarry` 是递归判断：原始值、数组、日期、Map/Set、TypedArray、原型为 `Object.prototype` 的普通对象可以过；
@@ -829,7 +829,7 @@ every crate gates, answers through the in-process bridge, and can be timed
 
 ```
 - escapeJsonPointerToken("a/b/c"): expected "a~1b~1c", got "a/b/c"
-go-anything: gate: 9 of 224 cases do not match
+golang-anything: gate: 9 of 224 cases do not match
 ```
 
 同一次修改把 `port-rs` 从 181 例推到 **253 例**（`shellQuote` 32 → 56）。
@@ -997,16 +997,16 @@ ok   analyze … ok   check … ok   clean … ok   unknown tool → isError
 
 ### 顺带：`doctor` 与它诊断的代码不一致
 
-第二次跑客户端时 `doctor` 报 `MISS parser available`——但 `bin/go-anything-cgo` 就在旁边，而真正会去启动
+第二次跑客户端时 `doctor` 报 `MISS parser available`——但 `bin/golang-anything-cgo` 就在旁边，而真正会去启动
 解析器的代码（`ts.helperPath`）**能找到它**。
 
-原因：`doctor` 自己又写了一遍「去哪里找解析器」的搜索，只看 `GO_ANYTHING_PARSE` 和 `PATH`，不看二进制旁边。
+原因：`doctor` 自己又写了一遍「去哪里找解析器」的搜索，只看 `GOLANG_ANYTHING_PARSE` 和 `PATH`，不看二进制旁边。
 **同一逻辑的第二份实现，又一次。** 现在 `doctor` 调 `ts.ParserPath()`，两种构建各有实现（cgo 构建自己就是解析器）。
 
 验证：
 
 ```
-有 helper           → ok   parser available   /tmp/nocgo/go-anything-cgo
+有 helper           → ok   parser available   /tmp/nocgo/golang-anything-cgo
 删掉 helper         → MISS parser available   no cgo in this build: …
 ```
 
@@ -1105,7 +1105,7 @@ every check in this folder fails when it should          # 19 秒
 
 `scripts/allbridges.mjs` 的第三列原来叫 `stdio`，其实还是 addon 的另一个入口——**pipe 从没在装好 addon 的机器上被测过**。
 
-现在：`GO_ANYTHING_NO_ADDON=1` 强制走 pipe，`allbridges.mjs` 多跑一遍并与 wasm 对比：
+现在：`GOLANG_ANYTHING_NO_ADDON=1` 强制走 pipe，`allbridges.mjs` 多跑一遍并与 wasm 对比：
 
 ```
 ok   -0                 addon=-0        wasm=-0        stdio=-0
@@ -1140,7 +1140,7 @@ pipe: 6/6 agree with the wasm bridge
 两次都以为工具没反应，其实是我测错了：
 
 1. 用 `jsonPointerTokens` 去验「`escapeJsonPointerToken` 被弄坏」——**这条路径根本不经过它**；
-2. `./bin/go-anything shadow-report $C | tail -2; echo rc=$?` —— 测到的是 `tail` 的退出码，不是工具的。
+2. `./bin/golang-anything shadow-report $C | tail -2; echo rc=$?` —— 测到的是 `tail` 的退出码，不是工具的。
    换成直接测，`rc=1` 本来是对的。
 
 **验证负向对照本身也要小心**：一次是打偏了目标，一次是量错了对象。
@@ -1178,7 +1178,7 @@ the documents match the tool
 
 ```sh
 $ node scripts/floor/bridge-ab.mjs testdata/sample/port-rs /tmp/racmp2/rust/text-rs
-  go-anything wasm (in-process)      0.048 µs/call   20,656,718 calls/s
+  golang-anything wasm (in-process)      0.048 µs/call   20,656,718 calls/s
   rust-anything napi                 0.070 µs/call   14,285,714 calls/s
 VERDICT wasm faster than napi: 1.45x (wasm 0.048 µs, napi 0.070 µs)     # rc=0
 ```
@@ -1237,7 +1237,7 @@ FAIL  allbridges notices a pipe that answers without arguments exited 0
 
 ```sh
 $ env -u GOROOT PATH=/usr/bin:/bin ./scripts/negative.sh; echo $?
-go-anything: node is required by the checks in this folder.
+golang-anything: node is required by the checks in this folder.
   Put it on PATH, or set REQUIRE_NODE=0 for the ones that do not need it.
 2
 ```

@@ -11,7 +11,7 @@ import (
 	"encoding/json"
 	"unsafe"
 
-	port "github.com/xiaobingan/go-anything/testdata/realworld5/go-ports/jp-go"
+	port "github.com/XiaoBinGan/golang-anything/testdata/realworld5/go-ports/jp-go"
 )
 
 const (

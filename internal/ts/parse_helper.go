@@ -36,9 +36,9 @@ type helper struct {
 
 var shared helper
 
-// helperPath is where the helper binary is: next to this one, or named by GO_ANYTHING_PARSE.
+// helperPath is where the helper binary is: next to this one, or named by GOLANG_ANYTHING_PARSE.
 func helperPath() (string, error) {
-	if path := os.Getenv("GO_ANYTHING_PARSE"); path != "" {
+	if path := os.Getenv("GOLANG_ANYTHING_PARSE"); path != "" {
 		return path, nil
 	}
 	self, err := os.Executable()
@@ -46,13 +46,13 @@ func helperPath() (string, error) {
 		return "", err
 	}
 	// The parser build sits beside the tool under a name that says what it is.
-	for _, name := range []string{"go-anything-parse", "go-anything-parser"} {
+	for _, name := range []string{"golang-anything-parse", "golang-anything-parser"} {
 		candidate := filepath.Join(filepath.Dir(self), name)
 		if _, err := os.Stat(candidate); err == nil {
 			return candidate, nil
 		}
 	}
-	if path, err := exec.LookPath("go-anything-cgo"); err == nil {
+	if path, err := exec.LookPath("golang-anything-cgo"); err == nil {
 		return path, nil
 	}
 	// A build of this tool made with cgo can parse: the commands that need it start it as a helper.
@@ -70,8 +70,8 @@ func helperPath() (string, error) {
 		return candidate, nil
 	}
 	return "", fmt.Errorf("no parser helper next to %s: build one with "+
-		"`go build -o go-anything-parse ./cmd/parse-helper` and put it beside this binary, "+
-		"set GO_ANYTHING_PARSE, or use a build made with CGO_ENABLED=1", self)
+		"`go build -o golang-anything-parse ./cmd/parse-helper` and put it beside this binary, "+
+		"set GOLANG_ANYTHING_PARSE, or use a build made with CGO_ENABLED=1", self)
 }
 
 // start brings the helper up.
@@ -95,8 +95,8 @@ func (h *helper) start() {
 	}
 	if err := cmd.Start(); err != nil {
 		h.err = fmt.Errorf("starting the parser helper (%s): %w\n"+
-			"this build has no cgo parser of its own: put go-anything-parse next to this binary, "+
-			"or set GO_ANYTHING_PARSE, or build the tool with CGO_ENABLED=1", path, err)
+			"this build has no cgo parser of its own: put golang-anything-parse next to this binary, "+
+			"or set GOLANG_ANYTHING_PARSE, or build the tool with CGO_ENABLED=1", path, err)
 		return
 	}
 	h.cmd = cmd
@@ -160,16 +160,16 @@ func ParseSource(src []byte, lang Lang, path string) (*File, error) {
 
 // ParserPath is where the parser would be found, asked of the code that will actually start it. doctor
 // used to search again on its own and reported the missing parser for a setup that worked, because it
-// only looked at GO_ANYTHING_PARSE and PATH and not next to the binary.
+// only looked at GOLANG_ANYTHING_PARSE and PATH and not next to the binary.
 func ParserPath() (string, error) { return helperPath() }
 
 // selfCandidates are the other builds of this tool that can parse, in the order worth trying.
 func selfCandidates(dir string) []string {
 	var out []string
-	// go-anything comes last: it is the front binary now, built without cgo, and starting it for a parse
+	// golang-anything comes last: it is the front binary now, built without cgo, and starting it for a parse
 	// answers "__parse needs a build made with CGO_ENABLED=1" — which read as a broken parser rather than
 	// the wrong helper.
-	for _, name := range []string{"go-anything-cgo", "go-anything"} {
+	for _, name := range []string{"golang-anything-cgo", "golang-anything"} {
 		out = append(out, filepath.Join(dir, name))
 	}
 	return out

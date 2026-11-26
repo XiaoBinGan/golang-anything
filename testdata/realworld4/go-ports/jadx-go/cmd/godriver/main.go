@@ -8,7 +8,7 @@ import (
 	"math"
 	"os"
 
-	"github.com/xiaobingan/go-anything/testdata/realworld4/go-ports/jadx-go"
+	"github.com/XiaoBinGan/golang-anything/testdata/realworld4/go-ports/jadx-go"
 )
 
 type testCase struct {

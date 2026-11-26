@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xiaobingan/go-anything/internal/ts"
+	"github.com/XiaoBinGan/golang-anything/internal/ts"
 )
 
 func TestPlanOrdersWavesAndNamesBlockedExports(t *testing.T) {
@@ -89,7 +89,7 @@ func TestACrateFolderIsNotSource(t *testing.T) {
 		}
 	}
 	write("src/unit.ts", "export const f = (a: string): string => a\n")
-	write("go-ports/unit-go/go-anything.json", `{"unit":"src/unit.ts","crate":"example.com/x","exports":[]}`)
+	write("go-ports/unit-go/golang-anything.json", `{"unit":"src/unit.ts","crate":"example.com/x","exports":[]}`)
 	write("go-ports/unit-go/resolve-hook.mjs", "export async function resolve() {}\n")
 
 	rep, err := Run(root)

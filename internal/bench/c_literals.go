@@ -1,7 +1,7 @@
 package bench
 
 import (
-	"github.com/xiaobingan/go-anything/internal/record"
+	"github.com/XiaoBinGan/golang-anything/internal/record"
 )
 
 // cLiteralFor and cRecorderSource are the recorder's own, so the workload timed is the workload recorded.

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xiaobingan/go-anything/internal/ts"
+	"github.com/XiaoBinGan/golang-anything/internal/ts"
 )
 
 // run drives the server with the frames given and returns the replies.
@@ -46,7 +46,7 @@ func TestHandshakeListsToolsAndIgnoresNotifications(t *testing.T) {
 		t.Fatalf("want 2 replies, got %d: %+v", len(replies), replies)
 	}
 	info := replies[0]["result"].(map[string]any)["serverInfo"].(map[string]any)
-	if info["name"] != "go-anything" {
+	if info["name"] != "golang-anything" {
 		t.Errorf("serverInfo: %+v", info)
 	}
 	list := replies[1]["result"].(map[string]any)["tools"].([]any)
@@ -188,7 +188,7 @@ func TestDoctorAsksTheParserLookup(t *testing.T) {
 	if err == nil {
 		return // a separate helper exists: doctor finding it is the expected answer
 	}
-	if _, statErr := os.Stat(filepath.Join(filepath.Dir(os.Args[0]), "go-anything-cgo")); statErr == nil {
+	if _, statErr := os.Stat(filepath.Join(filepath.Dir(os.Args[0]), "golang-anything-cgo")); statErr == nil {
 		t.Error("a helper sits beside the test binary but ParserPath does not find it")
 	}
 }

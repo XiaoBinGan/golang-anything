@@ -1,7 +1,7 @@
 {
-  "schema": "go-anything/port@1",
+  "schema": "golang-anything/port@1",
   "unit": "src/shellQuote.ts",
-  "crate": "github.com/xiaobingan/go-anything/testdata/realworld/go-ports/shellQuote-go",
+  "crate": "github.com/XiaoBinGan/golang-anything/testdata/realworld/go-ports/shellQuote-go",
   "files": ["src/shellQuote.ts"],
   "exports": [{"name":"shellQuote","params":["string"],"returns":"string","line":2,"throw_lines":[],"blocked":""}],
   "wire": "json"

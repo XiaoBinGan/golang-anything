@@ -1,7 +1,7 @@
 {
-  "schema": "go-anything/port@1",
+  "schema": "golang-anything/port@1",
   "unit": "src/markers.ts",
-  "crate": "github.com/xiaobingan/go-anything/testdata/markers/go-ports/markers-go",
+  "crate": "github.com/XiaoBinGan/golang-anything/testdata/markers/go-ports/markers-go",
   "files": ["src/markers.ts"],
   "exports": [{"name":"half","params":["number"],"returns":"number","line":3,"throw_lines":[],"blocked":""},{"name":"divide","params":["number","number"],"returns":"number","line":4,"throw_lines":[],"blocked":""},{"name":"negativeZero","params":[],"returns":"number","line":5,"throw_lines":[],"blocked":""},{"name":"keep","params":["unknown"],"returns":"unknown","line":6,"throw_lines":[],"blocked":""},{"name":"loneSurrogate","params":[],"returns":"string","line":7,"throw_lines":[],"blocked":""},{"name":"undefinedValue","params":[],"returns":"unknown","line":8,"throw_lines":[],"blocked":""},{"name":"isNegativeZero","params":["number"],"returns":"boolean","line":9,"throw_lines":[],"blocked":""}],
   "wire": "json"

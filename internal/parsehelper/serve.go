@@ -1,6 +1,6 @@
 //go:build cgo
 
-// Package parsehelper answers parse requests for a build of go-anything that has no cgo.
+// Package parsehelper answers parse requests for a build of golang-anything that has no cgo.
 //
 // It reads one JSON request per line on stdin and writes one answer per line: the file tree-sitter
 // produced, or the error. It exists so the tool's own binary does not pay cgo's fixed startup cost for
@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/xiaobingan/go-anything/internal/ts"
+	"github.com/XiaoBinGan/golang-anything/internal/ts"
 )
 
 type request struct {
@@ -26,7 +26,7 @@ type request struct {
 // Serve answers parse requests on stdin until it closes.
 func Serve() {
 	if len(os.Args) < 2 || os.Args[1] != "__parse" {
-		fmt.Fprintln(os.Stderr, "go-anything: __parse is started by the tool itself")
+		fmt.Fprintln(os.Stderr, "golang-anything: __parse is started by the tool itself")
 		os.Exit(2)
 	}
 	in := bufio.NewScanner(os.Stdin)

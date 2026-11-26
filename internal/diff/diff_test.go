@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/xiaobingan/go-anything/internal/cases"
+	"github.com/XiaoBinGan/golang-anything/internal/cases"
 )
 
 func TestSameIgnoresKeyOrderAndSmallFloatDiff(t *testing.T) {
