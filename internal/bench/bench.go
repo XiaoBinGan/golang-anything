@@ -51,6 +51,10 @@ type Result struct {
 	Rows    []Row   `json:"rows"`
 	Speedup float64 `json:"speedup"` // geometric mean over the rows
 	MinMS   int     `json:"min_ms"`
+	// Unported names the rows that were left out because every call answered the scaffold's
+	// `not implemented: port …`. A crate with one ported function and one stub prints one row; without this
+	// the missing second row is silent, and "the table is short" is not a reason a reader can act on.
+	Unported []string `json:"unported,omitempty"`
 }
 
 // originalScript times the original: import the unit once, then each function over its own cases.
@@ -470,6 +474,7 @@ func Run(opts Options) (Result, error) {
 			continue
 		}
 		if isStub(p) {
+			res.Unported = append(res.Unported, p.Name)
 			continue
 		}
 		row := Row{Name: p.Name, Cases: p.Cases, OriginalNS: o.NS, PortNS: p.NS, Speedup: o.NS / p.NS}
@@ -539,6 +544,11 @@ func (r Result) Markdown() string {
 		fmt.Fprintf(&b, "| `%s` | %d | %s | %s | %s |\n",
 			row.Name, row.Cases, ns(row.OriginalNS), ns(row.PortNS), times(row.Speedup))
 	}
+	if len(r.Unported) > 0 {
+		sort.Strings(r.Unported)
+		fmt.Fprintf(&b, "\nLeft out: %s — every call answered `not implemented: port …` (the scaffold, not a port).\n",
+			strings.Join(quoteAll(r.Unported), ", "))
+	}
 	fmt.Fprintf(&b, "\nGeometric mean: %s over %d function(s), %d ms per side minimum.\n",
 		times(r.Speedup), len(r.Rows), r.MinMS)
 	return b.String()
@@ -567,3 +577,13 @@ func times(v float64) string {
 }
 
 var _ = cases.Case{}
+
+// quoteAll puts each name in backticks for the table's reader: the names are the original's export names,
+// and a bare one next to a sentence reads as part of the sentence.
+func quoteAll(names []string) []string {
+	out := make([]string, len(names))
+	for i, n := range names {
+		out[i] = "`" + n + "`"
+	}
+	return out
+}
