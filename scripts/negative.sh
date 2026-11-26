@@ -10,6 +10,12 @@ set -uo pipefail
 . "$(dirname "$0")/env.sh"
 
 GO=${GO:-./bin/go-anything}
+# Absolute: several controls cd into a temporary crate, and a relative path stops resolving there. A control
+# that "passes" with exit 127 is a control that never ran.
+case "$GO" in
+  /*) ;;
+  *) GO=$(cd "$(dirname "$GO")" && pwd)/$(basename "$GO") ;;
+esac
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT" || exit 1
 
@@ -250,8 +256,6 @@ expect_fail "smoke notices a tool that cannot run its commands" $?
 mv /tmp/negative-engine-moved bin/go-anything-engine
 ./scripts/smoke.sh >/dev/null 2>&1 || { printf 'FAIL  smoke does not recover\n'; failures=$((failures + 1)); }
 
-# 14. perf: no rig, no numbers.
-RUST_ANYTHING=/nonexistent ./scripts/perf.sh >/dev/null 2>&1
 # 19. the state rule: a static method that touches class variables must be refused. Carbon's static
 #     factories are this shape, and before this rule they were offered as portable.
 mkdir -p /tmp/negative-state
@@ -267,6 +271,48 @@ PHP
 expect_ok "analyze refuses a method that touches class state" $?
 rm -rf /tmp/negative-state
 
+# 21. disable must put the file back exactly. A takeover that leaves one changed byte is a takeover nobody
+#     can undo, so a hand-edited block is refused rather than half-removed. Three claims, because the exit
+#     code alone would also accept "crate not found": the message names the edit, the file survives untouched,
+#     and an intact block still comes out byte for byte.
+mkdir -p /tmp/negative-rb && cd /tmp/negative-rb && rm -rf crate && mkdir crate
+cat > crate/util.rb <<'RB'
+module Util
+  def self.double(n)
+    n * 2
+  end
+end
+RB
+cd /tmp/negative-rb/crate
+printf 'module negrb\n\ngo 1.24\n' > go.mod
+"$GO" scaffold --unit util.rb go-ports/u-go >/dev/null 2>&1
+sed -i '' "s|example.com/u-go|negrb/go-ports/u-go|g" go-ports/u-go/*.go go-ports/u-go/go-anything.json go-ports/u-go/cmd/*/main.go 2>/dev/null
+"$GO" record --unit util.rb go-ports/u-go >/dev/null 2>&1
+"$GO" bridge go-ports/u-go >/dev/null 2>&1
+"$GO" build go-ports/u-go >/dev/null 2>&1
+cp util.rb /tmp/negative-rb/original.rb
+"$GO" enable go-ports/u-go >/dev/null 2>&1
+# A silent enable failure would make the rest of this control test nothing: say so here.
+grep -q '^# >>> go-anything' util.rb || { printf 'FAIL  enable did not write a block\n'; failures=$((failures + 1)); }
+cp util.rb /tmp/negative-rb/on.rb
+# delete the closing marker: disable must refuse, not swallow the rest of the file
+sed '/^# <<< go-anything/d' util.rb > /tmp/negative-rb/edited.rb
+cp /tmp/negative-rb/edited.rb util.rb
+"$GO" disable go-ports/u-go >/tmp/negative-rb/disable.err 2>&1
+expect_fail "disable refuses a hand-edited block" $?
+grep -q 'edited by hand' /tmp/negative-rb/disable.err ||
+  { printf 'FAIL  disable refused for some other reason: %s\n' "$(head -1 /tmp/negative-rb/disable.err)"; failures=$((failures + 1)); }
+cmp -s util.rb /tmp/negative-rb/edited.rb ||
+  { printf 'FAIL  the refused disable half-removed the file anyway\n'; failures=$((failures + 1)); }
+# The undo path itself still has to work, and byte for byte: an intact block goes back to the original.
+cp /tmp/negative-rb/on.rb util.rb
+"$GO" disable go-ports/u-go >/dev/null 2>&1
+cmp -s util.rb /tmp/negative-rb/original.rb ||
+  { printf 'FAIL  disable of an intact block did not restore the original byte for byte\n'; failures=$((failures + 1)); }
+cd /tmp
+rm -rf /tmp/negative-rb
+
+# 14. perf: no rig, no numbers.
 RUST_ANYTHING=/nonexistent ./scripts/perf.sh >/dev/null 2>&1
 expect_fail "perf refuses a missing rig" $?
 
