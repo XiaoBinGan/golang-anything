@@ -301,6 +301,27 @@ PHP
 expect_ok "analyze refuses a method that touches class state" $?
 rm -rf /tmp/negative-state
 
+# 23. the other half of the state rule: `$this` is the token that will decide whether an instance method can
+#     ever be promoted (ROADMAP one), and it is not `self::`. A detector that only knows class variables
+#     passes every test that mentions `self::` and still lets `$this->offset` through the day instance
+#     methods are read. The pure method is in the same file so a rule that blocks everything fails too.
+mkdir -p /tmp/negative-state-this
+cat > /tmp/negative-state-this/clock.php <<'PHP'
+<?php
+class Clock {
+    private int $offset = 0;
+    public static function shifted(int $now): int { return $now + $this->offset; }
+    public static function plain(int $n): int { return $n * 2; }
+}
+PHP
+"$GO" analyze --json /tmp/negative-state-this 2>/dev/null |
+  python3 -c 'import json,sys
+d = json.load(sys.stdin)
+blocked = {e["name"]: bool(e.get("blocked")) for e in d["units"][0]["exports"]}
+sys.exit(0 if blocked.get("shifted") and not blocked.get("plain") else 1)'
+expect_ok "analyze refuses a method that reaches for \$this, and keeps the pure one" $?
+rm -rf /tmp/negative-state-this
+
 # 21. disable must put the file back exactly. A takeover that leaves one changed byte is a takeover nobody
 #     can undo, so a hand-edited block is refused rather than half-removed. Three claims, because the exit
 #     code alone would also accept "crate not found": the message names the edit, the file survives untouched,

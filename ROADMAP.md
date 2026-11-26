@@ -35,12 +35,13 @@ survey 的结果：php-carbon 37 单元/506 导出、ruby-sinatra 47/454（本�
 
 ## 四、可信度：继续加负向对照
 
-`make negative` 现在 21 条（打出 22 行 ok：对照 4 还带一条「gate 在坏 bridge 下仍通过」的确认行）。已销账：
-* `enable` 在非 TS/JS/Ruby 语言上不能静默成功 —— 对照 22，坏版本会把 JS 块写进 `.rs` 且 exit 0。
+`make negative` 现在 22 条（打出 23 行 ok：对照 4 还带一条「gate 在坏 bridge 下仍通过」的确认行）。已销账：
+* `enable` 在非 TS/JS/Ruby 语言上不能静默成功 —— 对照 22，坏版本会把 JS 块写进 `.rs` 且 exit 0；
+* 类方法被误判为可移植 —— 对照 23 盯住 `$this`（和 `self::` 不是同一个 token），同一文件里的纯方法必须仍然通过。
 
 还要补的：
-* 类方法被误判为可移植（构造一个带 `$this->` 的反例，现在只有 `self::$count` 那一条）；
-* `bench` 遇到被常量折叠的原式必须标注而不是报慢。
+* `bench` 的折叠：上一轮在 harness 侧堵住了（实参走 `volatile`），但 `negative.sh` 还没有一条对照盯住它
+  ——本机可复现的数字是「字面量 harness 1 ns / 13.46x slower，volatile harness 3 ns / 6.99x slower」。
 
 ## 五、真实项目：扩大到每语言 3 个
 

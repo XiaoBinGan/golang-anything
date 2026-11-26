@@ -57,3 +57,29 @@ end
 		t.Error("a module function was not offered")
 	}
 }
+
+// `$this` is a different token from `self::`, and it is the one that decides whether an instance method
+// could ever be promoted to an instance-free function. A detector that only knew class variables passes
+// every test above and still marks `$this->offset` as pure.
+func TestAThisMethodIsMarked(t *testing.T) {
+	src := []byte(`<?php
+class Clock {
+    private int $offset = 0;
+    public static function shifted(int $now): int { return $now + $this->offset; }
+    public static function plain(int $n): int { return $n * 2; }
+}`)
+	file, err := ParseSource(src, Php, "clock.php")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for _, fn := range file.Fns {
+		got[fn.Name] = fn.State
+	}
+	if !got["shifted"] {
+		t.Error("a method reading $this->offset was not marked as stateful")
+	}
+	if got["plain"] {
+		t.Error("a pure static method was marked stateful")
+	}
+}
