@@ -941,6 +941,18 @@ console.log(JSON.stringify({ matched, total: calls, cases: cases.length, bad, in
 port.close?.()
 `
 
+// errorLine is the line of a node crash a person can act on: the `Error: …` line, not the frame above it.
+// `check` reported `exit status 1` on an unbridged crate until this, and the cause — `Cannot find module
+// '…/index.cjs'` — was sitting in stderr the whole time.
+func errorLine(stderr string) string {
+	for _, line := range strings.Split(stderr, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "Error:") {
+			return strings.TrimSpace(line)
+		}
+	}
+	return strings.TrimSpace(firstLine(stderr))
+}
+
 // runCheck runs the replay above and reports what the wrapper answered.
 func runCheck(args []string) error {
 	fs := flag.NewFlagSet("check", flag.ExitOnError)
@@ -961,8 +973,20 @@ func runCheck(args []string) error {
 		return err
 	}
 	cmd := exec.Command("node", script, dir, filepath.Join(dir, "cases.jsonl"))
+	var stderr strings.Builder
+	cmd.Stderr = &stderr
 	out, err := cmd.Output()
 	if err != nil {
+		// The wrapper dies before printing anything when the port is still the scaffold, and `check` used to
+		// answer that with `exit status 1` — a message that names neither the port nor the function.
+		if strings.Contains(stderr.String(), "not implemented: port ") {
+			return fmt.Errorf("check: the port is still the scaffold — every call answers "+
+				"`not implemented: port …`, so there is nothing to compare: fill in %s",
+				filepath.ToSlash(filepath.Join(dir, "port.go")))
+		}
+		if detail := errorLine(stderr.String()); detail != "" {
+			return fmt.Errorf("replaying through the wrapper: %w (%s)", err, detail)
+		}
 		return fmt.Errorf("replaying through the wrapper: %w", err)
 	}
 	var res struct {
