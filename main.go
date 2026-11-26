@@ -160,6 +160,19 @@ func runAnalyze(args []string) error {
 		return nil
 	}
 	fmt.Printf("# Port plan: %s (%s)\n\n", filepath.Base(rep.Root), rep.Language)
+	// What is here that this tool cannot read, before the table: an empty plan with no explanation reads
+	// as an empty repository.
+	if len(rep.Unsupported) > 0 {
+		kinds := make([]string, 0, len(rep.Unsupported))
+		total := 0
+		for ext, n := range rep.Unsupported {
+			kinds = append(kinds, fmt.Sprintf("%s ×%d", ext, n))
+			total += n
+		}
+		sort.Strings(kinds)
+		fmt.Printf("%d source file(s) in languages this tool does not read: %s\n"+
+			"  it reads TypeScript, TSX, JavaScript and Python.\n\n", total, strings.Join(kinds, ", "))
+	}
 	fmt.Printf("%d units with something a bridge can carry.\n\n", len(rep.Units))
 	fmt.Printf("| Unit | Lines | Exports | Wave | Readiness | Priority |\n| --- | ---: | ---: | ---: | ---: | ---: |\n")
 	for _, u := range rep.Units {

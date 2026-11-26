@@ -155,6 +155,12 @@ func Run(opts Options) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
+	// Python units are not fuzzed yet: the fresh-input runner is a node module and a Python one would be
+	// a separate driver. Saying so is better than the node error it produces today.
+	if strings.HasSuffix(m.Unit, ".py") || strings.HasSuffix(m.Unit, ".pyi") {
+		return Result{}, fmt.Errorf("fuzz does not have a Python runner yet: it runs the original through node. " +
+			"Recording and diffing work for Python; use `record` with `--inputs` to add cases by hand meanwhile")
+	}
 	script := filepath.Join(work, "fuzz-original.mjs")
 	if err := os.WriteFile(script, []byte(originalScript), 0o644); err != nil {
 		return Result{}, err

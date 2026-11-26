@@ -247,9 +247,19 @@ func Run(opts Options) (Result, error) {
 		return Result{}, err
 	}
 	origOut := filepath.Join(work, "bench-original.json")
-	cmd := exec.Command("node", append(nodeflags.Args(),
-		"--import", hooksPath,
-		script, unitPath, casesPath, origOut, fmt.Sprint(minMS), fmt.Sprint(repeat))...)
+	var cmd *exec.Cmd
+	if strings.HasSuffix(m.Unit, ".py") || strings.HasSuffix(m.Unit, ".pyi") {
+		// Python units are timed by python3: the original has to be the original.
+		py := filepath.Join(work, "bench.py")
+		if err := os.WriteFile(py, []byte(pythonDriver), 0o644); err != nil {
+			return Result{}, err
+		}
+		cmd = exec.Command("python3", py, unitPath, casesPath, origOut, fmt.Sprint(minMS), fmt.Sprint(repeat))
+	} else {
+		cmd = exec.Command("node", append(nodeflags.Args(),
+			"--import", hooksPath,
+			script, unitPath, casesPath, origOut, fmt.Sprint(minMS), fmt.Sprint(repeat))...)
+	}
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return Result{}, fmt.Errorf("timing the original: %w", err)

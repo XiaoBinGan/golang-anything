@@ -66,6 +66,9 @@ type Report struct {
 	StartHere []string `json:"start_here"`
 	Files     int      `json:"files"`
 	Lines     int      `json:"lines"`
+	// Unsupported counts the source files here that this tool cannot read, by extension. A plan that
+	// silently reports zero units for a Java repository has told the reader nothing.
+	Unsupported map[string]int `json:"unsupported,omitempty"`
 }
 
 // riskWeights follows rust-anything's severity table, so the two tools agree on what is dangerous.
@@ -106,13 +109,27 @@ func (r *Report) Reasons() map[string]int {
 	return out
 }
 
+// unsupported names the extensions that mark a source file this tool cannot read. They are counted so the
+// plan can say "there are 812 Java files here and this tool reads TypeScript and Python" instead of
+// reporting an empty repository.
+var unsupported = map[string]bool{
+	".java": true, ".kt": true, ".kts": true, ".cs": true, ".rb": true, ".php": true, ".ps1": true,
+	".cc": true, ".cpp": true, ".cxx": true, ".c": true, ".h": true, ".hpp": true, ".go": true,
+	".rs": true, ".swift": true, ".scala": true, ".m": true, ".mm": true, ".ex": true, ".exs": true,
+	".lua": true, ".pl": true, ".sh": true, ".bash": true, ".zsh": true, ".sql": true,
+}
+
 // Run analyzes root.
 func Run(root string) (*Report, error) {
 	abs, err := filepath.Abs(root)
 	if err != nil {
 		return nil, err
 	}
-	rep := &Report{Root: abs, Language: "typescript"}
+	rep := &Report{Root: abs}
+	// The plan names the languages it actually found. It used to say "typescript" for a Python or Java
+	// folder and report zero units, which reads as "nothing here" rather than "nothing supported".
+	seenLang := map[string]bool{}
+	unsupportedSeen := map[string]int{}
 	// Start the parser while the walk below is still looking for files: a build without cgo pays a
 	// process start for it, and this is the one moment it costs nothing.
 	ts.Warm()
@@ -133,9 +150,16 @@ func Run(root string) (*Report, error) {
 			}
 			return nil
 		}
-		if _, ok := ts.LangOf(d.Name()); !ok {
+		lang, ok := ts.LangOf(d.Name())
+		if !ok {
+			// A source file in a language this tool cannot read is worth naming: silence looks like an
+			// empty repository, and the difference matters to whoever is deciding what to do next.
+			if ext := strings.ToLower(filepath.Ext(d.Name())); unsupported[ext] {
+				unsupportedSeen[ext]++
+			}
 			return nil
 		}
+		seenLang[string(lang)] = true
 		if isTestFile(d.Name()) {
 			return nil
 		}
@@ -160,6 +184,10 @@ func Run(root string) (*Report, error) {
 	if err != nil {
 		return nil, err
 	}
+	// The naming and the census are part of the report on every path out, including the one where
+	// nothing was found — that is exactly the case where a reader needs to know why.
+	rep.Language = languageName(seenLang)
+	rep.Unsupported = unsupportedSeen
 	if len(units) == 0 {
 		return rep, nil
 	}
@@ -562,4 +590,17 @@ func article(kind string) string {
 		return "an"
 	}
 	return "a"
+}
+
+// languageName answers what the plan read, and says so plainly when it read nothing.
+func languageName(seen map[string]bool) string {
+	if len(seen) == 0 {
+		return "nothing this tool reads"
+	}
+	names := make([]string, 0, len(seen))
+	for l := range seen {
+		names = append(names, l)
+	}
+	sort.Strings(names)
+	return strings.Join(names, "+")
 }

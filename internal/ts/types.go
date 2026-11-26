@@ -63,6 +63,10 @@ const (
 	TypeScript Lang = "typescript"
 	TSX        Lang = "tsx"
 	JavaScript Lang = "javascript"
+	// Python is the second language: it needs its own grammar and its own recorder, because the original
+	// has to be run by python3 rather than node. Everything after that — the driver, the bridge, gate,
+	// diff, check — is language-agnostic.
+	Python Lang = "python"
 )
 
 // LangOf picks a grammar from a file name, and reports whether it knows the language.
@@ -74,6 +78,8 @@ func LangOf(path string) (Lang, bool) {
 		return TypeScript, true
 	case strings.HasSuffix(path, ".js"), strings.HasSuffix(path, ".mjs"), strings.HasSuffix(path, ".cjs"):
 		return JavaScript, true
+	case strings.HasSuffix(path, ".py"), strings.HasSuffix(path, ".pyi"):
+		return Python, true
 	}
 	return "", false
 }

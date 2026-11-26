@@ -252,6 +252,11 @@ func Run(opts Options) (Summary, error) {
 		return Summary{}, fmt.Errorf("the unit is not where the plan says: %w", err)
 	}
 
+	// Python units are recorded by python3, JavaScript and TypeScript ones by node. Everything after the
+	// recording — the driver, the bridge, gate, diff, check — is the same for both, because it reads
+	// cases.jsonl and the Go port and knows nothing about where the answers came from.
+	python := strings.HasSuffix(opts.Unit.Files[0], ".py") || strings.HasSuffix(opts.Unit.Files[0], ".pyi")
+
 	plan, throws := typePlan(opts.Unit)
 	planJSON, err := json.Marshal(plan)
 	if err != nil {
@@ -285,9 +290,19 @@ func Run(opts Options) (Summary, error) {
 	// (a `diff` or a `gate` running at the same time) sees the old recording or the new one, never half
 	// of one.
 	staged := out + ".staged"
-	args := append(nodeflags.Args(), "--import", hooksPath, script, unitPath, staged, planPath, extra,
-		strings.Join(opts.Only, ","))
-	cmd := exec.CommandContext(ctx, "node", args...)
+	var cmd *exec.Cmd
+	if python {
+		pyScript := filepath.Join(work, "record.py")
+		if err := os.WriteFile(pyScript, []byte(pythonDriver), 0o644); err != nil {
+			return Summary{}, err
+		}
+		cmd = exec.CommandContext(ctx, "python3", pyScript, unitPath, staged, planPath, extra,
+			strings.Join(opts.Only, ","))
+	} else {
+		args := append(nodeflags.Args(), "--import", hooksPath, script, unitPath, staged, planPath, extra,
+			strings.Join(opts.Only, ","))
+		cmd = exec.CommandContext(ctx, "node", args...)
+	}
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		if ctx.Err() != nil {

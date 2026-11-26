@@ -12,6 +12,7 @@ import (
 
 	sitter "github.com/smacker/go-tree-sitter"
 	"github.com/smacker/go-tree-sitter/javascript"
+	"github.com/smacker/go-tree-sitter/python"
 	"github.com/smacker/go-tree-sitter/typescript/tsx"
 	"github.com/smacker/go-tree-sitter/typescript/typescript"
 )
@@ -22,6 +23,8 @@ func language(l Lang) *sitter.Language {
 		return tsx.GetLanguage()
 	case JavaScript:
 		return javascript.GetLanguage()
+	case Python:
+		return python.GetLanguage()
 	default:
 		return typescript.GetLanguage()
 	}
@@ -65,6 +68,19 @@ func ParseSource(src []byte, lang Lang, path string) (*File, error) {
 	}
 
 	root := tree.RootNode()
+	if lang == Python {
+		out.Fns = append(out.Fns, pyExports(root, src, text)...)
+		for i := 0; i < int(root.NamedChildCount()); i++ {
+			n := root.NamedChild(i)
+			if n.Type() == "import_from_statement" || n.Type() == "import_statement" {
+				out.Imports = append(out.Imports, Import{
+					Specifier: strings.TrimSpace(text(n)),
+					Line:      int(n.StartPoint().Row) + 1,
+				})
+			}
+		}
+		return out, nil
+	}
 	var walk func(n *sitter.Node, inClass string)
 	walk = func(n *sitter.Node, inClass string) {
 		switch n.Type() {
@@ -236,3 +252,74 @@ func normalizeType(t string) string {
 // ParserPath answers where a separate parser would be. This build is the parser, so there is none: the
 // function exists so the code that asks compiles in both builds.
 func ParserPath() (string, error) { return "", errors.New("this build parses TypeScript itself") }
+
+// pyExports reads the module-level functions of a Python file.
+//
+// A name that starts with an underscore is private, and a function defined inside a class has `self` as its
+// first parameter: both are left out, because a bridge carries plain functions.
+func pyExports(root *sitter.Node, src []byte, text func(*sitter.Node) string) []Fn {
+	var out []Fn
+	for i := 0; i < int(root.NamedChildCount()); i++ {
+		n := root.NamedChild(i)
+		if n.Type() != "function_definition" {
+			continue
+		}
+		name := text(n.ChildByFieldName("name"))
+		if name == "" || strings.HasPrefix(name, "_") {
+			continue
+		}
+		fn := Fn{Name: name, Line: int(n.StartPoint().Row) + 1, EndLine: int(n.EndPoint().Row) + 1}
+		params := n.ChildByFieldName("parameters")
+		if params != nil {
+			for j := 0; j < int(params.NamedChildCount()); j++ {
+				param := params.NamedChild(j)
+				switch param.Type() {
+				case "identifier":
+					fn.Params = append(fn.Params, Param{Name: text(param), Type: "any"})
+				case "typed_parameter", "typed_default_parameter":
+					name := ""
+					for k := 0; k < int(param.NamedChildCount()); k++ {
+						if c := param.NamedChild(k); c.Type() == "identifier" {
+							name = text(c)
+							break
+						}
+					}
+					typ := "any"
+					if t := param.ChildByFieldName("type"); t != nil {
+						typ = text(t)
+					}
+					fn.Params = append(fn.Params, Param{Name: name, Type: typ})
+				case "default_parameter":
+					if name := param.ChildByFieldName("name"); name != nil {
+						fn.Params = append(fn.Params, Param{Name: text(name), Type: "any", Optional: true})
+					}
+				}
+			}
+		}
+		// `raise X` anywhere in the body means the original has a path that throws.
+		body := n.ChildByFieldName("body")
+		if body != nil {
+			walkRaises(body, func(line int) {
+				fn.ThrowLines = append(fn.ThrowLines, line)
+			})
+		}
+		if len(fn.Params) == 0 {
+			fn.Params = []Param{}
+		}
+		out = append(out, fn)
+	}
+	return out
+}
+
+// walkRaises reports the line of every raise it finds, depth first.
+func walkRaises(n *sitter.Node, report func(int)) {
+	if n == nil {
+		return
+	}
+	if n.Type() == "raise_statement" {
+		report(int(n.StartPoint().Row) + 1)
+	}
+	for i := 0; i < int(n.NamedChildCount()); i++ {
+		walkRaises(n.NamedChild(i), report)
+	}
+}

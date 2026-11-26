@@ -132,6 +132,12 @@ module.exports = shadow
 
 // Run writes shadow.cjs into the crate folder.
 func Run(opts Options) (string, error) {
+	// The shadow wraps the original by requiring it, which is a JavaScript idea. A Python shadow would be a
+	// module that imports the unit and calls the port through the addon; that is a driver of its own.
+	if strings.HasSuffix(opts.Unit, ".py") || strings.HasSuffix(opts.Unit, ".pyi") {
+		return "", fmt.Errorf("shadow does not have a Python wrapper yet: it wraps the original in node. " +
+			"`gate`, `diff` and `check` cover the recorded cases for Python")
+	}
 	dir, err := filepath.Abs(opts.CrateDir)
 	if err != nil {
 		return "", err

@@ -115,6 +115,29 @@ try "profile"                   "$GO" profile --command "-e process.exit(0)" --t
 try "go --unit (profile, scaffold)" "$GO" go --command "-e process.exit(0)" --unit "$UNIT" "$REPO"
 
 echo
+echo "== second language: Python =="
+mkdir -p "$WORK/pyroot"
+cat > "$WORK/pyroot/mathx.py" <<'PYEOF'
+def add(a, b):
+    return a + b
+
+def divide(a, b):
+    if b == 0:
+        raise ValueError("division by zero")
+    return a / b
+PYEOF
+try "analyze names python"      bash -c "$GO analyze '$WORK/pyroot' | head -1 | grep -q python"
+try "scaffold a .py unit"       "$GO" scaffold --unit mathx.py "$WORK/pyroot/go-ports/mathx-go"
+sed -i '' "s|example.com/mathx-go|pyroot/go-ports/mathx-go|g" "$WORK/pyroot/go-ports/mathx-go"/*.go \
+  "$WORK/pyroot/go-ports/mathx-go/go-anything.json" "$WORK/pyroot/go-ports/mathx-go"/cmd/*/main.go 2>/dev/null
+printf 'module pyroot\n\ngo 1.24\n' > "$WORK/pyroot/go.mod"
+try "record a .py unit"         "$GO" record --unit mathx.py "$WORK/pyroot/go-ports/mathx-go"
+try "record caught the raise"   bash -c "grep -q 'division by zero' '$WORK/pyroot/go-ports/mathx-go/cases.jsonl'"
+# It must refuse with the reason, not fail with node's error: the check is that the sentence is there.
+try "fuzz says why not yet"     bash -c "$GO fuzz --count 5 '$WORK/pyroot/go-ports/mathx-go' 2>&1 | grep -q 'Python runner'"
+try "analyze names what it cannot read" bash -c "mkdir -p $WORK/java && echo 'class A {}' > $WORK/java/A.java && $GO analyze '$WORK/java' | grep -q 'does not read'"
+
+echo
 echo "== agents =="
 try "setup --print"             "$GO" setup --print
 try "mcp answers tools/list"    bash -c "printf '%s\n' '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}' | $GO mcp | python3 -c 'import json,sys; d=json.loads(sys.stdin.readline()); assert d[\"result\"][\"tools\"]'"

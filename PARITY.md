@@ -59,3 +59,31 @@
 三次独立采样，后两次的 bootstrap 95% CI 都跨过零（噪声底约 0.2 ms）。一个只打印 3 KB 静态串的
 Go 程序启动 1.93 ms，比 rust-anything 还快——所以差距不在语言，在本工具引的 133 个包（`inittrace`
 合计 0.156 ms，几乎全是 stdlib）。确定性赢它需要拆「分发器 + 引擎」，代价是每条真命令 +2 ms。
+
+## 语言：目前两种，rust-anything 十一种
+
+这一节是本文件里唯一一处**明确落后**的地方，写清楚比含糊过去好。
+
+| 语言 | rust-anything | go-anything |
+| --- | --- | --- |
+| TypeScript / JavaScript | ✅ | ✅ 完整（analyze → scaffold → record → gate → check → bench → fuzz → shadow → enable） |
+| **Python** | ✅ | 🟡 **analyze / scaffold / record / gate / diff / check / bench / report / map 可用**；`fuzz` 与 `shadow` 还没有 Python 驱动（会明确说明，不是 node 报错） |
+| C / C++ / Java / Kotlin / C# / Ruby / PHP / PowerShell | ✅ | ⬜ 未做；`analyze` 会数出「这里有多少个我读不了的文件」并说明 |
+
+一条命令看出差别：
+
+```
+$ go-anything analyze /path/to/java-repo
+# Port plan: java-repo (nothing this tool reads)
+
+812 source file(s) in languages this tool does not read: .java ×812
+  it reads TypeScript, TSX, JavaScript and Python.
+```
+
+Python 的实测（`make smoke` 里也有）：`analyze` 认得出、`record` 用 python3 跑原式、`gate` 116/116 通过，
+而且它抓到了我写 Go 端口时想当然的两处 Python 语义——`list + list` 是拼接、`bool` 是 `int`
+（`False/False` 抛 `ZeroDivisionError`）。
+
+**为什么只做了两种语言**：每种语言的成本不在解析（tree-sitter 有现成语法），而在**录制器**——要能用*那种语言的
+运行时*把原式跑起来并抓答案（Python 是 `python3`，Java 要 JVM 载体，C++ 要编译一次载体）。之后的驱动、桥、
+`gate`/`diff`/`check` 全部与语言无关，所以第二种语言验证了架构能扩展；剩下的七种是同一套管道再写七遍。
