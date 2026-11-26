@@ -1360,3 +1360,26 @@ gate   → 我手写的 port.go 有 115 处不一致 ❌
 **这不是工具失败，而是工具在说「你的移植还没写完」**——它逐条指出 `wrap_text("a",1,"a","a","a")` 期望 `"aa"` 而我答 `"a"`。
 click 的 `wrap_text` 依赖它自己那份 `TextWrapper`（Python `textwrap` 的重写），把这套语义完整移植是另一件事，
 所以这个单元到本轮为止是「已录制、未通过」。**gate 拒绝通过，就是它该做的事**。
+
+### 一个真实单元走完整链：zlib 的 `adler32.c`
+
+不是玩具函数，是 zlib 源码里的 Adler-32 合并：
+
+```
+analyze  → 5 个导出，其中 adler32/adler32_z 被拒（takes a mutable buffer）
+record   → 454 条用例，直接编译 zlib 真实源码跑原式
+gate     → 454/454 ✅（第一版 port 就对，因为公式照抄源码）
+check    → 908/908 经进程内桥 ✅
+bench    → 32.76x 慢：原式 0 ns（编译器把纯函数算成了常量），Go 侧 7 ns
+```
+
+**bench 的 32x 慢是诚实的陷阱**：C 那边整个调用被 clang 常量折叠掉了（0 ns），所以这不是「Go 慢」，
+是「这个基准测不到原式的成本」。这类数字我照实写，不修饰。
+
+这一轮为它修的三处 `analyze` 规则：
+
+| 问题 | 修法 |
+| --- | --- |
+| `uLong`、`z_size_t`、`z_off_t` 这些 typedef 落到 `any`，于是给数字参数生成字符串，C 编不过 | 名字里含 `int/long/short/size/off/ulong` 的都当整数 |
+| `const Bytef *buf` 是**只读**缓冲区，但它仍需要配套长度参数 | 任何指针参数都记成 `buffer` 并被 `analyze` 拒绝（除非是 `const char *`） |
+| zlib 的 `local`（= static）没被当成私有 | `local` 开头也算文件内私有 |

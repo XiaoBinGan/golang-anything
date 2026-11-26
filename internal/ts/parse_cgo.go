@@ -536,6 +536,10 @@ func cExports(root *sitter.Node, text func(*sitter.Node) string) []Fn {
 				private = true
 			}
 		}
+		// zlib spells it `local`, a macro for static: a name that starts with it is file-private too.
+		if head := text(n); strings.HasPrefix(strings.TrimSpace(head), "local") {
+			private = true
+		}
 		if private {
 			continue
 		}
@@ -554,6 +558,13 @@ func cExports(root *sitter.Node, text func(*sitter.Node) string) []Fn {
 					// `char *` is a string, not a char: the pointer is in the declarator, so the type alone
 					// says "char" and the recorder would generate a character for a string parameter.
 					declarator := p.ChildByFieldName("declarator")
+					if declarator != nil && hasPointer(declarator) && typ != "char" {
+						// A pointer that is not `char *` is a buffer whose length the caller passes
+						// separately: generating one without the other reads past the end, which is
+						// undefined behaviour rather than a case. zlib's adler32_z(adler, buf, len) is
+						// exactly that shape.
+						typ = "buffer"
+					}
 					if typ == "char" && declarator != nil && hasPointer(declarator) {
 						typ = "String"
 						// `const char *` is a string; a plain `char *` is a buffer the function writes into,
@@ -582,6 +593,28 @@ func cExports(root *sitter.Node, text func(*sitter.Node) string) []Fn {
 // cDialect narrows a C or C++ type to one of the generator's tables.
 func cDialect(t string) string {
 	t = strings.TrimSpace(t)
+	// C libraries are full of typedefs (uLong, z_size_t, Bytef). A name with none of string, char or pointer
+	// in it is an integer: generating a string for it does not compile, which is how zlib's adler32 blocked
+	// on twenty errors before this rule existed.
+	lower := strings.ToLower(t)
+	switch {
+	case strings.Contains(lower, "char") && strings.Contains(lower, "*"):
+		return "String"
+	case strings.Contains(lower, "*"):
+		return "buffer"
+	case strings.Contains(lower, "double"), strings.Contains(lower, "float"):
+		return "float"
+	case strings.Contains(lower, "bool"):
+		return "boolean"
+	case strings.Contains(lower, "char"):
+		return "char"
+	case strings.Contains(lower, "int"), strings.Contains(lower, "long"), strings.Contains(lower, "short"),
+		strings.Contains(lower, "size"), strings.Contains(lower, "off"), strings.Contains(lower, "ulong"):
+		// z_off64_t, z_size_t, uLong: a typedef whose name says it is a number. Testing for "off_t" was not
+		// enough — the name is off64_t — and the parameter fell through to "any", which generated strings for
+		// a length and did not compile.
+		return "int"
+	}
 	switch t {
 	case "int", "long", "short", "unsigned", "unsigned int", "size_t", "int32_t", "int64_t":
 		return "int"
