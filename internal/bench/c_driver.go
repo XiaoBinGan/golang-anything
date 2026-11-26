@@ -14,7 +14,10 @@ func cBenchSource(plan map[string][]string, cpp bool) string {
 	} else {
 		b.WriteString("#include <stdio.h>\n#include <stdlib.h>\n#include <math.h>\n#include <time.h>\n\n")
 	}
-	b.WriteString("static long long sink = 0;\n")
+	// volatile, because a plain accumulator lets clang vectorize the whole chunk: 0.23 ns/call for a call that
+	// cannot cost less than a cycle means the loop was rewritten, and the row then compares vector code with
+	// a Go call. The store keeps every call's result where the compiler has to keep it.
+	b.WriteString("static volatile long long sink = 0;\n")
 	b.WriteString("static long long now_ns(void) {\n")
 	if cpp {
 		b.WriteString("\ttimespec ts;\n\tclock_gettime(CLOCK_MONOTONIC, &ts);\n")
@@ -22,6 +25,9 @@ func cBenchSource(plan map[string][]string, cpp bool) string {
 		b.WriteString("\tstruct timespec ts;\n\tclock_gettime(CLOCK_MONOTONIC, &ts);\n")
 	}
 	b.WriteString("\treturn (long long) ts.tv_sec * 1000000000LL + ts.tv_nsec;\n}\n\n")
+	b.WriteString("static int cmp_double(const void *a, const void *b) {\n")
+	b.WriteString("\tdouble x = *(const double *) a, y = *(const double *) b;\n")
+	b.WriteString("\treturn (x > y) - (x < y);\n}\n\n")
 	b.WriteString("int main(int argc, char **argv) {\n")
 	b.WriteString("\tdouble min_ms = atof(argv[1]);\n")
 	b.WriteString("\tint repeat = atoi(argv[2]);\n")
@@ -57,9 +63,15 @@ func cBenchSource(plan map[string][]string, cpp bool) string {
 		for _, d := range decls {
 			b.WriteString("\t\t" + d + "\n")
 		}
-		b.WriteString("\t\tlong long start = now_ns();\n")
-		b.WriteString("\t\tint rounds = 0; long long elapsed = 0;\n")
+		// Per round, then the median — the same change the port side needed: one clock around the whole loop
+		// let a single scheduling hiccup move the answer by 40%, and the two sides have to be measured the
+		// same way or the ratio compares a stable number with an unstable one.
+		b.WriteString("\t\tstatic double samples[20000];\n")
+		b.WriteString("\t\tint n = 0; long long start_all = now_ns();\n")
+		b.WriteString("\t\tconst int chunk = 256;\n")
 		b.WriteString("\t\tdo {\n")
+		b.WriteString("\t\t\tlong long chunk_start = now_ns();\n")
+		b.WriteString("\t\t\tfor (int k = 0; k < chunk; k++) {\n")
 		b.WriteString("\t\t\tfor (int r = 0; r < repeat; r++) {\n")
 		for k := range calls {
 			lits := exprs[k]
@@ -73,11 +85,12 @@ func cBenchSource(plan map[string][]string, cpp bool) string {
 			}
 		}
 		b.WriteString("\t\t\t}\n")
-		b.WriteString("\t\t\trounds++;\n")
-		b.WriteString("\t\t\telapsed = now_ns() - start;\n")
-		b.WriteString("\t\t} while (elapsed / 1e6 < min_ms && rounds < 10000);\n")
+		b.WriteString("\t\t\t}\n")
+		b.WriteString("\t\t\tsamples[n++] = (double) (now_ns() - chunk_start) / (chunk * repeat * " + fmt.Sprint(len(calls)) + ");\n")
+		b.WriteString("\t\t} while ((now_ns() - start_all) / 1e6 < min_ms && n < 20000);\n")
+		b.WriteString("\t\tqsort(samples, n, sizeof(double), cmp_double);\n")
 		b.WriteString("\t\tprintf(\"{\\\"name\\\":\\\"" + name + "\\\",\\\"cases\\\":" + fmt.Sprint(len(calls)) +
-			",\\\"ns\\\":%.6f}\", (double) elapsed / (rounds * repeat * " + fmt.Sprint(len(calls)) + "));\n")
+			",\\\"ns\\\":%.6f}\", n > 0 ? samples[n / 2] : 0.0);\n")
 		b.WriteString("\t}\n")
 	}
 	b.WriteString("\tprintf(\"]\\n\");\n")
