@@ -71,7 +71,7 @@
 - **the case generator was a cross product, and a green gate hid an untested export**
   - The comment said each argument position walks its own table; the code crossed every table against every other, which is 4,000 calls for two string parameters. Two runs replace it: a paired walk with a per-position stride, and a bounded cross product over the first six values of each position. Cheap values are tried first, because a table that opened with 1,000,000 filled the answer limit and left whole exports with nothing recorded.
 
-## 二、性能（19 条）
+## 二、性能（11 条）
 
 每条都有实测数字；赢的和没赢的都写着：
 

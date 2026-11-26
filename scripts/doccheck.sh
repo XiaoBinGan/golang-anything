@@ -93,6 +93,27 @@ else
   pass "doctor runs the seven checks PARITY.md lists"
 fi
 
+# 7. RECORD.md states how many items each section holds, and the number has to be the number of items. 一
+#    (32) and 三 (29) agree; 二 said 19 and held 11, and nothing could have noticed — a document that counts
+#    itself is the one place where the count is checkable without trusting the writer.
+record_bad=$(python3 - <<'PYD'
+import re
+text = open('RECORD.md', encoding='utf-8').read()
+bad = []
+for m in re.finditer(r'^## (.+?)（(\d+) 条）\n(.*?)(?=^## |\Z)', text, flags=re.M | re.S):
+    head, stated, body = m.group(1), int(m.group(2)), m.group(3)
+    held = len(re.findall(r'^- \*\*', body, flags=re.M))
+    if held != stated:
+        bad.append('%s states %d, holds %d' % (head, stated, held))
+print('; '.join(bad))
+PYD
+)
+if [ -z "$record_bad" ]; then
+  pass "RECORD.md states the number of entries each section holds"
+else
+  fail "RECORD.md counts:$record_bad"
+fi
+
 echo
 if [ "$failures" -eq 0 ]; then
   echo "the documents match the tool"
