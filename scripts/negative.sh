@@ -256,6 +256,10 @@ expect_fail "smoke notices a tool that cannot run its commands" $?
 mv /tmp/negative-engine-moved bin/go-anything-engine
 ./scripts/smoke.sh >/dev/null 2>&1 || { printf 'FAIL  smoke does not recover\n'; failures=$((failures + 1)); }
 
+# 14. perf: no rig, no numbers.
+RUST_ANYTHING=/nonexistent ./scripts/perf.sh >/dev/null 2>&1
+expect_fail "perf refuses a missing rig" $?
+
 # 19. the state rule: a static method that touches class variables must be refused. Carbon's static
 #     factories are this shape, and before this rule they were offered as portable.
 mkdir -p /tmp/negative-state
@@ -309,12 +313,8 @@ cp /tmp/negative-rb/on.rb util.rb
 "$GO" disable go-ports/u-go >/dev/null 2>&1
 cmp -s util.rb /tmp/negative-rb/original.rb ||
   { printf 'FAIL  disable of an intact block did not restore the original byte for byte\n'; failures=$((failures + 1)); }
-cd /tmp
+cd "$ROOT"
 rm -rf /tmp/negative-rb
-
-# 14. perf: no rig, no numbers.
-RUST_ANYTHING=/nonexistent ./scripts/perf.sh >/dev/null 2>&1
-expect_fail "perf refuses a missing rig" $?
 
 # 15. npm install: a loader that answers a hard-coded wrong value, built from a patched template.
 cp internal/pkg/pkg.go /tmp/negative-pkg.go

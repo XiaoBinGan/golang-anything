@@ -44,7 +44,7 @@ const counters = { calls: 0, mismatches: 0, byFunction: {} }
 let warned = 0
 
 // canon sorts keys and spells the values JSON cannot carry, so the two answers compare as values.
-%JSWIRE_CANON%
+const canon = v => v
 
 const note = (fn, args, want, got, why) => {
   counters.mismatches++
@@ -161,7 +161,7 @@ func Run(opts Options) (string, error) {
 	for i, n := range opts.Exports {
 		names[i] = fmt.Sprintf("%q", n)
 	}
-	text := strings.ReplaceAll(module, "%JSWIRE_CANON%", jswire.Canon)
+	text := strings.ReplaceAll(module, "const canon = v => v", jswire.Canon)
 	text = strings.ReplaceAll(text, "ORIGINAL_PATH", fmt.Sprintf("%q", filepath.ToSlash(rel)))
 	text = strings.ReplaceAll(text, "FUNCTIONS", "["+strings.Join(names, ", ")+"]")
 	path := filepath.Join(dir, "shadow.cjs")
@@ -276,3 +276,5 @@ func planRoot(crateDir, rel string) (string, error) {
 		dir = parent
 	}
 }
+
+func canonCopy(v any) any { return v }
