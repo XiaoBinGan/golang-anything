@@ -32,6 +32,7 @@ survey 的结果：php-carbon 37 单元/506 导出、ruby-sinatra 47/454（本�
 | 启动 | 已赢（拆 front/engine 之后） | 保持 |
 | **N-API addon 单次调用** | 慢 2.5–2.8x | cgo ABI 下限；**不再追**，文档写明 wasm 是主推路径 |
 | **C 的 bench** | 已修：字面量参数是编译期常量，clang 把整次调用折叠掉，量到的是循环不是函数（本机 `int magic(int n){return 42;}` 旧 harness 报 1 ns/13.46x slower） | 每个数值实参走 `volatile`（`__typeof__` 取类型，不另建类型表）；同一 crate 实测 1 ns→3 ns、13.46x→6.99x |
+| **`bench-all-languages.sh` 量的是脚手架桩** | 那个脚本 scaffold 之后只 `record`，不实现端口，于是 `bench` 比的是「原式 vs `return nil, fmt.Errorf("not implemented: port …")`」。同一个 C crate（`int twice(int n){return n*2;}`）实测：桩 17 ns / **8.83x slower**，把端口写成 `return int(args[0].(float64)) * 2, nil` 后 5 ns / **3.10x slower**。9 个语言的 ok 行都是这个桩比原式 | 驱动里把 `not implemented: port ` 记成「未移植」，`bench` 拒绝为未移植端口出数字；脚本里的玩具端口要真的写出来再 bench |
 
 ## 四、可信度：继续加负向对照
 
