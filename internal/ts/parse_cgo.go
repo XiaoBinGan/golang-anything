@@ -105,7 +105,9 @@ func ParseSource(src []byte, lang Lang, path string) (*File, error) {
 		return scanned, nil
 	}
 	if lang == Php {
-		out.Fns = append(out.Fns, phpExports(root, text)...)
+		fns, instanceMethods := phpExports(root, text)
+		out.Fns = append(out.Fns, fns...)
+		out.InstanceMethods = instanceMethods
 		return out, nil
 	}
 	if lang == Kotlin || lang == CSharp {
@@ -121,7 +123,9 @@ func ParseSource(src []byte, lang Lang, path string) (*File, error) {
 		return out, nil
 	}
 	if lang == Ruby {
-		out.Fns = append(out.Fns, rbExports(root, text)...)
+		fns, instanceMethods := rbExports(root, text)
+		out.Fns = append(out.Fns, fns...)
+		out.InstanceMethods = instanceMethods
 		return out, nil
 	}
 	if lang == Python {
@@ -386,8 +390,12 @@ func walkRaises(n *sitter.Node, report func(int)) {
 
 // rbExports reads the top-level methods of a Ruby file. A name starting with an underscore is private by
 // convention here too, and a method defined inside a class belongs to that class.
-func rbExports(root *sitter.Node, text func(*sitter.Node) string) []Fn {
+func rbExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int) {
 	var out []Fn
+	// Instance methods are still not exports — the bridge has no instance to call them on — but they are
+	// counted, because "0 exports" and "0 exports, 6 instance methods" are different answers for a library
+	// like Carbon where every method needs an object.
+	instances := 0
 	// A Ruby library keeps its callable units in three shapes: a top-level def, a module function
 	// (`def self.x` or `module_function`), and a class method. The last two are what a real gem is made of —
 	// sinatra has ten `def self.` and Carbon is all class methods — and only the first was read before.
@@ -439,6 +447,7 @@ func rbExports(root *sitter.Node, text func(*sitter.Node) string) []Fn {
 					// a bridge cannot supply. Reading it as a free function was wrong — the recorder called
 					// it on Object and got NoMethodError, or worse, hit another class's method of the same
 					// name.
+					instances++
 					continue
 				}
 				fn := rbFn(child, name, text)
@@ -454,7 +463,7 @@ func rbExports(root *sitter.Node, text func(*sitter.Node) string) []Fn {
 		}
 	}
 	walk(root, "", "")
-	return out
+	return out, instances
 }
 
 // singletonName is the identifier after `self.` in `def self.name`.
@@ -723,8 +732,9 @@ func hasPointer(n *sitter.Node) bool {
 }
 
 // phpExports reads the free functions of a PHP file: those are the ones a bridge can call.
-func phpExports(root *sitter.Node, text func(*sitter.Node) string) []Fn {
+func phpExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int) {
 	var out []Fn
+	instances := 0
 	var walk func(n *sitter.Node, inside string)
 	walk = func(n *sitter.Node, owner string) {
 		for i := 0; i < int(n.NamedChildCount()); i++ {
@@ -735,6 +745,9 @@ func phpExports(root *sitter.Node, text func(*sitter.Node) string) []Fn {
 				// instance: that is the shape a real PHP library is made of (Carbon has hundreds).
 				head := text(child)
 				if !strings.Contains(head, "static") || !strings.Contains(head, "public") {
+					if strings.Contains(head, "public") && !strings.Contains(head, "static") {
+						instances++
+					}
 					continue
 				}
 				name := text(child.ChildByFieldName("name"))
@@ -803,7 +816,7 @@ func phpExports(root *sitter.Node, text func(*sitter.Node) string) []Fn {
 		}
 	}
 	walk(root, "")
-	return out
+	return out, instances
 }
 
 // typedExports reads Kotlin and C# functions: top-level `fun` for Kotlin, public static methods for C#.

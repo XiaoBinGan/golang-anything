@@ -52,12 +52,16 @@ type Risk struct {
 
 // File is one parsed source file.
 type File struct {
-	Path    string   `json:"path"`
-	Loc     int      `json:"loc"`
-	Fns     []Fn     `json:"fns"`
-	Imports []Import `json:"imports"`
-	Risks   []Risk   `json:"risks"`
-	ParseOK bool     `json:"parse_ok"`
+	Path string `json:"path"`
+	Loc  int    `json:"loc"`
+	// InstanceMethods counts the methods that are not exports and never will be: a bridge has no instance to
+	// call them on. Counted rather than dropped, because a library whose whole surface is instance methods
+	// then reads "0 exports, 6 of them need an object" instead of just "0".
+	InstanceMethods int      `json:"instance_methods,omitempty"`
+	Fns             []Fn     `json:"fns"`
+	Imports         []Import `json:"imports"`
+	Risks           []Risk   `json:"risks"`
+	ParseOK         bool     `json:"parse_ok"`
 }
 
 // Lang picks the grammar.

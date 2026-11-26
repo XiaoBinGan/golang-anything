@@ -56,6 +56,12 @@ end
 	if !names["double"] {
 		t.Error("a module function was not offered")
 	}
+	// Dropped is not the same as unseen: a library whose surface is instance methods has to report them, or
+	// "0 exports" reads like an empty file.
+	if file.InstanceMethods != 1 {
+		t.Errorf("the instance method was dropped instead of counted: InstanceMethods = %d, want 1",
+			file.InstanceMethods)
+	}
 }
 
 // `$this` is a different token from `self::`, and it is the one that decides whether an instance method
@@ -81,5 +87,28 @@ class Clock {
 	}
 	if got["plain"] {
 		t.Error("a pure static method was marked stateful")
+	}
+}
+
+// PHP has the same shape: a public method that is not static needs an object, and the count is what tells a
+// Carbon-sized library apart from an empty one.
+func TestPhpInstanceMethodsAreCountedNotOffered(t *testing.T) {
+	src := []byte(`<?php
+class Timer {
+    public function elapsed(int $now): int { return $now; }
+    public function shifted(int $now): int { return $now + $this->offset; }
+    public static function twice(int $n): int { return $n * 2; }
+}`)
+	file, err := ParseSource(src, Php, "timer.php")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, fn := range file.Fns {
+		if fn.Name != "twice" {
+			t.Errorf("%s was offered as an export; only the static method is callable without an object", fn.Name)
+		}
+	}
+	if file.InstanceMethods != 2 {
+		t.Errorf("InstanceMethods = %d, want 2", file.InstanceMethods)
 	}
 }
