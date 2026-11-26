@@ -326,6 +326,37 @@ grep -q 'not implemented: port' /tmp/negative-stub/bench.err ||
 cd "$ROOT"
 rm -rf /tmp/negative-stub
 
+# 26. check has to say which differences are the scaffold, and the number has to be the real one. Counting
+#     from the five mismatches the replay prints reported "3 of them" for a crate with seventeen unported
+#     cases — wrong in the direction that looks better — so this control requires a count above five and the
+#     function that is missing.
+mkdir -p /tmp/negative-unported && cd /tmp/negative-unported
+printf 'int twice(int n) { return n * 2; }\nint thrice(int n) { return n * 3; }\n' > m.c
+printf 'module negunported\n\ngo 1.24\n' > go.mod
+"$GO" scaffold --unit m.c go-ports/m-go >/dev/null 2>&1
+sed -i '' "s|example.com/m-go|negunported/go-ports/m-go|g" go-ports/m-go/*.go go-ports/m-go/golang-anything.json go-ports/m-go/cmd/*/main.go 2>/dev/null
+"$GO" record --unit m.c go-ports/m-go >/dev/null 2>&1
+# one function ported, one left as the scaffold
+python3 - go-ports/m-go/port.go <<'PYU'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s = s.replace('return nil, fmt.Errorf("not implemented: port twice")', 'return int(args[0].(float64)) * 2, nil')
+open(p, 'w').write(s)
+PYU
+"$GO" bridge go-ports/m-go >/dev/null 2>&1
+"$GO" build --fast go-ports/m-go >/dev/null 2>&1
+"$GO" check go-ports/m-go >/tmp/negative-unported/check.out 2>&1
+expect_fail "check refuses a crate with an unported function" $?
+grep -q 'not implemented: port' /tmp/negative-unported/check.out ||
+  { printf 'FAIL  check did not say the port is the scaffold: %s\n' "$(tail -1 /tmp/negative-unported/check.out)"; failures=$((failures + 1)); }
+grep -qE '; ([6-9]|[1-9][0-9]+) of them because' /tmp/negative-unported/check.out ||
+  { printf 'FAIL  the scaffold count is wrong or capped at five: %s\n' "$(tail -1 /tmp/negative-unported/check.out)"; failures=$((failures + 1)); }
+grep -q '(thrice)' /tmp/negative-unported/check.out ||
+  { printf 'FAIL  check did not name the missing function: %s\n' "$(tail -1 /tmp/negative-unported/check.out)"; failures=$((failures + 1)); }
+cd "$ROOT"
+rm -rf /tmp/negative-unported
+
 # 14. perf: no rig, no numbers.
 RUST_ANYTHING=/nonexistent ./scripts/perf.sh >/dev/null 2>&1
 expect_fail "perf refuses a missing rig" $?
