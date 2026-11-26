@@ -664,6 +664,10 @@ func runDoctor(args []string) error {
 	probe("go", "go", true, "install Go 1.24+: https://go.dev/dl/")
 	probe("node", "node", true, "install Node 22.18+ (types strip without a flag)")
 	probe("python3", "python3", false, "only needed for the Python wrapper")
+	// bench times a C or C++ unit by compiling it, so the compiler belongs in the list: without it the run
+	// ends at `compiling the unit and the timing harness: exec: "clang": executable file not found in $PATH`,
+	// which names the gap only after the user has already asked for a number.
+	probe("clang (bench)", "clang", false, "xcode-select --install, or install LLVM: only needed to bench C and C++ units")
 	// Node has to strip types by itself, or record needs the flag.
 	if out, err := exec.Command("node", "-e", "process.stdout.write(process.versions.node)").Output(); err == nil {
 		major, minor := 0, 0

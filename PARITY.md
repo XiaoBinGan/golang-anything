@@ -35,7 +35,7 @@
 | 22 | `app lift` | `front-door lift` | ✅ | 全部命令接管后才允许：删掉 fallback 分支与其 import，变成纯 Go 应用 |
 | 23 | `setup` / `mcp` | `setup` + `mcp` | ✅ | `mcp` 是 JSON-RPC over stdio：**15 个工具**——CLI 已经实现的命令全部委托过去（`check`/`doctor`/`bench`/`shadow-report`/`enable`/`disable`/`clean`/`refresh` 通过捕获命令输出来回答，不写第二份实现），加上原本就有的 7 个；`setup` 把服务器注册进已装 agent。用官方 MCP SDK 客户端核对过（`scripts/mcp-client.mjs`） 的配置，只加自己的键 |
 | 24 | `map` | `map` | ✅ | 写 `PORT-MAP.md`：每个单元、它的 crate、用例数、上次 diff、是否已构建 |
-| 25 | `doctor` | `doctor` | ✅ | 七项：go、node、python3、Node 是否自带类型剥离、**能否真的编译一个程序**、**解析器在哪**（问 `ts.ParserPath` 而不是自己再搜一遍）、cgo；每项给修复命令 |
+| 25 | `doctor` | `doctor` | ✅ | 八项：go、node、python3、`clang`（`bench` 计时 C/C++ 单元要编译它）、Node 是否自带类型剥离、**能否真的编译一个程序**、**解析器在哪**（问 `ts.ParserPath` 而不是自己再搜一遍）、cgo；每项给修复命令 |
 | 26 | — | `check` | ✅ 额外 | 用真正被调用的那条桥（addon 或 stdio）回放全部用例，**每个用例跑两遍**：一遍传录制里的标记、一遍传解码后的值——只有第二遍会走到包装器的 `encode` |
 | 27 | — | `fast` | ✅ 额外 | 只构建进程内桥 |
 
