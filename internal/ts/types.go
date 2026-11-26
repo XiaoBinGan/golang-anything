@@ -67,6 +67,12 @@ const (
 	// has to be run by python3 rather than node. Everything after that — the driver, the bridge, gate,
 	// diff, check — is language-agnostic.
 	Python Lang = "python"
+	Ruby   Lang = "ruby"
+	Java   Lang = "java"
+	// C and C++ share a grammar in this tree-sitter binding: the same walker reads both, and the compile
+	// step is what differs.
+	C   Lang = "c"
+	Cpp Lang = "cpp"
 )
 
 // LangOf picks a grammar from a file name, and reports whether it knows the language.
@@ -80,6 +86,15 @@ func LangOf(path string) (Lang, bool) {
 		return JavaScript, true
 	case strings.HasSuffix(path, ".py"), strings.HasSuffix(path, ".pyi"):
 		return Python, true
+	case strings.HasSuffix(path, ".rb"), strings.HasSuffix(path, ".rake"):
+		return Ruby, true
+	case strings.HasSuffix(path, ".java"):
+		return Java, true
+	case strings.HasSuffix(path, ".c"):
+		return C, true
+	case strings.HasSuffix(path, ".cc"), strings.HasSuffix(path, ".cpp"), strings.HasSuffix(path, ".cxx"),
+		strings.HasSuffix(path, ".hpp"), strings.HasSuffix(path, ".hh"):
+		return Cpp, true
 	}
 	return "", false
 }

@@ -56,8 +56,13 @@ class Point:
 
 // A file this tool cannot read must be named, not silently skipped.
 func TestLangOfKnowsWhatItCannotRead(t *testing.T) {
-	if _, ok := LangOf("Main.java"); ok {
-		t.Error("LangOf claims to read Java")
+	// Java is read now: this test used to say it was not, and that is the kind of assertion that has to
+	// move when the tool does.
+	if lang, ok := LangOf("Main.java"); !ok || lang != Java {
+		t.Errorf("Main.java: %v %v", lang, ok)
+	}
+	if _, ok := LangOf("Main.kt"); ok {
+		t.Error("LangOf claims to read Kotlin")
 	}
 	if lang, ok := LangOf("app.py"); !ok || lang != Python {
 		t.Errorf("app.py: %v %v", lang, ok)

@@ -248,21 +248,90 @@ func Run(opts Options) (Result, error) {
 	}
 	origOut := filepath.Join(work, "bench-original.json")
 	var cmd *exec.Cmd
-	if strings.HasSuffix(m.Unit, ".py") || strings.HasSuffix(m.Unit, ".pyi") {
+	handled := false
+	if strings.HasSuffix(m.Unit, ".c") || strings.HasSuffix(m.Unit, ".cpp") ||
+		strings.HasSuffix(m.Unit, ".cc") || strings.HasSuffix(m.Unit, ".cxx") {
+		cpp := !strings.HasSuffix(m.Unit, ".c")
+		ext, compiler := ".c", "clang"
+		if cpp {
+			ext, compiler = ".cpp", "clang++"
+		}
+		harness := filepath.Join(work, "benchh"+ext)
+		include := "#include \"" + strings.ReplaceAll(unitPath, `\`, "/") + "\"\n"
+		if err := os.WriteFile(harness, []byte(include+cBenchSource(javaPlan(work), cpp)), 0o644); err != nil {
+			return Result{}, err
+		}
+		binary := filepath.Join(work, "benchh")
+		args := []string{"-O1", "-o", binary, harness, "-lm"}
+		if cpp {
+			args = append(args, "-std=c++17")
+		}
+		build := exec.Command(compiler, args...)
+		build.Stderr = os.Stderr
+		if err := build.Run(); err != nil {
+			return Result{}, fmt.Errorf("compiling the unit and the timing harness: %w", err)
+		}
+		run := exec.Command(binary, fmt.Sprint(minMS), fmt.Sprint(repeat))
+		run.Stderr = os.Stderr
+		stdout, err := run.Output()
+		if err != nil {
+			return Result{}, fmt.Errorf("timing the original: %w", err)
+		}
+		if err := os.WriteFile(origOut, stdout, 0o644); err != nil {
+			return Result{}, err
+		}
+		handled = true
+	}
+	if !handled && strings.HasSuffix(m.Unit, ".java") {
+		// Java is timed from source too: Bench.java is generated beside the unit and compiled with it.
+		bridge := filepath.Join(work, "Bench.java")
+		src := javaBenchSource(javaClass(m.Unit), javaPlan(work), literalValues, javaLit)
+		if err := os.WriteFile(bridge, []byte(src), 0o644); err != nil {
+			return Result{}, err
+		}
+		classes := filepath.Join(work, "benchclasses")
+		if err := os.MkdirAll(classes, 0o755); err != nil {
+			return Result{}, err
+		}
+		build := exec.Command("javac", "-d", classes, unitPath, bridge)
+		build.Stderr = os.Stderr
+		if err := build.Run(); err != nil {
+			return Result{}, fmt.Errorf("compiling the unit and the timing harness: %w", err)
+		}
+		run := exec.Command("java", "-cp", classes, "Bench", fmt.Sprint(minMS), fmt.Sprint(repeat))
+		run.Stderr = os.Stderr
+		stdout, err := run.Output()
+		if err != nil {
+			return Result{}, fmt.Errorf("timing the original: %w", err)
+		}
+		if err := os.WriteFile(origOut, stdout, 0o644); err != nil {
+			return Result{}, err
+		}
+		handled = true
+	}
+	if !handled && (strings.HasSuffix(m.Unit, ".rb") || strings.HasSuffix(m.Unit, ".rake")) {
+		rb := filepath.Join(work, "bench.rb")
+		if err := os.WriteFile(rb, []byte(rubyDriver), 0o644); err != nil {
+			return Result{}, err
+		}
+		cmd = exec.Command("ruby", rb, unitPath, casesPath, origOut, fmt.Sprint(minMS), fmt.Sprint(repeat))
+	} else if !handled && (strings.HasSuffix(m.Unit, ".py") || strings.HasSuffix(m.Unit, ".pyi")) {
 		// Python units are timed by python3: the original has to be the original.
 		py := filepath.Join(work, "bench.py")
 		if err := os.WriteFile(py, []byte(pythonDriver), 0o644); err != nil {
 			return Result{}, err
 		}
 		cmd = exec.Command("python3", py, unitPath, casesPath, origOut, fmt.Sprint(minMS), fmt.Sprint(repeat))
-	} else {
+	} else if !handled {
 		cmd = exec.Command("node", append(nodeflags.Args(),
 			"--import", hooksPath,
 			script, unitPath, casesPath, origOut, fmt.Sprint(minMS), fmt.Sprint(repeat))...)
 	}
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return Result{}, fmt.Errorf("timing the original: %w", err)
+	if cmd != nil {
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return Result{}, fmt.Errorf("timing the original: %w", err)
+		}
 	}
 	original, err := readRows(origOut)
 	if err != nil {

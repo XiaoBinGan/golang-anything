@@ -11,8 +11,12 @@ import (
 	"strings"
 
 	sitter "github.com/smacker/go-tree-sitter"
+	"github.com/smacker/go-tree-sitter/c"
+	"github.com/smacker/go-tree-sitter/cpp"
+	"github.com/smacker/go-tree-sitter/java"
 	"github.com/smacker/go-tree-sitter/javascript"
 	"github.com/smacker/go-tree-sitter/python"
+	"github.com/smacker/go-tree-sitter/ruby"
 	"github.com/smacker/go-tree-sitter/typescript/tsx"
 	"github.com/smacker/go-tree-sitter/typescript/typescript"
 )
@@ -25,6 +29,14 @@ func language(l Lang) *sitter.Language {
 		return javascript.GetLanguage()
 	case Python:
 		return python.GetLanguage()
+	case Ruby:
+		return ruby.GetLanguage()
+	case Java:
+		return java.GetLanguage()
+	case C:
+		return c.GetLanguage()
+	case Cpp:
+		return cpp.GetLanguage()
 	default:
 		return typescript.GetLanguage()
 	}
@@ -68,6 +80,18 @@ func ParseSource(src []byte, lang Lang, path string) (*File, error) {
 	}
 
 	root := tree.RootNode()
+	if lang == C || lang == Cpp {
+		out.Fns = append(out.Fns, cExports(root, text)...)
+		return out, nil
+	}
+	if lang == Java {
+		out.Fns = append(out.Fns, javaExports(root, text)...)
+		return out, nil
+	}
+	if lang == Ruby {
+		out.Fns = append(out.Fns, rbExports(root, text)...)
+		return out, nil
+	}
 	if lang == Python {
 		out.Fns = append(out.Fns, pyExports(root, src, text)...)
 		for i := 0; i < int(root.NamedChildCount()); i++ {
@@ -322,4 +346,233 @@ func walkRaises(n *sitter.Node, report func(int)) {
 	for i := 0; i < int(n.NamedChildCount()); i++ {
 		walkRaises(n.NamedChild(i), report)
 	}
+}
+
+// rbExports reads the top-level methods of a Ruby file. A name starting with an underscore is private by
+// convention here too, and a method defined inside a class belongs to that class.
+func rbExports(root *sitter.Node, text func(*sitter.Node) string) []Fn {
+	var out []Fn
+	for i := 0; i < int(root.NamedChildCount()); i++ {
+		n := root.NamedChild(i)
+		if n.Type() != "method" {
+			continue
+		}
+		name := text(n.ChildByFieldName("name"))
+		if name == "" || strings.HasPrefix(name, "_") || strings.HasSuffix(name, "?") || strings.HasSuffix(name, "!") {
+			continue
+		}
+		fn := Fn{Name: name, Line: int(n.StartPoint().Row) + 1, EndLine: int(n.EndPoint().Row) + 1, Params: []Param{}}
+		if params := n.ChildByFieldName("parameters"); params != nil {
+			for j := 0; j < int(params.NamedChildCount()); j++ {
+				p := params.NamedChild(j)
+				// Ruby has no annotations: every parameter is "any", and the recorder generates across
+				// types because of it.
+				if p.Type() == "identifier" {
+					fn.Params = append(fn.Params, Param{Name: text(p), Type: "any"})
+				}
+			}
+		}
+		walkRaises(n, func(line int) { fn.ThrowLines = append(fn.ThrowLines, line) })
+		out = append(out, fn)
+	}
+	return out
+}
+
+// javaExports reads the public static methods of the classes in a file: those are the ones a bridge can
+// call without an instance.
+func javaExports(root *sitter.Node, text func(*sitter.Node) string) []Fn {
+	var out []Fn
+	var walkClass func(n *sitter.Node, className string)
+	walkClass = func(n *sitter.Node, className string) {
+		for i := 0; i < int(n.NamedChildCount()); i++ {
+			child := n.NamedChild(i)
+			switch child.Type() {
+			case "class_declaration", "enum_declaration", "interface_declaration":
+				name := text(child.ChildByFieldName("name"))
+				for j := 0; j < int(child.NamedChildCount()); j++ {
+					if body := child.NamedChild(j); body.Type() == "class_body" {
+						walkClass(body, name)
+					}
+				}
+			case "method_declaration":
+				mods := ""
+				for j := 0; j < int(child.NamedChildCount()); j++ {
+					if c := child.NamedChild(j); c.Type() == "modifiers" {
+						mods = text(c)
+						break
+					}
+				}
+				if !strings.Contains(mods, "static") || !strings.Contains(mods, "public") {
+					continue
+				}
+				name := text(child.ChildByFieldName("name"))
+				if name == "" || name == "main" {
+					continue
+				}
+				returns := ""
+				for j := 0; j < int(child.NamedChildCount()); j++ {
+					c := child.NamedChild(j)
+					if t := c.Type(); t == "modifiers" || t == "identifier" || t == "formal_parameters" || t == "block" {
+						continue
+					} else if c.ChildCount() == 0 {
+						returns = javaDialect(text(c))
+						break
+					}
+				}
+				fn := Fn{Name: name, Returns: returns, Method: true, Receiver: className,
+					Line: int(child.StartPoint().Row) + 1, EndLine: int(child.EndPoint().Row) + 1, Params: []Param{}}
+				if params := child.ChildByFieldName("parameters"); params != nil {
+					for k := 0; k < int(params.NamedChildCount()); k++ {
+						param := params.NamedChild(k)
+						if param.Type() != "formal_parameter" {
+							continue
+						}
+						typ, name := "any", ""
+						if t := param.ChildByFieldName("type"); t != nil {
+							typ = text(t)
+						}
+						if nm := param.ChildByFieldName("name"); nm != nil {
+							name = text(nm)
+						}
+						fn.Params = append(fn.Params, Param{Name: name, Type: javaDialect(typ)})
+					}
+				}
+				walkRaises(child, func(line int) { fn.ThrowLines = append(fn.ThrowLines, line) })
+				out = append(out, fn)
+			}
+		}
+	}
+	walkClass(root, "")
+	return out
+}
+
+// javaDialect narrows a Java type to one of the generator's tables, the way dialectType does for TypeScript.
+func javaDialect(t string) string {
+	switch strings.TrimSpace(t) {
+	case "int", "long", "short", "byte", "Integer", "Long":
+		return "int"
+	case "double", "float", "Double", "Float", "BigDecimal":
+		return "float"
+	case "boolean", "Boolean":
+		return "boolean"
+	case "String", "CharSequence":
+		return "String"
+	case "char", "Character":
+		return "char"
+	}
+	return "any"
+}
+
+// srcText exists so the C walker can look at a node's own text without threading src through every call.
+func srcText(src []byte) func(*sitter.Node) string {
+	return func(n *sitter.Node) string {
+		if n == nil {
+			return ""
+		}
+		return n.Content(src)
+	}
+}
+
+// cExports reads the functions a C or C++ file defines at file scope. A static function is private and is
+// left out; so is anything inside a namespace (a bridge calls plain names).
+func cExports(root *sitter.Node, text func(*sitter.Node) string) []Fn {
+	var out []Fn
+	for i := 0; i < int(root.NamedChildCount()); i++ {
+		n := root.NamedChild(i)
+		if n.Type() != "function_definition" {
+			continue
+		}
+		decl := n.ChildByFieldName("declarator")
+		for decl != nil && decl.Type() != "function_declarator" {
+			decl = decl.ChildByFieldName("declarator")
+		}
+		if decl == nil {
+			continue
+		}
+		name := text(decl.ChildByFieldName("declarator"))
+		if name == "" || strings.HasPrefix(name, "_") || name == "main" {
+			continue
+		}
+		// static means file-private in C, which is not something a bridge can call.
+		private := false
+		for j := 0; j < int(n.NamedChildCount()); j++ {
+			if c := n.NamedChild(j); c.Type() == "storage_class_specifier" && text(c) == "static" {
+				private = true
+			}
+		}
+		if private {
+			continue
+		}
+		fn := Fn{Name: name, Line: int(n.StartPoint().Row) + 1, EndLine: int(n.EndPoint().Row) + 1, Params: []Param{}}
+		if typ := n.ChildByFieldName("type"); typ != nil {
+			fn.Returns = cDialect(text(typ))
+		}
+		if params := decl.ChildByFieldName("parameters"); params != nil {
+			for j := 0; j < int(params.NamedChildCount()); j++ {
+				p := params.NamedChild(j)
+				if p.Type() == "parameter_declaration" {
+					typ := "any"
+					if t := p.ChildByFieldName("type"); t != nil {
+						typ = cDialect(text(t))
+					}
+					// `char *` is a string, not a char: the pointer is in the declarator, so the type alone
+					// says "char" and the recorder would generate a character for a string parameter.
+					declarator := p.ChildByFieldName("declarator")
+					if typ == "char" && declarator != nil && hasPointer(declarator) {
+						typ = "String"
+						// `const char *` is a string; a plain `char *` is a buffer the function writes into,
+						// and the effect is the buffer, which JSON cannot carry. Handing it a literal is
+						// undefined behaviour, and the recorder did exactly that once: it recorded `5` for a
+						// truncation, because strlen was called on read-only memory nothing had written.
+						if !strings.Contains(text(p), "const") {
+							typ = "buffer"
+						}
+					}
+					fn.Params = append(fn.Params, Param{Name: text(declarator), Type: typ})
+					continue
+				}
+				// In C++ the parameter type may be a bare qualified name.
+				if p.Type() == "identifier" || p.Type() == "type_identifier" {
+					fn.Params = append(fn.Params, Param{Name: text(p), Type: "any"})
+				}
+			}
+		}
+		walkRaises(n, func(line int) { fn.ThrowLines = append(fn.ThrowLines, line) })
+		out = append(out, fn)
+	}
+	return out
+}
+
+// cDialect narrows a C or C++ type to one of the generator's tables.
+func cDialect(t string) string {
+	t = strings.TrimSpace(t)
+	switch t {
+	case "int", "long", "short", "unsigned", "unsigned int", "size_t", "int32_t", "int64_t":
+		return "int"
+	case "double", "float", "long double":
+		return "float"
+	case "bool", "_Bool":
+		return "boolean"
+	case "char *", "const char *", "std::string", "string", "char*":
+		return "String"
+	case "char":
+		return "char"
+	}
+	return "any"
+}
+
+// hasPointer reports whether a C declarator involves a pointer.
+func hasPointer(n *sitter.Node) bool {
+	if n == nil {
+		return false
+	}
+	if n.Type() == "pointer_declarator" {
+		return true
+	}
+	for i := 0; i < int(n.NamedChildCount()); i++ {
+		if hasPointer(n.NamedChild(i)) {
+			return true
+		}
+	}
+	return n.Type() == "pointer_expression"
 }

@@ -294,6 +294,12 @@ func unitOf(rel string, f *ts.File) Unit {
 					e.Blocked = "takes a function: a callback cannot cross the bridge"
 					break
 				}
+				if p.Type == "buffer" {
+					// A C buffer parameter is written by the function and read back by the caller: the
+					// effect is the buffer, not the return value, and the wire carries one value.
+					e.Blocked = "takes a mutable buffer: the effect is the buffer, which the wire cannot carry"
+					break
+				}
 			}
 		}
 		if e.Blocked == "" {

@@ -41,7 +41,13 @@ func Check(out Outcome, throws map[string]int, blocked map[string]string) GateCh
 	for fn := range out.PerFn {
 		_ = fn
 	}
-	for fn := range blocked {
+	for fn, reason := range blocked {
+		// A reason means the export stays in the original: it cannot have a case, and demanding one makes
+		// every crate with a blocked export permanently red. An empty reason means the port simply does not
+		// carry it yet, and that is what this rule is about.
+		if reason != "" {
+			continue
+		}
 		if out.PerFn[fn] == 0 {
 			checks.Untested = append(checks.Untested, fn)
 		}

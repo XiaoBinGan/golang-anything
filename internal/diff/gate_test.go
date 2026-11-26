@@ -72,7 +72,9 @@ func TestAnEmptyRecordingFailsForEveryExport(t *testing.T) {
 	out := Outcome{Cases: 0, Matched: 0, ErrorCases: map[string]int{}, PerFn: map[string]int{}}
 	// The gate is told about one export that stays behind and one that does not.
 	checks := Check(out, map[string]int{"portable": 0}, map[string]string{"portable": "", "blocked": "is generic"})
-	if len(checks.Untested) != 2 {
+	// Only the portable export: one that stays in the original with a reason cannot have a case, and
+	// demanding one made every crate with a blocked export permanently red.
+	if len(checks.Untested) != 1 || checks.Untested[0] != "portable" {
 		t.Fatalf("untested: %+v", checks.Untested)
 	}
 	reasons := checks.Failed(out.Matched, out.Cases)

@@ -67,8 +67,26 @@ Go 程序启动 1.93 ms，比 rust-anything 还快——所以差距不在语言
 | 语言 | rust-anything | go-anything |
 | --- | --- | --- |
 | TypeScript / JavaScript | ✅ | ✅ 完整（analyze → scaffold → record → gate → check → bench → fuzz → shadow → enable） |
-| **Python** | ✅ | 🟡 **analyze / scaffold / record / gate / diff / check / bench / report / map 可用**；`fuzz` 与 `shadow` 还没有 Python 驱动（会明确说明，不是 node 报错） |
-| C / C++ / Java / Kotlin / C# / Ruby / PHP / PowerShell | ✅ | ⬜ 未做；`analyze` 会数出「这里有多少个我读不了的文件」并说明 |
+| **Python** | ✅ | 🟡 analyze / scaffold / record / gate / diff / check / bench / report / map ✅；`fuzz`、`shadow` 还没有 Python 驱动（会明说原因） |
+| **Ruby** | ✅ | 🟡 同上（record 用 `ruby`，bench 用同一份用例） |
+| **Java** | ✅ | 🟡 analyze / record / gate / check / bench ✅（record 生成 `Recorder.java`，`javac` 编一次） |
+| **C** | ✅ | 🟡 analyze / record / gate / check / bench ✅（unity build：把原文件 include 进生成的 harness） |
+| **C++** | ✅ | 🟡 同上，`clang++ -std=c++17` |
+| Kotlin / C# / PHP / PowerShell | ✅ | ⬜ 未做；`analyze` 会数出「这里有多少个我读不了的文件」并说明 |
+
+### 每种语言的实测（本机，`make smoke` 每次都会重跑）
+
+| 语言 | 用例数 | gate | check | bench（原式 → Go） |
+| --- | ---: | --- | --- | --- |
+| TypeScript（port-rs 样例） | 328 | ✅ | 656/656 | 1.5–3.5x 更快 |
+| Python（mathx.py） | 116 | ✅ | 181/181 | 1.31x 更快 |
+| Ruby（strings.rb） | 114 | ✅ | 170/170 | **13.3x 更快** |
+| Java（MathX.java） | 96 | ✅ | 185/185 | 2.21x 更快 |
+| C++（mathx.cpp） | 96 | ✅ | 185/185 | — |
+| C（strs.c） | 91 | ✅ | 182/182 | 6.5x 更慢（2 ns 的原式赢不了跨界成本） |
+
+**这六种语言各自缺什么，写在同一张表里**：`fuzz` 与 `shadow` 只对 TypeScript/JavaScript 有（它们要把原式
+在 node 里跑起来）；`enable` 只对 TS/JS 与 Python 有（要在源文件里插标记块）。其余命令与语言无关。
 
 一条命令看出差别：
 

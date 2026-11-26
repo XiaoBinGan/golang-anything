@@ -135,7 +135,19 @@ try "record a .py unit"         "$GO" record --unit mathx.py "$WORK/pyroot/go-po
 try "record caught the raise"   bash -c "grep -q 'division by zero' '$WORK/pyroot/go-ports/mathx-go/cases.jsonl'"
 # It must refuse with the reason, not fail with node's error: the check is that the sentence is there.
 try "fuzz says why not yet"     bash -c "$GO fuzz --count 5 '$WORK/pyroot/go-ports/mathx-go' 2>&1 | grep -q 'Python runner'"
-try "analyze names what it cannot read" bash -c "mkdir -p $WORK/java && echo 'class A {}' > $WORK/java/A.java && $GO analyze '$WORK/java' | grep -q 'does not read'"
+try "analyze names what it cannot read" bash -c "mkdir -p $WORK/kt0 && echo 'class A {}' > $WORK/kt0/A.kt && $GO analyze '$WORK/kt0' | grep -q 'does not read'"
+
+echo
+echo "== the other languages: one unit each, end to end =="
+try "ruby: analyze finds it"     bash -c "mkdir -p $WORK/rb && printf 'def snake(name)\n  name.to_s.downcase\nend\n' > $WORK/rb/s.rb && $GO analyze '$WORK/rb' | grep -q ruby"
+try "ruby: record runs the original" bash -c "cd '$WORK/rb' && printf 'module rb\\n\\ngo 1.24\\n' > go.mod && $GO scaffold --unit s.rb go-ports/s-go >/dev/null 2>&1 && $GO record --unit s.rb go-ports/s-go 2>&1 | grep -q 'cases'"
+try "java: analyze finds it"     bash -c "mkdir -p $WORK/jv && printf 'public final class M {\n  public static int twice(int n) { return n * 2; }\n}\n' > $WORK/jv/M.java && $GO analyze '$WORK/jv' | grep -q java"
+try "java: record runs the original" bash -c "cd '$WORK/jv' && printf 'module jv\\n\\ngo 1.24\\n' > go.mod && $GO scaffold --unit M.java go-ports/m-go >/dev/null 2>&1 && $GO record --unit M.java go-ports/m-go 2>&1 | grep -q 'cases'"
+try "c: analyze finds it"        bash -c "mkdir -p $WORK/cc && printf 'int twice(int n) { return n * 2; }\n' > $WORK/cc/m.c && $GO analyze '$WORK/cc' | grep -q '(c)'"
+try "c: record runs the original" bash -c "cd '$WORK/cc' && printf 'module cc\\n\\ngo 1.24\\n' > go.mod && $GO scaffold --unit m.c go-ports/m-go >/dev/null 2>&1 && $GO record --unit m.c go-ports/m-go 2>&1 | grep -q 'cases'"
+try "c++: analyze finds it"      bash -c "mkdir -p $WORK/cx && printf 'int twice(int n) { return n * 2; }\n' > $WORK/cx/m.cpp && $GO analyze '$WORK/cx' | grep -q cpp"
+try "c++: record runs the original" bash -c "cd '$WORK/cx' && printf 'module cx\\n\\ngo 1.24\\n' > go.mod && $GO scaffold --unit m.cpp go-ports/m-go >/dev/null 2>&1 && $GO record --unit m.cpp go-ports/m-go 2>&1 | grep -q 'cases'"
+try "kotlin is named as unread"  bash -c "mkdir -p $WORK/kt && echo 'fun twice(n: Int) = n * 2' > $WORK/kt/M.kt && $GO analyze '$WORK/kt' | grep -q 'does not read'"
 
 echo
 echo "== agents =="

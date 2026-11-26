@@ -255,7 +255,10 @@ func Run(opts Options) (Summary, error) {
 	// Python units are recorded by python3, JavaScript and TypeScript ones by node. Everything after the
 	// recording — the driver, the bridge, gate, diff, check — is the same for both, because it reads
 	// cases.jsonl and the Go port and knows nothing about where the answers came from.
-	python := strings.HasSuffix(opts.Unit.Files[0], ".py") || strings.HasSuffix(opts.Unit.Files[0], ".pyi")
+	runtime, err := runtimeFor(opts.Unit.Files[0])
+	if err != nil {
+		return Summary{}, err
+	}
 
 	plan, throws := typePlan(opts.Unit)
 	planJSON, err := json.Marshal(plan)
@@ -291,14 +294,98 @@ func Run(opts Options) (Summary, error) {
 	// of one.
 	staged := out + ".staged"
 	var cmd *exec.Cmd
-	if python {
+	switch runtime {
+	case "python":
 		pyScript := filepath.Join(work, "record.py")
 		if err := os.WriteFile(pyScript, []byte(pythonDriver), 0o644); err != nil {
 			return Summary{}, err
 		}
 		cmd = exec.CommandContext(ctx, "python3", pyScript, unitPath, staged, planPath, extra,
 			strings.Join(opts.Only, ","))
-	} else {
+	case "c", "cpp":
+		// A C or C++ unit cannot be handed JSON either: the program that calls it is generated and compiled
+		// together with it, so the compiler checks every literal.
+		ext, compiler := ".c", "clang"
+		if runtime == "cpp" {
+			ext, compiler = ".cpp", "clang++"
+		}
+		harness := filepath.Join(work, "recorder"+ext)
+		// The unit is included, not linked: its functions are definitions in a file, and a unity build is the
+		// only way to call them without inventing a header. The include path reaches back to the source.
+		include := fmt.Sprintf("#include \"%s\"\n", strings.ReplaceAll(unitPath, `\`, `/`))
+		if err := os.WriteFile(harness, []byte(include+cRecorder(plan, runtime == "cpp")), 0o644); err != nil {
+			return Summary{}, err
+		}
+		binary := filepath.Join(work, "recorder")
+		args := []string{"-O1", "-o", binary, harness}
+		if runtime == "c" {
+			// The unit is included, not linked: a C unit's functions are not in a library yet.
+			args = append(args, "-lm")
+		} else {
+			args = append(args, "-std=c++17", "-lm")
+		}
+		build := exec.CommandContext(ctx, compiler, args...)
+		build.Stderr = os.Stderr
+		if err := build.Run(); err != nil {
+			return Summary{}, fmt.Errorf("compiling the unit and the recorder: %w", err)
+		}
+		stdout, err := exec.CommandContext(ctx, binary).Output()
+		if err != nil {
+			return Summary{}, fmt.Errorf("recording failed: %w", err)
+		}
+		if err := os.WriteFile(staged, stdout, 0o644); err != nil {
+			return Summary{}, err
+		}
+		if err := os.Rename(staged, out); err != nil {
+			return Summary{}, err
+		}
+		list, err := cases.Read(out)
+		if err != nil {
+			return Summary{}, err
+		}
+		return summarise(list, unitPath, opts, work, throws)
+	case "java":
+		// A JVM has no JSON in its standard library, so the calls are written out as source and compiled
+		// with the unit. javac is asked to put the classes in work/, and java runs the harness from there.
+		recorder := filepath.Join(work, "Recorder.java")
+		if err := os.WriteFile(recorder, []byte(javaRecorder(plan, javaClassName(opts.Unit.Files[0]))), 0o644); err != nil {
+			return Summary{}, err
+		}
+		classes := filepath.Join(work, "classes")
+		if err := os.MkdirAll(classes, 0o755); err != nil {
+			return Summary{}, err
+		}
+		build := exec.CommandContext(ctx, "javac", "-d", classes, unitPath, recorder)
+		build.Stderr = os.Stderr
+		if err := build.Run(); err != nil {
+			return Summary{}, fmt.Errorf("compiling the unit and the recorder: %w", err)
+		}
+		cmd = exec.CommandContext(ctx, "java", "-cp", classes, "Recorder")
+		cmd.Stderr = os.Stderr
+		// The harness prints to stdout: capture it and write the staged file itself.
+		stdout, err := cmd.Output()
+		if err != nil {
+			return Summary{}, fmt.Errorf("recording failed: %w", err)
+		}
+		if err := os.WriteFile(staged, stdout, 0o644); err != nil {
+			return Summary{}, err
+		}
+		if err := os.Rename(staged, out); err != nil {
+			return Summary{}, err
+		}
+		list, err := cases.Read(out)
+		if err != nil {
+			return Summary{}, err
+		}
+		return summarise(list, unitPath, opts, work, throws)
+	case "ruby":
+		rb := filepath.Join(work, "record.rb")
+		if err := os.WriteFile(rb, []byte(rubyDriver), 0o644); err != nil {
+			return Summary{}, err
+		}
+		cmd = exec.CommandContext(ctx, "ruby", rb, unitPath, staged, planPath, extra,
+			strings.Join(opts.Only, ","))
+	default:
 		args := append(nodeflags.Args(), "--import", hooksPath, script, unitPath, staged, planPath, extra,
 			strings.Join(opts.Only, ","))
 		cmd = exec.CommandContext(ctx, "node", args...)
@@ -319,6 +406,12 @@ func Run(opts Options) (Summary, error) {
 		return Summary{}, err
 	}
 
+	return summarise(list, unitPath, opts, work, throws)
+}
+
+// summarise is what happens after any recorder has written cases.jsonl: the source fingerprint, the count
+// and the optional coverage run. Every language shares it, so a new recorder only has to produce the file.
+func summarise(list []cases.Case, unitPath string, opts Options, work string, throws int) (Summary, error) {
 	raw, err := os.ReadFile(unitPath)
 	if err != nil {
 		return Summary{}, err
@@ -328,7 +421,6 @@ func Run(opts Options) (Summary, error) {
 	if err := os.WriteFile(filepath.Join(opts.CrateDir, "recorded-from.json"), mustJSON(meta), 0o644); err != nil {
 		return Summary{}, err
 	}
-
 	seen := map[string]bool{}
 	for _, c := range list {
 		seen[c.Fn] = true
@@ -341,6 +433,12 @@ func Run(opts Options) (Summary, error) {
 		}
 	}
 	return s, nil
+}
+
+// javaClassName is the public class in a .java file, which is the file's own name by convention.
+func javaClassName(file string) string {
+	base := filepath.Base(file)
+	return strings.TrimSuffix(base, filepath.Ext(base))
 }
 
 // planRoot walks up from the crate until the unit's file is under a parent.
@@ -367,6 +465,9 @@ func planRoot(crateDir, rel string) string {
 type planEntry struct {
 	Path  string   `json:"path"`
 	Types []string `json:"types"`
+	// Returns is the dialect of the answer, for the recorders that print it from source: Java, C and C++
+	// have to know which printer to call, where the dynamic languages just look at the value.
+	Returns string `json:"returns,omitempty"`
 }
 
 func typePlan(u analyze.Unit) (map[string]planEntry, int) {
@@ -387,7 +488,7 @@ func typePlan(u analyze.Unit) (map[string]planEntry, int) {
 		if e.Method && e.Receiver != "" {
 			path = e.Receiver + "." + e.Name
 		}
-		plan[e.Name] = planEntry{Path: path, Types: types}
+		plan[e.Name] = planEntry{Path: path, Types: types, Returns: dialectType(e.Returns)}
 		throws += len(e.ThrowLines)
 	}
 	return plan, throws
@@ -396,6 +497,12 @@ func typePlan(u analyze.Unit) (map[string]planEntry, int) {
 // dialectType narrows a TypeScript annotation to one of the generator's tables.
 func dialectType(t string) string {
 	t = strings.TrimSpace(t)
+	// A statically typed language has already decided the value's kind: Java's int/float/boolean/String/char
+	// and C's numeric kinds pass through, because the recorder writes literals the compiler will check.
+	switch t {
+	case "int", "float", "boolean", "String", "char", "long", "double", "size_t", "ssize_t":
+		return t
+	}
 	switch {
 	case t == "string":
 		return "string"
@@ -561,3 +668,27 @@ func FingerprintOf(path string) (string, error) {
 }
 
 var _ = ts.Param{} // the type table above is what makes a Param useful; keep the import honest
+
+// runtimeFor names the interpreter that can run an original, or says there is none yet. The recording is
+// the only part of this tool that is per-language: everything after it reads cases.jsonl.
+func runtimeFor(file string) (string, error) {
+	switch {
+	case strings.HasSuffix(file, ".py"), strings.HasSuffix(file, ".pyi"):
+		return "python", nil
+	case strings.HasSuffix(file, ".rb"), strings.HasSuffix(file, ".rake"):
+		return "ruby", nil
+	case strings.HasSuffix(file, ".java"):
+		return "java", nil
+	case strings.HasSuffix(file, ".c"):
+		return "c", nil
+	case strings.HasSuffix(file, ".cc"), strings.HasSuffix(file, ".cpp"), strings.HasSuffix(file, ".cxx"),
+		strings.HasSuffix(file, ".hpp"), strings.HasSuffix(file, ".hh"):
+		return "cpp", nil
+	case strings.HasSuffix(file, ".ts"), strings.HasSuffix(file, ".tsx"),
+		strings.HasSuffix(file, ".js"), strings.HasSuffix(file, ".mjs"), strings.HasSuffix(file, ".cjs"):
+		return "node", nil
+	}
+	return "", fmt.Errorf("%s: no recorder for this language yet. The ones that have one: TypeScript, "+
+		"JavaScript, Python, Ruby and Java. analyze reads more than it can record, which is why the plan "+
+		"says which languages it found", file)
+}
