@@ -311,6 +311,94 @@ func Run(opts Options) (Result, error) {
 		}
 		handled = true
 	}
+	if !handled && strings.HasSuffix(m.Unit, ".cs") {
+		dir := filepath.Join(work, "benchcs")
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return Result{}, err
+		}
+		src, err := os.ReadFile(unitPath)
+		if err != nil {
+			return Result{}, err
+		}
+		if err := os.WriteFile(filepath.Join(dir, "Unit.cs"), src, 0o644); err != nil {
+			return Result{}, err
+		}
+		if err := os.WriteFile(filepath.Join(dir, "Bench.cs"), []byte(csharpBenchSource(javaPlan(work), javaClass(m.Unit))), 0o644); err != nil {
+			return Result{}, err
+		}
+		proj := "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <OutputType>Exe</OutputType>\n" +
+			"    <TargetFramework>net11.0</TargetFramework>\n    <Nullable>disable</Nullable>\n" +
+			"    <AssemblyName>bench</AssemblyName>\n  </PropertyGroup>\n</Project>\n"
+		if err := os.WriteFile(filepath.Join(dir, "bench.csproj"), []byte(proj), 0o644); err != nil {
+			return Result{}, err
+		}
+		outDir, absErr := filepath.Abs(filepath.Join(work, "csbenchbin"))
+		if absErr != nil {
+			return Result{}, absErr
+		}
+		build := exec.Command("dotnet", "build", "--nologo", "-c", "Release", "-o", outDir)
+		build.Dir = dir
+		build.Stderr = os.Stderr
+		if err := build.Run(); err != nil {
+			return Result{}, fmt.Errorf("compiling the unit and the timing harness: %w", err)
+		}
+		run := exec.Command(filepath.Join(outDir, "bench"), fmt.Sprint(minMS), fmt.Sprint(repeat))
+		if root := dotnetRootForBench(); root != "" {
+			run.Env = append(os.Environ(), "DOTNET_ROOT="+root)
+		}
+		run.Stderr = os.Stderr
+		stdout, err := run.Output()
+		if err != nil {
+			return Result{}, fmt.Errorf("timing the original: %w", err)
+		}
+		if err := os.WriteFile(origOut, stdout, 0o644); err != nil {
+			return Result{}, err
+		}
+		handled = true
+	}
+	if !handled && (strings.HasSuffix(m.Unit, ".kt") || strings.HasSuffix(m.Unit, ".kts")) {
+		harness := filepath.Join(work, "Bench.kt")
+		if err := os.WriteFile(harness, []byte(kotlinBenchSource(javaPlan(work))), 0o644); err != nil {
+			return Result{}, err
+		}
+		jar := filepath.Join(work, "bench.jar")
+		build := exec.Command("kotlinc", unitPath, harness, "-include-runtime", "-d", jar)
+		build.Stderr = os.Stderr
+		if err := build.Run(); err != nil {
+			return Result{}, fmt.Errorf("compiling the unit and the timing harness: %w", err)
+		}
+		run := exec.Command("java", "-jar", jar, fmt.Sprint(minMS), fmt.Sprint(repeat))
+		run.Stderr = os.Stderr
+		stdout, err := run.Output()
+		if err != nil {
+			return Result{}, fmt.Errorf("timing the original: %w", err)
+		}
+		if err := os.WriteFile(origOut, stdout, 0o644); err != nil {
+			return Result{}, err
+		}
+		handled = true
+	}
+	if !handled && strings.HasSuffix(m.Unit, ".php") {
+		script := filepath.Join(work, "bench.php")
+		if err := os.WriteFile(script, []byte(phpDriver), 0o644); err != nil {
+			return Result{}, err
+		}
+		cmd = exec.Command("php", script, unitPath, casesPath, origOut, fmt.Sprint(minMS), fmt.Sprint(repeat))
+		handled = true
+	}
+	if !handled && (strings.HasSuffix(m.Unit, ".ps1") || strings.HasSuffix(m.Unit, ".psm1")) {
+		script := filepath.Join(work, "bench.ps1")
+		if err := os.WriteFile(script, []byte(powershellDriver), 0o644); err != nil {
+			return Result{}, err
+		}
+		absScript, err := filepath.Abs(script)
+		if err != nil {
+			return Result{}, err
+		}
+		cmd = exec.Command("pwsh", "-NoLogo", "-NoProfile", "-File", absScript, unitPath, casesPath, origOut,
+			fmt.Sprint(minMS), fmt.Sprint(repeat))
+		handled = true
+	}
 	if !handled && (strings.HasSuffix(m.Unit, ".rb") || strings.HasSuffix(m.Unit, ".rake")) {
 		rb := filepath.Join(work, "bench.rb")
 		if err := os.WriteFile(rb, []byte(rubyDriver), 0o644); err != nil {

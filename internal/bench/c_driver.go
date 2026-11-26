@@ -43,7 +43,14 @@ func cBenchSource(plan map[string][]string, cpp bool) string {
 			for i, v := range args {
 				lits[i] = cLiteralFor(v, types[i])
 			}
-			b.WriteString("\t\t\t\tsink += (long long) " + name + "(" + strings.Join(lits, ", ") + ");\n")
+			if cpp {
+				// The unit under test throws on some recorded inputs; a timing loop that lets the exception
+				// escape kills the process, which is what the first C++ bench run did.
+				b.WriteString("\t\t\t\ttry { sink += (long long) " + name + "(" + strings.Join(lits, ", ") + "); }\n")
+				b.WriteString("\t\t\t\tcatch (...) { sink += 1; }\n")
+			} else {
+				b.WriteString("\t\t\t\tsink += (long long) " + name + "(" + strings.Join(lits, ", ") + ");\n")
+			}
 		}
 		b.WriteString("\t\t\t}\n")
 		b.WriteString("\t\t\trounds++;\n")

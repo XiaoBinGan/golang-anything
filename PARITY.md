@@ -92,8 +92,28 @@ Go 程序启动 1.93 ms，比 rust-anything 还快——所以差距不在语言
 | C#（Strings.cs） | 212 | ✅ | 424/424 | — |
 | PowerShell（Strings.ps1） | 28 | ✅ | 50/50 | — |
 
-**这六种语言各自缺什么，写在同一张表里**：`fuzz` 与 `shadow` 只对 TypeScript/JavaScript 有（它们要把原式
-在 node 里跑起来）；`enable` 只对 TS/JS 与 Python 有（要在源文件里插标记块）。其余命令与语言无关。
+| PHP（strings.php） | 82 | ✅ | 139/139 | 2.41x 更快 |
+| Kotlin（Strings.kt） | 212 | ✅ | 368/368 | 7.11x 更快 |
+| C#（Strings.cs） | 212 | ✅ | 368/368 | 9.91x 更快 |
+| PowerShell（Strings.ps1） | 28 | ✅ | 50/50 | 779x 更快 |
+
+### 每种语言现在支持哪些命令
+
+| 命令 | TS/JS | Python | Ruby | Java | C | C++ | PHP | Kotlin | C# | PowerShell |
+| --- | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
+| analyze / map / scaffold | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| record / diff / gate / check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| bench | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| report / package | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| fuzz | ✅ | — | — | — | — | — | — | — | — | — |
+| shadow / shadow-report | ✅ | — | — | — | — | — | — | — | — | — |
+| enable / disable | ✅ | ✅ | — | — | — | — | — | — | — | — |
+
+`fuzz` 与 `shadow` 只对 TS/JS 有：它们要把**原式**在 node 里跑起来并注入包装，那是 JavaScript 的机制；
+`enable` 需要在源文件里插一段标记块把导出重绑到 Go 端口，目前只有 TS/JS 与 Python 写了这段。
+缺的那些**会明确拒绝并说明**，不是 node 的报错。
+
+一条命令验证全部十种语言的 bench：`./scripts/bench-all-languages.sh`。
 
 一条命令看出差别：
 

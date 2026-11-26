@@ -58,7 +58,7 @@ fun main() {
 		for _, args := range calls {
 			lits := make([]string, len(args))
 			for i, v := range args {
-				lits[i] = kotlinLiteral(v, entry.Types[i])
+				lits[i] = KotlinLiteral(v, entry.Types[i])
 			}
 			invocation := fmt.Sprintf("%s(%s)", name, strings.Join(lits, ", "))
 			argsJSON := kotlinString(wireArgsJSON(args, entry.Types))
@@ -70,8 +70,8 @@ fun main() {
 	return b.String()
 }
 
-// kotlinLiteral writes one Go value as a Kotlin expression.
-func kotlinLiteral(v any, dialect string) string {
+// KotlinLiteral writes one Go value as a Kotlin expression.
+func KotlinLiteral(v any, dialect string) string {
 	switch x := v.(type) {
 	case int64:
 		return fmt.Sprintf("%d", x)

@@ -158,6 +158,11 @@ echo "== the four that arrived last =="
 try "php: analyze + record"      bash -c "mkdir -p $WORK/ph && printf '<?php function twice(int \$n): int { return \$n * 2; }' > $WORK/ph/m.php && $GO analyze '$WORK/ph' | grep -q '(php)' && cd '$WORK/ph' && printf 'module ph\\n\\ngo 1.24\\n' > go.mod && $GO scaffold --unit m.php go-ports/m-go >/dev/null 2>&1 && $GO record --unit m.php go-ports/m-go 2>&1 | grep -q 'Recorded'"
 try "kotlin: analyze + record"   bash -c "mkdir -p $WORK/kl && printf 'fun twice(n: Int): Int = n * 2\n' > $WORK/kl/M.kt && $GO analyze '$WORK/kl' | grep -q '(kotlin)' && cd '$WORK/kl' && printf 'module kl\\n\\ngo 1.24\\n' > go.mod && $GO scaffold --unit M.kt go-ports/m-go >/dev/null 2>&1 && $GO record --unit M.kt go-ports/m-go 2>&1 | grep -q 'Recorded'"
 try "csharp: analyze + record"   bash -c "mkdir -p $WORK/cs0 && printf 'public static class M {\n  public static int Twice(int n) { return n * 2; }\n}\n' > $WORK/cs0/M.cs && $GO analyze '$WORK/cs0' | grep -q '(csharp)' && cd '$WORK/cs0' && printf 'module cs0\\n\\ngo 1.24\\n' > go.mod && $GO scaffold --unit M.cs go-ports/m-go >/dev/null 2>&1 && $GO record --unit M.cs go-ports/m-go 2>&1 | grep -q 'Recorded'"
+# Every language's crate has to bench: the harness for each is generated source, and one that does not
+# compile is a language that half works. scripts/bench-all-languages.sh runs the same sweep from a clean
+# scaffold; this checks the crates the blocks above already made.
+try "bench works on every language" ./scripts/bench-all-languages.sh
+
 try "powershell: analyze + record" bash -c "mkdir -p $WORK/ps0 && printf 'function Get-Twice {\n  param([int]\$N)\n  return \$N * 2\n}\n' > $WORK/ps0/M.ps1 && $GO analyze '$WORK/ps0' | grep -q '(powershell)' && cd '$WORK/ps0' && printf 'module ps0\\n\\ngo 1.24\\n' > go.mod && $GO scaffold --unit M.ps1 go-ports/m-go >/dev/null 2>&1 && $GO record --unit M.ps1 go-ports/m-go 2>&1 | grep -q 'Recorded'"
 
 echo

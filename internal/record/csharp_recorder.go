@@ -26,7 +26,7 @@ func csharpRecorder(plan map[string]planEntry, className string) string {
 		for _, args := range calls {
 			lits := make([]string, len(args))
 			for i, v := range args {
-				lits[i] = csLiteral(v, entry.Types[i])
+				lits[i] = CsLiteral(v, entry.Types[i])
 			}
 			argsJSON := csString(wireArgsJSON(args, entry.Types))
 			invocation := fmt.Sprintf("%s.%s(%s)", className, name, strings.Join(lits, ", "))
@@ -59,7 +59,7 @@ func csString(s string) string {
 }
 
 // csLiteral writes one Go value as a C# expression.
-func csLiteral(v any, dialect string) string {
+func CsLiteral(v any, dialect string) string {
 	switch x := v.(type) {
 	case int64:
 		return fmt.Sprintf("%d", x)
