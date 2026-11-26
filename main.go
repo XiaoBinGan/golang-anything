@@ -204,6 +204,22 @@ func runAnalyze(args []string) error {
 			fmt.Printf("| %s | %d |\n", r.why, r.n)
 		}
 	}
+	// The notes were computed and only ever read in JSON: a person looking at the table saw "0 exports" with
+	// no sentence about the six instance methods behind it. `analyze --json` had them all along.
+	noteLines := 0
+	for _, u := range rep.Units {
+		if len(u.Notes) > 0 {
+			noteLines++
+		}
+	}
+	if noteLines > 0 {
+		fmt.Printf("\n## Notes\n\n")
+		for _, u := range rep.Units {
+			for _, n := range u.Notes {
+				fmt.Printf("- `%s`: %s\n", u.ID, n)
+			}
+		}
+	}
 	for _, u := range rep.Units {
 		if len(u.Exports) == 0 {
 			continue
