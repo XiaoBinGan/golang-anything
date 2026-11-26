@@ -302,6 +302,13 @@ func Run(opts Options) (Summary, error) {
 		}
 		cmd = exec.CommandContext(ctx, "python3", pyScript, unitPath, staged, planPath, extra,
 			strings.Join(opts.Only, ","))
+		// A Python module in a package is imported by name, so its relative imports resolve; that needs the
+		// root the package sits under, which is the plan root this tool already knows.
+		if root := planRoot(opts.CrateDir, opts.Unit.Files[0]); root != "" {
+			cmd.Env = append(os.Environ(),
+				"GO_ANYTHING_PY_ROOT="+root,
+				"GO_ANYTHING_PY_MODULE="+pythonModuleName(opts.Unit.Files[0]))
+		}
 	case "c", "cpp":
 		// A C or C++ unit cannot be handed JSON either: the program that calls it is generated and compiled
 		// together with it, so the compiler checks every literal.
@@ -559,6 +566,13 @@ func summarise(list []cases.Case, unitPath string, opts Options, work string, th
 		}
 	}
 	return s, nil
+}
+
+// pythonModuleName turns a unit's path into the name Python would import it by: src/click/formatting.py is
+// click.formatting, and the import root is the folder above the topmost package.
+func pythonModuleName(rel string) string {
+	name := strings.TrimSuffix(strings.TrimSuffix(rel, ".py"), "/__init__")
+	return strings.ReplaceAll(name, "/", ".")
 }
 
 // dotnetRoot finds the SDK the app host needs, from the dotnet on PATH.

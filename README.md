@@ -1323,3 +1323,40 @@ gate → check → bench`，而且**录制器是唯一按语言写的部分**—
 
 Kotlin / C# / PHP / PowerShell 本机没有运行时，无法给出测试数据，因此**不声称支持**：`analyze` 会数出
 「这里有 N 个 .kt 我读不了」。
+
+## 真实头部项目：能看见多少（第 63 轮）
+
+下载十个真实项目的 tar 包（各语言主流库），用 `analyze` 过一遍。一条命令复现：`./scripts/survey-real.sh <目录>`。
+
+| 项目 | 语言 | 单元 | 导出 | 可移植 | 拒绝 | 读不了的文件 | 耗时 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| kotlin-arrow | Kotlin | 354 | 3,170 | 3,170 | 0 | 1 | 759 ms |
+| cpp-fmt | C++ | 30 | 483 | 478 | 5 | 25 | 196 ms |
+| c-zlib | C | 38 | 363 | 331 | 32 | 29 | 238 ms |
+| java-gson | Java | 27 | 83 | 83 | 0 | 0 | 82 ms |
+| python-click | Python | 16 | 77 | 75 | 2 | 0 | 70 ms |
+| python-requests | Python | 11 | 64 | 62 | 2 | 0 | 42 ms |
+| csharp-newtonsoft | C# | 2 | 32 | 32 | 0 | 0 | 370 ms |
+| php-carbon | PHP | 1 | 3 | 3 | 0 | 0 | 222 ms |
+| ruby-sinatra | Ruby | 0 | 0 | 0 | 0 | 0 | 45 ms |
+
+### 真实项目暴露的三个问题（都已修）
+
+| 问题 | 现象 |
+| --- | --- |
+| **测试文件没被过滤** | click 的 36 个单元里 30 个是 `tests/`：`isTestFile` 只认 TS 的 `.test.ts`。现在十种语言的测试命名都认（`test_*.py`、`*_test.py`、`*Test.java`、`*.Tests.ps1`…），click 的单元从 36 降到 16 |
+| **相对导入加载不了** | click 的 `formatting.py` 里有 `from ._compat import term_len`，按文件加载必然 `ImportError`。现在按包名导入（`click.formatting`），把仓库根加进 `sys.path` |
+| **生成器没被识别** | Python 的 `yield` 之前不算 generator，`iter_rows` 被当成可移植，录制出来的答案是 `"<generator object …>"`。现在 `analyze` 明确拒绝 |
+
+### 真实单元的录制与 gate
+
+拿 click 的 `src/click/formatting.py` 走完整链：
+
+```
+record → 179 条真实用例（wrap_text 一个函数就有 121 条，横跨 width/indent/paragraph）
+gate   → 我手写的 port.go 有 115 处不一致 ❌
+```
+
+**这不是工具失败，而是工具在说「你的移植还没写完」**——它逐条指出 `wrap_text("a",1,"a","a","a")` 期望 `"aa"` 而我答 `"a"`。
+click 的 `wrap_text` 依赖它自己那份 `TextWrapper`（Python `textwrap` 的重写），把这套语义完整移植是另一件事，
+所以这个单元到本轮为止是「已录制、未通过」。**gate 拒绝通过，就是它该做的事**。

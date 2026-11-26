@@ -352,12 +352,16 @@ func pyExports(root *sitter.Node, src []byte, text func(*sitter.Node) string) []
 				}
 			}
 		}
-		// `raise X` anywhere in the body means the original has a path that throws.
+		// `raise X` anywhere in the body means the original has a path that throws; a `yield` makes the
+		// function a generator, which answers a generator object rather than a value.
 		body := n.ChildByFieldName("body")
 		if body != nil {
 			walkRaises(body, func(line int) {
 				fn.ThrowLines = append(fn.ThrowLines, line)
 			})
+			if hasYield(body) {
+				fn.Generator = true
+			}
 		}
 		if len(fn.Params) == 0 {
 			fn.Params = []Param{}
@@ -810,4 +814,20 @@ func kotlinParams(n *sitter.Node) *sitter.Node {
 		}
 	}
 	return nil
+}
+
+// hasYield reports whether a function body contains a yield or yield from.
+func hasYield(n *sitter.Node) bool {
+	if n == nil {
+		return false
+	}
+	if n.Type() == "yield" {
+		return true
+	}
+	for i := 0; i < int(n.NamedChildCount()); i++ {
+		if hasYield(n.NamedChild(i)) {
+			return true
+		}
+	}
+	return false
 }

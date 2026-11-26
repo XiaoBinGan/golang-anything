@@ -124,10 +124,24 @@ def main():
     extra_path = sys.argv[4] if len(sys.argv) > 4 and sys.argv[4] else ''
     only = set(filter(None, (sys.argv[5] if len(sys.argv) > 5 else '').split(',')))
 
-    import importlib.util
-    spec = importlib.util.spec_from_file_location('unit_under_test', unit)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    # A real project's modules use relative imports (a dot-prefixed import), which need the
+    # package context. The module name and the import root come from the Go side; the file load stays as a
+    # fallback for a module that is not part of a package at all.
+    import importlib.util, os
+    root = os.environ.get('GO_ANYTHING_PY_ROOT', '')
+    modname = os.environ.get('GO_ANYTHING_PY_MODULE', '')
+    module = None
+    if root and modname:
+        sys.path.insert(0, root)
+        try:
+            module = importlib.import_module(modname)
+        except Exception as exc:
+            print('go-anything: importing %s failed (%s); falling back to a file load' % (modname, exc),
+                  file=sys.stderr)
+    if module is None:
+        spec = importlib.util.spec_from_file_location('unit_under_test', unit)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
 
     plan = json.load(open(plan_path))
     calls = plan_calls(plan, only)

@@ -214,12 +214,19 @@ func Run(root string) (*Report, error) {
 
 func isTestFile(name string) bool {
 	for _, suffix := range []string{".test.ts", ".spec.ts", ".test.tsx", ".spec.tsx",
-		".test.js", ".spec.js", ".d.ts"} {
+		".test.js", ".spec.js", ".d.ts",
+		// Every language names its tests the same way; only the extensions above were here, so Click's
+		// tests were 30 of its 36 units and the plan pointed at code nobody would port.
+		"_test.py", "_test.go", "_test.rb", "_spec.rb", "Test.java", "Tests.java",
+		"_test.c", "_test.cpp", "_test.cc", "Test.cs", "Tests.cs", "_test.kt", "Test.kt",
+		".test.ps1", ".Tests.ps1"} {
 		if strings.HasSuffix(name, suffix) {
 			return true
 		}
 	}
-	return false
+	// A file called test_foo.py or foo_test is a test whatever the runner calls it.
+	base := strings.ToLower(name)
+	return strings.HasPrefix(base, "test_") || strings.HasSuffix(base, "_test.py")
 }
 
 // isComponent spots a React-shaped export: a capitalised name in a .tsx/.jsx file, or one that
