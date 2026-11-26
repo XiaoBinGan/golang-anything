@@ -377,8 +377,8 @@ func exportList(exports []analyze.Export) string {
 		for j, line := range e.ThrowLines {
 			throws[j] = fmt.Sprint(line)
 		}
-		parts[i] = fmt.Sprintf(`{"name":%q,"params":[%s],"returns":%q,"line":%d,"throw_lines":[%s],"blocked":%q}`,
-			e.Name, strings.Join(types, ","), e.Returns, e.Line, strings.Join(throws, ","), e.Blocked)
+		parts[i] = fmt.Sprintf(`{"name":%q,"params":[%s],"returns":%q,"line":%d,"throw_lines":[%s],"blocked":%q,"receiver":%q}`,
+			e.Name, strings.Join(types, ","), e.Returns, e.Line, strings.Join(throws, ","), e.Blocked, e.Receiver)
 	}
 	return strings.Join(parts, ",")
 }

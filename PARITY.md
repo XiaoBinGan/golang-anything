@@ -109,10 +109,19 @@ Go 程序启动 1.93 ms，比 rust-anything 还快——所以差距不在语言
 | report / package | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | fuzz | ✅ | — | — | — | — | — | — | — | — | — |
 | shadow / shadow-report | ✅ | — | — | — | — | — | — | — | — | — |
-| enable / disable | ✅ | ✅ | — | — | — | — | — | — | — | — |
+| enable / disable | ✅ | ✅ | ✅ | — | — | — | — | — | — | — |
 
-`fuzz` 与 `shadow` 只对 TS/JS 有：它们要把**原式**在 node 里跑起来并注入包装，那是 JavaScript 的机制；
-`enable` 需要在源文件里插一段标记块把导出重绑到 Go 端口，目前只有 TS/JS 与 Python 写了这段。
+`fuzz` 与 `shadow` 只对 TS/JS 有：它们要把**原式**在 node 里跑起来并注入包装，那是 JavaScript 的机制。
+`enable` 现在覆盖 TS/JS、Python、**Ruby**：Ruby 可以重开模块/类并重定义方法，块放在文件末尾，`disable`
+按字节移除。实测（`make smoke` 里每次重跑）：
+
+```
+$ go-anything enable go-ports/u-go && ruby -I. -e 'require "util"; puts Util.double(21)'
+42
+$ go-anything disable go-ports/u-go && cmp util.rb util.before   # 字节一致
+```
+
+PHP 的 `enable` 仍缺：PHP 不能重定义已声明的函数，接管必须改类体内部，那不是「末尾插块」能做的。
 缺的那些**会明确拒绝并说明**，不是 node 的报错。
 
 一条命令验证全部十种语言的 bench：`./scripts/bench-all-languages.sh`。

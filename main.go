@@ -820,6 +820,7 @@ type export struct {
 	Returns    string   `json:"returns"`
 	Blocked    string   `json:"blocked"`
 	ThrowLines []int    `json:"throw_lines"`
+	Receiver   string   `json:"receiver,omitempty"`
 }
 
 // Names lists the exports the bridge carries.
@@ -997,8 +998,16 @@ func runEnable(args []string) error {
 	if *async {
 		mode = switched.Async
 	}
+	owned := make([]switched.Owned, 0, len(m.Exports))
+	for _, e := range m.Exports {
+		if e.Blocked != "" {
+			continue
+		}
+		owned = append(owned, switched.Owned{Name: e.Name, Owner: e.Receiver})
+	}
 	path, err := switched.Enable(switched.Options{
 		CrateDir: dir, Unit: m.Unit, Crate: m.Crate, Exports: m.Names(), Mode: mode, Only: names,
+		Owners: owned,
 	})
 	if err != nil {
 		return err

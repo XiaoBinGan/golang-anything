@@ -35,6 +35,15 @@ type Options struct {
 	Mode     Mode
 	// Only limits the switch to these exports; empty means every export the bridge carries.
 	Only []string
+	// Owners say, for each export, which module or class defines it: a Ruby module function is reached
+	// through its owner, a top-level def through Object. Other languages ignore it.
+	Owners []Owned
+}
+
+// Owned is one export and the module or class that defines it.
+type Owned struct {
+	Name  string
+	Owner string
 }
 
 // markOpen is the first line of the block: a reader and `disable` both find it by this prefix.
@@ -67,10 +76,18 @@ func Enable(opts Options) (string, error) {
 	}
 	// A switched call has to land somewhere: without the wrapper or the binaries the original would
 	// fail at its first call, and that is worse than not switching it on.
-	for _, needed := range []string{"index.cjs", "addon.node"} {
-		if _, err := os.Stat(filepath.Join(opts.CrateDir, needed)); err != nil {
-			return "", fmt.Errorf("run `go-anything bridge %s` and `go-anything build --fast %s` first: %s is missing",
-				opts.CrateDir, opts.CrateDir, needed)
+	// What a switched call needs depends on where the block lands: a JavaScript or Python unit talks to the
+	// addon (or the pipe), a Ruby unit talks to the stdio binary through port.rb.
+	needed := []string{"index.cjs", "addon.node"}
+	how := "go-anything build --fast"
+	if strings.HasSuffix(opts.Unit, ".rb") {
+		needed = []string{"port.rb", "portctl"}
+		how = "go-anything build"
+	}
+	for _, file := range needed {
+		if _, err := os.Stat(filepath.Join(opts.CrateDir, file)); err != nil {
+			return "", fmt.Errorf("run `go-anything bridge %s` and `%s %s` first: %s is missing",
+				opts.CrateDir, how, opts.CrateDir, file)
 		}
 	}
 	root, err := planRoot(opts.CrateDir, opts.Unit)
@@ -88,7 +105,7 @@ func Enable(opts Options) (string, error) {
 	}
 	text := string(raw)
 	name := filepath.Base(crateDir)
-	if strings.Contains(text, markOpen(name)) {
+	if strings.Contains(text, markOpen(name)) || strings.Contains(text, "# >>> go-anything: "+name) {
 		// Already on: enabling twice must not add a second block.
 		return path, nil
 	}
@@ -153,12 +170,16 @@ func IsOn(crateDir, unit, crate string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return strings.Contains(string(raw), markOpen(crateName)), nil
+	text := string(raw)
+	return strings.Contains(text, markOpen(crateName)) || strings.Contains(text, "# >>> go-anything: "+crateName), nil
 }
 
 // render builds the block. Everything it needs comes from the caller, so the block is the same on every
 // run: a stable block is one `disable` can find and a diff can ignore.
 func render(opts Options, names []string, rel string, original string, name string) string {
+	if strings.HasSuffix(opts.Unit, ".rb") {
+		return renderRuby(opts, names, rel, name)
+	}
 	var b strings.Builder
 	// The marker names the crate folder, not its import path: short enough to read in a diff.
 	b.WriteString(markOpen(name) + "\n")
@@ -209,6 +230,11 @@ func remove(text, crate string) (string, bool) {
 func removeChecked(text, crate string) (string, bool, bool) {
 	open := markOpen(crate)
 	close := markClose(crate)
+	if strings.Contains(text, "# >>> go-anything: "+crate) {
+		// The Ruby block says the same thing in that language's comment.
+		open = "# >>> go-anything: " + crate
+		close = "# <<< go-anything: " + crate
+	}
 	start := strings.Index(text, open)
 	if start < 0 {
 		return text, false, false
@@ -344,3 +370,53 @@ func readLoosened(crateDir, unitPath string) []string {
 }
 
 func clearLoosened(crateDir, unitPath string) { os.Remove(loosenedPath(crateDir, unitPath)) }
+
+// renderRuby writes the block for a Ruby unit: require the wrapper, reopen the owner, redefine each function.
+//
+// Ruby lets a module or a class be reopened and a method redefined, so the block can live at the end of the
+// file and `disable` can lift it out byte for byte. A top-level `def` is a private method of Object, which is
+// reopened the same way.
+func renderRuby(opts Options, names []string, rel, name string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "# >>> go-anything: %s is on. `go-anything disable` removes this block.\n", name)
+	b.WriteString("# The original below is unchanged; every call now goes to the Go port over the stdio bridge.\n")
+	fmt.Fprintf(&b, "require_relative %q\n", rel+"/port")
+	owners := map[string][]string{}
+	for _, export := range opts.Owners {
+		owners[export.Owner] = append(owners[export.Owner], export.Name)
+	}
+	if len(owners) == 0 {
+		owners[""] = names
+	}
+	for _, owner := range sortedKeys(owners) {
+		if owner == "" {
+			b.WriteString("class Object\n")
+		} else {
+			fmt.Fprintf(&b, "module %s\n  class << self\n", owner)
+		}
+		for _, fn := range owners[owner] {
+			if owner == "" {
+				fmt.Fprintf(&b, "  def %s(*args)\n    GoPort.call(%q, *args)\n  end\n  private :%s\n", fn, fn, fn)
+			} else {
+				fmt.Fprintf(&b, "    def %s(*args)\n      GoPort.call(%q, *args)\n    end\n", fn, fn)
+			}
+		}
+		if owner == "" {
+			b.WriteString("end\n")
+		} else {
+			b.WriteString("  end\nend\n")
+		}
+	}
+	fmt.Fprintf(&b, "# <<< go-anything: %s\n", name)
+	return b.String()
+}
+
+// sortedKeys answers a map's keys in order, so the block is stable across runs.
+func sortedKeys(m map[string][]string) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}

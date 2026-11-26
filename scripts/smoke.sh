@@ -13,7 +13,8 @@ esac
 SRC=${SRC:-testdata/sample}
 UNIT=${UNIT:-src/text.ts}
 WORK=$(mktemp -d)
-trap 'rm -rf "$WORK"' EXIT
+trap '[ -n "${KEEP:-}" ] || rm -rf "$WORK"' EXIT
+[ -n "${KEEP:-}" ] && echo "work dir: $WORK"
 
 pass=0; failed=0
 ok()   { printf 'ok    %-46s %s\n' "$1" "${2:-}"; pass=$((pass+1)); }
@@ -169,6 +170,59 @@ echo
 echo "== class methods, the shape a real library is made of =="
 try "ruby: module functions"     bash -c "mkdir -p $WORK/rbm && printf 'module U\n  def self.double(n)\n    n * 2\n  end\nend\n' > $WORK/rbm/u.rb && $GO analyze '$WORK/rbm' | grep -q 'U.double'"
 try "php: static methods"        bash -c "mkdir -p $WORK/phs && printf '<?php class U { public static function double(int \$n): int { return \$n * 2; } }' > $WORK/phs/u.php && $GO analyze '$WORK/phs' | grep -q 'U.double'"
+
+echo
+echo "== takeover in Ruby: enable, call, disable =="
+takeover_ruby() {
+  local d="$WORK/rbt" crate="$WORK/rbt/go-ports/u-go"
+  mkdir -p "$d" && cp /tmp/neg-rb-util.rb "$d/util.rb" 2>/dev/null || cat > "$d/util.rb" <<'RB'
+module Util
+  def self.double(n)
+    n * 2
+  end
+end
+RB
+  ( cd "$d" && printf 'module rbt\n\ngo 1.24\n' > go.mod
+    "$GO" scaffold --unit util.rb go-ports/u-go >/dev/null 2>&1
+    sed -i '' "s|example.com/u-go|rbt/go-ports/u-go|g" go-ports/u-go/*.go go-ports/u-go/go-anything.json go-ports/u-go/cmd/*/main.go 2>/dev/null
+    "$GO" record --unit util.rb go-ports/u-go >/dev/null 2>&1
+    cat > go-ports/u-go/port.go <<'GO'
+package port
+
+import "fmt"
+
+type Fn func(args []any) (any, error)
+
+var Registry = map[string]Fn{"double": double}
+
+func double(args []any) (any, error) {
+	switch v := args[0].(type) {
+	case float64:
+		return v * 2, nil
+	case string:
+		return v + v, nil
+	case nil:
+		return nil, fmt.Errorf("NoMethodError: undefined method `*' for nil:NilClass")
+	case bool:
+		return nil, fmt.Errorf("NoMethodError: undefined method `*' for %v:TrueClass", v)
+	case []any:
+		return append(append([]any{}, v...), v...), nil
+	}
+	return nil, fmt.Errorf("TypeError: double needs a number or a string")
+}
+GO
+    "$GO" bridge go-ports/u-go >/dev/null 2>&1
+    "$GO" gate go-ports/u-go >/dev/null 2>&1 || { echo "the port does not gate"; exit 1; }
+    "$GO" build go-ports/u-go >/dev/null 2>&1
+    cp util.rb util.before
+    "$GO" enable go-ports/u-go >/dev/null 2>&1 || { echo "enable failed"; exit 1; }
+    got=$(ruby -I. -e "require 'util'; puts Util.double(21)" 2>&1 | tail -1)
+    [ "$got" = "42" ] || { echo "the switched call answered $got"; exit 1; }
+    "$GO" disable go-ports/u-go >/dev/null 2>&1 || { echo "disable failed"; exit 1; }
+    cmp -s util.rb util.before || { echo "disable did not restore the file"; exit 1; }
+  )
+}
+try "ruby: enable, call through the port, disable" takeover_ruby
 
 echo
 echo "== agents =="
