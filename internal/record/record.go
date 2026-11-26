@@ -329,7 +329,14 @@ func Run(opts Options) (Summary, error) {
 		if err := build.Run(); err != nil {
 			return Summary{}, fmt.Errorf("compiling the unit and the recorder: %w", err)
 		}
-		stdout, err := exec.CommandContext(ctx, binary).Output()
+		run := exec.CommandContext(ctx, binary)
+		// The app host looks for a shared runtime and finds none: the SDK installed by brew keeps it under
+		// its own root, and DOTNET_ROOT is how the host is told. Without it the run dies with 131 and a
+		// sentence about installing .NET on a machine that has it.
+		if root := dotnetRoot(); root != "" {
+			run.Env = append(os.Environ(), "DOTNET_ROOT="+root)
+		}
+		stdout, err := run.Output()
 		if err != nil {
 			return Summary{}, fmt.Errorf("recording failed: %w", err)
 		}
@@ -378,6 +385,125 @@ func Run(opts Options) (Summary, error) {
 			return Summary{}, err
 		}
 		return summarise(list, unitPath, opts, work, throws)
+	case "powershell":
+		script := filepath.Join(work, "record.ps1")
+		if abs, err := filepath.Abs(unitPath); err == nil {
+			unitPath = abs
+		}
+		if abs, err := filepath.Abs(script); err == nil {
+			script = abs
+		}
+		if err := os.WriteFile(script, []byte(powershellDriver), 0o644); err != nil {
+			return Summary{}, err
+		}
+		cmd = exec.CommandContext(ctx, "pwsh", "-NoLogo", "-NoProfile", "-File", script,
+			unitPath, staged, planPath, extra, strings.Join(opts.Only, ","))
+	case "csharp":
+		// C# needs a project file as well as the sources: dotnet will not compile a bare .cs pair.
+		dir := filepath.Join(work, "csproj")
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return Summary{}, err
+		}
+		src, err := os.ReadFile(unitPath)
+		if err != nil {
+			return Summary{}, err
+		}
+		if err := os.WriteFile(filepath.Join(dir, "Unit.cs"), src, 0o644); err != nil {
+			return Summary{}, err
+		}
+		if err := os.WriteFile(filepath.Join(dir, "Recorder.cs"), []byte(csharpRecorder(plan, csClassName(opts.Unit.Files[0]))), 0o644); err != nil {
+			return Summary{}, err
+		}
+		proj := `<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <AssemblyName>recorder</AssemblyName>
+    <RootNamespace>recorder</RootNamespace>
+  </PropertyGroup>
+</Project>
+`
+		if err := os.WriteFile(filepath.Join(dir, "recorder.csproj"), []byte(proj), 0o644); err != nil {
+			return Summary{}, err
+		}
+		// -o must be absolute: dotnet resolves it against its own working directory, which is the project
+		// folder, so a relative output path landed inside csproj/ and the run found nothing to execute.
+		outDir, absErr := filepath.Abs(filepath.Join(work, "csbin"))
+		if absErr != nil {
+			return Summary{}, absErr
+		}
+		build := exec.CommandContext(ctx, "dotnet", "build", "--nologo", "-c", "Release", "-o", outDir)
+		build.Dir = dir
+		build.Stderr = os.Stderr
+		if err := build.Run(); err != nil {
+			return Summary{}, fmt.Errorf("compiling the unit and the recorder: %w", err)
+		}
+		// The binary has to be named by an absolute path: work/ is relative to where the tool was started,
+		// and exec resolves against the process's own directory.
+		binary, absErr := filepath.Abs(filepath.Join(work, "csbin", "recorder"))
+		if absErr != nil {
+			return Summary{}, absErr
+		}
+		run := exec.CommandContext(ctx, binary)
+		// The app host looks for a shared runtime and finds none: the SDK installed by brew keeps it under
+		// its own root, and DOTNET_ROOT is how the host is told. Without it the run dies with 131 and a
+		// sentence about installing .NET on a machine that has it.
+		if root := dotnetRoot(); root != "" {
+			run.Env = append(os.Environ(), "DOTNET_ROOT="+root)
+		}
+		stdout, err := run.Output()
+		if err != nil {
+			return Summary{}, fmt.Errorf("recording failed: %w", err)
+		}
+		if err := os.WriteFile(staged, stdout, 0o644); err != nil {
+			return Summary{}, err
+		}
+		if err := os.Rename(staged, out); err != nil {
+			return Summary{}, err
+		}
+		list, err := cases.Read(out)
+		if err != nil {
+			return Summary{}, err
+		}
+		return summarise(list, unitPath, opts, work, throws)
+	case "kotlin":
+		// Kotlin is compiled: the recorder is a source file beside the unit, and kotlinc builds both.
+		recorder := filepath.Join(work, "Recorder.kt")
+		if err := os.WriteFile(recorder, []byte(kotlinRecorder(plan, "")), 0o644); err != nil {
+			return Summary{}, err
+		}
+		classes := filepath.Join(work, "kclasses")
+		if err := os.MkdirAll(classes, 0o755); err != nil {
+			return Summary{}, err
+		}
+		build := exec.CommandContext(ctx, "kotlinc", unitPath, recorder, "-include-runtime", "-d", filepath.Join(work, "recorder.jar"))
+		build.Stderr = os.Stderr
+		if err := build.Run(); err != nil {
+			return Summary{}, fmt.Errorf("compiling the unit and the recorder: %w", err)
+		}
+		stdout, err := exec.CommandContext(ctx, "java", "-jar", filepath.Join(work, "recorder.jar")).Output()
+		if err != nil {
+			return Summary{}, fmt.Errorf("recording failed: %w", err)
+		}
+		if err := os.WriteFile(staged, stdout, 0o644); err != nil {
+			return Summary{}, err
+		}
+		if err := os.Rename(staged, out); err != nil {
+			return Summary{}, err
+		}
+		list, err := cases.Read(out)
+		if err != nil {
+			return Summary{}, err
+		}
+		return summarise(list, unitPath, opts, work, throws)
+	case "php":
+		script := filepath.Join(work, "record.php")
+		if err := os.WriteFile(script, []byte(phpDriver), 0o644); err != nil {
+			return Summary{}, err
+		}
+		cmd = exec.CommandContext(ctx, "php", script, unitPath, staged, planPath, extra,
+			strings.Join(opts.Only, ","))
 	case "ruby":
 		rb := filepath.Join(work, "record.rb")
 		if err := os.WriteFile(rb, []byte(rubyDriver), 0o644); err != nil {
@@ -433,6 +559,37 @@ func summarise(list []cases.Case, unitPath string, opts Options, work string, th
 		}
 	}
 	return s, nil
+}
+
+// dotnetRoot finds the SDK the app host needs, from the dotnet on PATH.
+func dotnetRoot() string {
+	out, err := exec.Command("dotnet", "--info").Output()
+	if err == nil {
+		for _, line := range strings.Split(string(out), "\n") {
+			if i := strings.Index(line, "Base Path:"); i >= 0 {
+				base := strings.TrimSpace(line[i+len("Base Path:"):])
+				// <root>/sdk/<version> — the root is two levels up (the shared host lives in <root>/host).
+				root := filepath.Dir(filepath.Dir(base))
+				if root != "" {
+					return root
+				}
+			}
+		}
+	}
+	if path, err := exec.LookPath("dotnet"); err == nil {
+		resolved, err := filepath.EvalSymlinks(path)
+		if err == nil {
+			return filepath.Dir(filepath.Dir(resolved))
+		}
+	}
+	return ""
+}
+
+// csClassName is the class a C# unit declares: the file's own name by convention, and the last one named in
+// the file when it differs.
+func csClassName(file string) string {
+	base := filepath.Base(file)
+	return strings.TrimSuffix(base, filepath.Ext(base))
 }
 
 // javaClassName is the public class in a .java file, which is the file's own name by convention.
@@ -679,6 +836,14 @@ func runtimeFor(file string) (string, error) {
 		return "ruby", nil
 	case strings.HasSuffix(file, ".java"):
 		return "java", nil
+	case strings.HasSuffix(file, ".php"):
+		return "php", nil
+	case strings.HasSuffix(file, ".kt"), strings.HasSuffix(file, ".kts"):
+		return "kotlin", nil
+	case strings.HasSuffix(file, ".cs"):
+		return "csharp", nil
+	case strings.HasSuffix(file, ".ps1"), strings.HasSuffix(file, ".psm1"):
+		return "powershell", nil
 	case strings.HasSuffix(file, ".c"):
 		return "c", nil
 	case strings.HasSuffix(file, ".cc"), strings.HasSuffix(file, ".cpp"), strings.HasSuffix(file, ".cxx"),

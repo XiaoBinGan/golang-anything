@@ -17,6 +17,7 @@ import (
 	"unicode/utf16"
 
 	"github.com/xiaobingan/go-anything/internal/cases"
+	"github.com/xiaobingan/go-anything/internal/toolchain"
 	"github.com/xiaobingan/go-anything/internal/wire"
 )
 
@@ -405,7 +406,7 @@ func (o Outcome) Markdown() string {
 // goHint adds the fix for the one toolchain problem this repository's own machine had: a GOROOT from
 // one Go installation with a binary from another.
 func goHint(err error) string {
-	out, _ := exec.Command("go", "env", "GOROOT").Output()
+	out, _ := exec.Command(toolchain.Go(), "env", "GOROOT").Output()
 	root := strings.TrimSpace(string(out))
 	if root == "" {
 		return ""
@@ -431,11 +432,11 @@ func driverCommand(crateDir string) (*exec.Cmd, bool) {
 		}
 		if stale, _ := sourcesNewerThan(crateDir, info.ModTime()); stale {
 			// Rebuild in place: the same path, so the next call runs the new binary.
-			return exec.Command("go", "build", "-o", path, "./cmd/godriver"), true
+			return exec.Command(toolchain.Go(), "build", "-o", path, "./cmd/godriver"), true
 		}
 		return exec.Command(path), false
 	}
-	return exec.Command("go", "run", "./cmd/godriver"), false
+	return exec.Command(toolchain.Go(), "run", "./cmd/godriver"), false
 }
 
 // sourcesNewerThan reports whether any .go file in the crate changed after the driver was built.

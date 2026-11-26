@@ -23,6 +23,8 @@ import (
 	"unicode"
 
 	"github.com/xiaobingan/go-anything/internal/jswire"
+
+	"github.com/xiaobingan/go-anything/internal/toolchain"
 )
 
 // Scratch is the layout both sides agree on: the caller writes the name and arguments at the base,
@@ -381,7 +383,7 @@ func Run(opts Options) ([]string, error) {
 	}
 
 	out := filepath.Join(dir, "port.wasm")
-	build := exec.Command("go", "build", "-buildmode=c-shared", "-o", out, "./cmd/portwasm")
+	build := exec.Command(toolchain.Go(), "build", "-buildmode=c-shared", "-o", out, "./cmd/portwasm")
 	build.Dir = dir
 	build.Env = append(os.Environ(), "GOOS=wasip1", "GOARCH=wasm", "CGO_ENABLED=0")
 	build.Stderr = os.Stderr

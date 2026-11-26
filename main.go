@@ -37,6 +37,7 @@ import (
 	"github.com/xiaobingan/go-anything/internal/scaffold"
 	"github.com/xiaobingan/go-anything/internal/shadow"
 	"github.com/xiaobingan/go-anything/internal/switched"
+	"github.com/xiaobingan/go-anything/internal/toolchain"
 	"github.com/xiaobingan/go-anything/internal/ts"
 	"github.com/xiaobingan/go-anything/internal/wasmbridge"
 )
@@ -458,7 +459,7 @@ func runBuild(args []string) error {
 	if err != nil {
 		return err
 	}
-	cmd := exec.Command("go", "build", "-o", out, "./cmd/portctl")
+	cmd := exec.Command(toolchain.Go(), "build", "-o", out, "./cmd/portctl")
 	cmd.Dir = dir
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr

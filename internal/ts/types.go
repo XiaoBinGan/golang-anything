@@ -73,6 +73,11 @@ const (
 	// step is what differs.
 	C   Lang = "c"
 	Cpp Lang = "cpp"
+	// The four that arrived last: each records through its own runtime (php, kotlinc, dotnet, pwsh).
+	Php        Lang = "php"
+	Kotlin     Lang = "kotlin"
+	CSharp     Lang = "csharp"
+	PowerShell Lang = "powershell"
 )
 
 // LangOf picks a grammar from a file name, and reports whether it knows the language.
@@ -95,6 +100,14 @@ func LangOf(path string) (Lang, bool) {
 	case strings.HasSuffix(path, ".cc"), strings.HasSuffix(path, ".cpp"), strings.HasSuffix(path, ".cxx"),
 		strings.HasSuffix(path, ".hpp"), strings.HasSuffix(path, ".hh"):
 		return Cpp, true
+	case strings.HasSuffix(path, ".php"):
+		return Php, true
+	case strings.HasSuffix(path, ".kt"), strings.HasSuffix(path, ".kts"):
+		return Kotlin, true
+	case strings.HasSuffix(path, ".cs"):
+		return CSharp, true
+	case strings.HasSuffix(path, ".ps1"), strings.HasSuffix(path, ".psm1"):
+		return PowerShell, true
 	}
 	return "", false
 }

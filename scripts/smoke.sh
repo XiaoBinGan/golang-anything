@@ -139,7 +139,7 @@ try "record a .py unit"         "$GO" record --unit mathx.py "$WORK/pyroot/go-po
 try "record caught the raise"   bash -c "grep -q 'division by zero' '$WORK/pyroot/go-ports/mathx-go/cases.jsonl'"
 # It must refuse with the reason, not fail with node's error: the check is that the sentence is there.
 try "fuzz says why not yet"     bash -c "$GO fuzz --count 5 '$WORK/pyroot/go-ports/mathx-go' 2>&1 | grep -q 'Python runner'"
-try "analyze names what it cannot read" bash -c "mkdir -p $WORK/kt0 && echo 'class A {}' > $WORK/kt0/A.kt && $GO analyze '$WORK/kt0' | grep -q 'does not read'"
+try "analyze names what it cannot read" bash -c "mkdir -p $WORK/sw && echo 'func f() {}' > $WORK/sw/A.swift && $GO analyze '$WORK/sw' | grep -q 'does not read'"
 
 echo
 echo "== the other languages: one unit each, end to end =="
@@ -151,7 +151,14 @@ try "c: analyze finds it"        bash -c "mkdir -p $WORK/cc && printf 'int twice
 try "c: record runs the original" bash -c "cd '$WORK/cc' && printf 'module cc\\n\\ngo 1.24\\n' > go.mod && $GO scaffold --unit m.c go-ports/m-go >/dev/null 2>&1 && $GO record --unit m.c go-ports/m-go 2>&1 | grep -q 'cases'"
 try "c++: analyze finds it"      bash -c "mkdir -p $WORK/cx && printf 'int twice(int n) { return n * 2; }\n' > $WORK/cx/m.cpp && $GO analyze '$WORK/cx' | grep -q cpp"
 try "c++: record runs the original" bash -c "cd '$WORK/cx' && printf 'module cx\\n\\ngo 1.24\\n' > go.mod && $GO scaffold --unit m.cpp go-ports/m-go >/dev/null 2>&1 && $GO record --unit m.cpp go-ports/m-go 2>&1 | grep -q 'cases'"
-try "kotlin is named as unread"  bash -c "mkdir -p $WORK/kt && echo 'fun twice(n: Int) = n * 2' > $WORK/kt/M.kt && $GO analyze '$WORK/kt' | grep -q 'does not read'"
+try "swift is named as unread"   bash -c "mkdir -p $WORK/sw2 && echo 'func f() {}' > $WORK/sw2/A.swift && $GO analyze '$WORK/sw2' | grep -q 'does not read'"
+
+echo
+echo "== the four that arrived last =="
+try "php: analyze + record"      bash -c "mkdir -p $WORK/ph && printf '<?php function twice(int \$n): int { return \$n * 2; }' > $WORK/ph/m.php && $GO analyze '$WORK/ph' | grep -q '(php)' && cd '$WORK/ph' && printf 'module ph\\n\\ngo 1.24\\n' > go.mod && $GO scaffold --unit m.php go-ports/m-go >/dev/null 2>&1 && $GO record --unit m.php go-ports/m-go 2>&1 | grep -q 'Recorded'"
+try "kotlin: analyze + record"   bash -c "mkdir -p $WORK/kl && printf 'fun twice(n: Int): Int = n * 2\n' > $WORK/kl/M.kt && $GO analyze '$WORK/kl' | grep -q '(kotlin)' && cd '$WORK/kl' && printf 'module kl\\n\\ngo 1.24\\n' > go.mod && $GO scaffold --unit M.kt go-ports/m-go >/dev/null 2>&1 && $GO record --unit M.kt go-ports/m-go 2>&1 | grep -q 'Recorded'"
+try "csharp: analyze + record"   bash -c "mkdir -p $WORK/cs0 && printf 'public static class M {\n  public static int Twice(int n) { return n * 2; }\n}\n' > $WORK/cs0/M.cs && $GO analyze '$WORK/cs0' | grep -q '(csharp)' && cd '$WORK/cs0' && printf 'module cs0\\n\\ngo 1.24\\n' > go.mod && $GO scaffold --unit M.cs go-ports/m-go >/dev/null 2>&1 && $GO record --unit M.cs go-ports/m-go 2>&1 | grep -q 'Recorded'"
+try "powershell: analyze + record" bash -c "mkdir -p $WORK/ps0 && printf 'function Get-Twice {\n  param([int]\$N)\n  return \$N * 2\n}\n' > $WORK/ps0/M.ps1 && $GO analyze '$WORK/ps0' | grep -q '(powershell)' && cd '$WORK/ps0' && printf 'module ps0\\n\\ngo 1.24\\n' > go.mod && $GO scaffold --unit M.ps1 go-ports/m-go >/dev/null 2>&1 && $GO record --unit M.ps1 go-ports/m-go 2>&1 | grep -q 'Recorded'"
 
 echo
 echo "== agents =="

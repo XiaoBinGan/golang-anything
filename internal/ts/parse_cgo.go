@@ -13,8 +13,11 @@ import (
 	sitter "github.com/smacker/go-tree-sitter"
 	"github.com/smacker/go-tree-sitter/c"
 	"github.com/smacker/go-tree-sitter/cpp"
+	"github.com/smacker/go-tree-sitter/csharp"
 	"github.com/smacker/go-tree-sitter/java"
 	"github.com/smacker/go-tree-sitter/javascript"
+	"github.com/smacker/go-tree-sitter/kotlin"
+	"github.com/smacker/go-tree-sitter/php"
 	"github.com/smacker/go-tree-sitter/python"
 	"github.com/smacker/go-tree-sitter/ruby"
 	"github.com/smacker/go-tree-sitter/typescript/tsx"
@@ -37,6 +40,16 @@ func language(l Lang) *sitter.Language {
 		return c.GetLanguage()
 	case Cpp:
 		return cpp.GetLanguage()
+	case Php:
+		return php.GetLanguage()
+	case Kotlin:
+		return kotlin.GetLanguage()
+	case CSharp:
+		return csharp.GetLanguage()
+	case PowerShell:
+		// The powershell grammar lives in another module; until it is a dependency, a .ps1 file is named
+		// as unread rather than half-read.
+		return nil
 	default:
 		return typescript.GetLanguage()
 	}
@@ -61,8 +74,13 @@ func Parse(path string) (*File, error) {
 
 // ParseSource parses bytes, so tests do not need files.
 func ParseSource(src []byte, lang Lang, path string) (*File, error) {
+	grammar := language(lang)
+	if grammar == nil {
+		// A language with a scanner instead of a grammar takes that path before this point.
+		return ScanPowerShell(src, path), nil
+	}
 	p := sitter.NewParser()
-	p.SetLanguage(language(lang))
+	p.SetLanguage(grammar)
 	tree, err := p.ParseCtx(context.Background(), nil, src)
 	if err != nil {
 		return nil, err
@@ -80,6 +98,20 @@ func ParseSource(src []byte, lang Lang, path string) (*File, error) {
 	}
 
 	root := tree.RootNode()
+	if lang == PowerShell {
+		// No grammar: the scanner in powershell.go reads the shapes PowerShell code uses.
+		scanned := ScanPowerShell(src, path)
+		scanned.Imports = out.Imports
+		return scanned, nil
+	}
+	if lang == Php {
+		out.Fns = append(out.Fns, phpExports(root, text)...)
+		return out, nil
+	}
+	if lang == Kotlin || lang == CSharp {
+		out.Fns = append(out.Fns, typedExports(root, text)...)
+		return out, nil
+	}
 	if lang == C || lang == Cpp {
 		out.Fns = append(out.Fns, cExports(root, text)...)
 		return out, nil
@@ -575,4 +607,207 @@ func hasPointer(n *sitter.Node) bool {
 		}
 	}
 	return n.Type() == "pointer_expression"
+}
+
+// phpExports reads the free functions of a PHP file: those are the ones a bridge can call.
+func phpExports(root *sitter.Node, text func(*sitter.Node) string) []Fn {
+	var out []Fn
+	var walk func(n *sitter.Node, inside bool)
+	walk = func(n *sitter.Node, inside bool) {
+		for i := 0; i < int(n.NamedChildCount()); i++ {
+			child := n.NamedChild(i)
+			switch child.Type() {
+			case "function_definition":
+				if inside {
+					continue
+				}
+				fn := Fn{Name: text(child.ChildByFieldName("name")),
+					Line: int(child.StartPoint().Row) + 1, EndLine: int(child.EndPoint().Row) + 1, Params: []Param{}}
+				if typ := child.ChildByFieldName("return_type"); typ != nil {
+					fn.Returns = cDialect(text(typ))
+				}
+				if params := child.ChildByFieldName("parameters"); params != nil {
+					for j := 0; j < int(params.NamedChildCount()); j++ {
+						p := params.NamedChild(j)
+						if p.Type() != "simple_parameter" {
+							continue
+						}
+						typ := "any"
+						if t := p.ChildByFieldName("type"); t != nil {
+							typ = cDialect(text(t))
+						}
+						fn.Params = append(fn.Params, Param{Name: text(p.ChildByFieldName("name")), Type: typ})
+					}
+				}
+				walkRaises(child, func(line int) { fn.ThrowLines = append(fn.ThrowLines, line) })
+				out = append(out, fn)
+			case "class_declaration", "interface_declaration", "trait_declaration":
+				walk(child, true)
+			case "declaration_list":
+				walk(child, inside)
+			}
+		}
+	}
+	walk(root, false)
+	return out
+}
+
+// typedExports reads Kotlin and C# functions: top-level `fun` for Kotlin, public static methods for C#.
+func typedExports(root *sitter.Node, text func(*sitter.Node) string) []Fn {
+	var out []Fn
+	var walk func(n *sitter.Node, className string)
+	walk = func(n *sitter.Node, className string) {
+		for i := 0; i < int(n.NamedChildCount()); i++ {
+			child := n.NamedChild(i)
+			switch child.Type() {
+			case "function_declaration":
+				// Kotlin: name and parameters are fields, the return type is a field called "type".
+				name := kotlinName(child, text)
+				if name == "" || strings.HasPrefix(name, "_") || name == "main" {
+					continue
+				}
+				fn := Fn{Name: name, Line: int(child.StartPoint().Row) + 1, EndLine: int(child.EndPoint().Row) + 1, Params: []Param{}}
+				if className != "" {
+					fn.Method = true
+					fn.Receiver = className
+				}
+				if typ := kotlinField(child, text, "user_type", "nullable_type"); typ != "" {
+					fn.Returns = ktDialect(typ)
+				}
+				if params := kotlinParams(child); params != nil {
+					for j := 0; j < int(params.NamedChildCount()); j++ {
+						p := params.NamedChild(j)
+						if p.Type() != "parameter" && p.Type() != "class_parameter" {
+							continue
+						}
+						name, typ := "", "any"
+						for k := 0; k < int(p.NamedChildCount()); k++ {
+							c := p.NamedChild(k)
+							switch c.Type() {
+							case "simple_identifier":
+								if name == "" {
+									name = text(c)
+								}
+							case "user_type", "nullable_type":
+								typ = ktDialect(text(c))
+							}
+						}
+						fn.Params = append(fn.Params, Param{Name: name, Type: typ})
+					}
+				}
+				walkRaises(child, func(line int) { fn.ThrowLines = append(fn.ThrowLines, line) })
+				out = append(out, fn)
+			case "method_declaration":
+				name := text(child.ChildByFieldName("name"))
+				if name == "" || className == "" || name == "Main" {
+					continue
+				}
+				mods := ""
+				for j := 0; j < int(child.NamedChildCount()); j++ {
+					if c := child.NamedChild(j); c.Type() == "modifier" || c.Type() == "modifiers" {
+						mods += text(c) + " "
+					}
+				}
+				if !strings.Contains(mods, "static") || !strings.Contains(mods, "public") {
+					continue
+				}
+				fn := Fn{Name: name, Method: true, Receiver: className,
+					Line: int(child.StartPoint().Row) + 1, EndLine: int(child.EndPoint().Row) + 1, Params: []Param{}}
+				if typ := child.ChildByFieldName("returns"); typ != nil {
+					fn.Returns = csDialect(text(typ))
+				}
+				if params := child.ChildByFieldName("parameters"); params != nil {
+					for j := 0; j < int(params.NamedChildCount()); j++ {
+						p := params.NamedChild(j)
+						if p.Type() != "parameter" {
+							continue
+						}
+						typ := "any"
+						if t := p.ChildByFieldName("type"); t != nil {
+							typ = csDialect(text(t))
+						}
+						fn.Params = append(fn.Params, Param{Name: text(p.ChildByFieldName("name")), Type: typ})
+					}
+				}
+				walkRaises(child, func(line int) { fn.ThrowLines = append(fn.ThrowLines, line) })
+				out = append(out, fn)
+			case "class_declaration":
+				name := text(child.ChildByFieldName("name"))
+				for j := 0; j < int(child.NamedChildCount()); j++ {
+					if body := child.NamedChild(j); body.Type() == "class_body" || body.Type() == "declaration_list" {
+						walk(body, name)
+					}
+				}
+			}
+		}
+	}
+	walk(root, "")
+	return out
+}
+
+// ktDialect narrows a Kotlin type.
+func ktDialect(t string) string {
+	switch strings.TrimSpace(t) {
+	case "Int", "Long", "Short":
+		return "int"
+	case "Double", "Float":
+		return "float"
+	case "Boolean":
+		return "boolean"
+	case "String", "CharSequence":
+		return "String"
+	case "Char":
+		return "char"
+	}
+	return "any"
+}
+
+// csDialect narrows a C# type.
+func csDialect(t string) string {
+	switch strings.TrimSpace(t) {
+	case "int", "long", "short", "Int32", "Int64":
+		return "int"
+	case "double", "float", "decimal", "Double", "Single":
+		return "float"
+	case "bool", "Boolean":
+		return "boolean"
+	case "string", "String":
+		return "String"
+	case "char", "Char":
+		return "char"
+	}
+	return "any"
+}
+
+// kotlinName reads the simple identifier a Kotlin function is declared with.
+func kotlinName(n *sitter.Node, text func(*sitter.Node) string) string {
+	for i := 0; i < int(n.NamedChildCount()); i++ {
+		if c := n.NamedChild(i); c.Type() == "simple_identifier" {
+			return text(c)
+		}
+	}
+	return ""
+}
+
+// kotlinField answers the text of the first child of one of the given types.
+func kotlinField(n *sitter.Node, text func(*sitter.Node) string, types ...string) string {
+	for i := 0; i < int(n.NamedChildCount()); i++ {
+		c := n.NamedChild(i)
+		for _, want := range types {
+			if c.Type() == want {
+				return text(c)
+			}
+		}
+	}
+	return ""
+}
+
+// kotlinParams finds the parameter list of a Kotlin function.
+func kotlinParams(n *sitter.Node) *sitter.Node {
+	for i := 0; i < int(n.NamedChildCount()); i++ {
+		if c := n.NamedChild(i); c.Type() == "function_value_parameters" {
+			return c
+		}
+	}
+	return nil
 }

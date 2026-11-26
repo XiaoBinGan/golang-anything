@@ -14,6 +14,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/xiaobingan/go-anything/internal/toolchain"
 )
 
 // Options is one fast-bridge build.
@@ -493,7 +495,7 @@ func Run(opts Options) ([]string, error) {
 		buildArgs = append(buildArgs, "-ldflags=-extldflags=-Wl,-headerpad_max_install_names")
 	}
 	buildArgs = append(buildArgs, "-o", libPath, "./cmd/portlib")
-	build := exec.Command("go", buildArgs...)
+	build := exec.Command(toolchain.Go(), buildArgs...)
 	build.Dir = dir
 	build.Stderr = os.Stderr
 	if err := build.Run(); err != nil {

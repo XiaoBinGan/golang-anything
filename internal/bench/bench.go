@@ -19,6 +19,8 @@ import (
 	"github.com/xiaobingan/go-anything/internal/cases"
 	"github.com/xiaobingan/go-anything/internal/nodeflags"
 	"github.com/xiaobingan/go-anything/internal/record"
+
+	"github.com/xiaobingan/go-anything/internal/toolchain"
 )
 
 // Options is one bench run.
@@ -347,7 +349,7 @@ func Run(opts Options) (Result, error) {
 		return Result{}, err
 	}
 	portOut := filepath.Join(work, "bench-port.json")
-	run := exec.Command("go", "run", "./cmd/gobench", casesPath, portOut,
+	run := exec.Command(toolchain.Go(), "run", "./cmd/gobench", casesPath, portOut,
 		fmt.Sprint(minMS), fmt.Sprint(repeat))
 	run.Dir = dir
 	run.Stderr = os.Stderr

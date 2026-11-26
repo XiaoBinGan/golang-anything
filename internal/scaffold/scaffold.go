@@ -54,7 +54,7 @@ type Fn func(args []any) (any, error)
 var Registry = map[string]Fn{
 `, opts.Unit.ID, "cases.jsonl")
 	for _, e := range opts.Unit.Exports {
-		fmt.Fprintf(&buf, "\t%q: %s,\n", e.Name, e.Name)
+		fmt.Fprintf(&buf, "\t%q: %s,\n", e.Name, goName(e.Name))
 	}
 	buf.WriteString("}\n\n")
 	for _, e := range opts.Unit.Exports {
@@ -64,7 +64,7 @@ func %s(args []any) (any, error) {
 	return nil, fmt.Errorf("stays in the original: %s")
 }
 
-`, e.Name, e.Blocked, e.Name, e.Blocked)
+`, goName(e.Name), e.Blocked, goName(e.Name), e.Blocked)
 			continue
 		}
 		fmt.Fprintf(&buf, `// %s ports %s from %s (line %d, %d parameters).
@@ -73,7 +73,7 @@ func %s(args []any) (any, error) {
 	return nil, fmt.Errorf("not implemented: port %s")
 }
 
-`, e.Name, e.Name, opts.Unit.ID, e.Line, len(e.Params), signature(e), e.Name, e.Name)
+`, goName(e.Name), e.Name, opts.Unit.ID, e.Line, len(e.Params), signature(e), goName(e.Name), e.Name)
 	}
 	formatted, err := format.Source(buf.Bytes())
 	if err != nil {
@@ -387,4 +387,62 @@ func exportList(exports []analyze.Export) string {
 func fileExists(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && info.Mode().IsRegular()
+}
+
+// goName spells a unit's export as a Go identifier: `Get-Thing` cannot be a function name, and a name that
+// starts with a digit cannot be one either. The original name stays the registry key and stays in the doc
+// comment, so nothing is lost.
+func goName(name string) string {
+	// A name that is already a Go identifier stays as it is: `count` is called by that name from every
+	// generated wrapper, and capitalising it produced `Count` in the stub and `count` at the call site.
+	if isGoIdent(name) {
+		return name
+	}
+	var b strings.Builder
+	upper := true
+	for _, r := range name {
+		switch {
+		case r == '-' || r == '.' || r == ' ' || r == ':' || r == '/':
+			upper = true
+		case (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_':
+			if upper && r >= 'a' && r <= 'z' {
+				b.WriteRune(r - 32)
+			} else {
+				b.WriteRune(r)
+			}
+			upper = false
+		default:
+			// Anything else is a rune Go does not allow in an identifier: drop it and let the next
+			// character start a new word.
+			upper = true
+		}
+	}
+	out := b.String()
+	if out == "" {
+		return "portFn"
+	}
+	if out[0] >= '0' && out[0] <= '9' {
+		return "port" + out
+	}
+	return out
+}
+
+// isGoIdent reports whether a name is already a legal Go identifier.
+func isGoIdent(name string) bool {
+	if name == "" {
+		return false
+	}
+	for i, r := range name {
+		switch {
+		case r == '_':
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z':
+		case r >= '0' && r <= '9':
+			if i == 0 {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
 }

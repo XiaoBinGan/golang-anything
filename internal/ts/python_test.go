@@ -61,8 +61,9 @@ func TestLangOfKnowsWhatItCannotRead(t *testing.T) {
 	if lang, ok := LangOf("Main.java"); !ok || lang != Java {
 		t.Errorf("Main.java: %v %v", lang, ok)
 	}
-	if _, ok := LangOf("Main.kt"); ok {
-		t.Error("LangOf claims to read Kotlin")
+	// Kotlin is read now too. Swift is not.
+	if _, ok := LangOf("Main.swift"); ok {
+		t.Error("LangOf claims to read Swift")
 	}
 	if lang, ok := LangOf("app.py"); !ok || lang != Python {
 		t.Errorf("app.py: %v %v", lang, ok)
