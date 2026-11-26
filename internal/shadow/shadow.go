@@ -45,7 +45,7 @@ let warned = 0
 
 // canon sorts keys and spells the values JSON cannot carry, so the two answers compare as values. The
 // text comes from internal/jswire at write time: a copy here is the drift this project keeps paying for.
-const canon = %JSWIRE_CANON%
+%JSWIRE_CANON%
 
 const note = (fn, args, want, got, why) => {
   counters.mismatches++
