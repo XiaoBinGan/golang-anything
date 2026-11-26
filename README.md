@@ -1297,3 +1297,29 @@ VERDICT wasm faster than napi: 1.49x                     # rc=0
 这三条能说明为什么要有这个脚本：**文档里的 ✅ 和「我会用」是两件事**。
 
 负向对照（第 19 条）：把引擎移走，`smoke` 必须失败而不是靠前端那两条答案蒙混过关。
+
+## 六种语言，各有一次真实运输（第 62 轮）
+
+`PARITY.md` 里那张语言表现在有实测数字。每种语言走同一条链：`analyze → scaffold → record → 手写 port.go →
+gate → check → bench`，而且**录制器是唯一按语言写的部分**——之后的驱动、桥、`gate`/`diff`/`check` 读
+`cases.jsonl`，不知道答案从哪来。
+
+| 语言 | 录制器做什么 | 用例 | gate | check | bench |
+| --- | --- | ---: | --- | --- | --- |
+| TypeScript | `node` + 生成的 mjs | 328 | ✅ | 656/656 | 快 1.5–3.5x |
+| Python | `python3` import 模块 | 116 | ✅ | 181/181 | 快 1.31x |
+| Ruby | `ruby` load 后 `send` | 114 | ✅ | 170/170 | **快 13.3x** |
+| Java | 生成 `Recorder.java`，`javac` 编一次 | 96 | ✅ | 185/185 | 快 2.21x |
+| C++ | unity build（include 原文件），`clang++` | 96 | ✅ | 185/185 | — |
+| C | 同上，`clang` | 91 | ✅ | 182/182 | 慢 6.5x（原式 2 ns） |
+
+每个录制器都踩到该语言的一个坑，而且是**gate 抓的**：
+
+* **Ruby**：顶层 `def` 是 `Object` 的**私有方法**，`method_defined?` 是 false——只有 `send` 能调到；
+* **Java**：标准库没有 JSON，所以请法不能传 JSON 值，只能生成字面量源码；`int` 参数喂 `true` 直接编译失败，
+  这才发现 `dialectType` 不认识静态语言的类型名；
+* **C**：`char *` 是**可变缓冲区**，给它传字符串字面量是未定义行为——录制器真这么干过，把一次截断记成了 `5`。
+  现在这类参数被 `analyze` 明确拒绝：`takes a mutable buffer: the effect is the buffer`。
+
+Kotlin / C# / PHP / PowerShell 本机没有运行时，无法给出测试数据，因此**不声称支持**：`analyze` 会数出
+「这里有 N 个 .kt 我读不了」。
