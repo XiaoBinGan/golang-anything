@@ -123,6 +123,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -183,20 +184,26 @@ func main() {
 				unported++
 			}
 		}
+		// Per round, then the median: one scheduling hiccup inside a single time.Now() around the whole loop
+		// moved the answer by 40% (5 ns against 7 ns on the same crate, five runs), and a mean keeps that
+		// hiccup. The median discards it, which is the difference between "this crate is 3 ns" and "this
+		// crate was 3 ns on the run that did not get interrupted".
 		started := time.Now()
-		rounds := 0
+		var samples []float64
 		for {
+			roundStart := time.Now()
 			for i := 0; i < repeat; i++ {
 				for _, a := range args {
 					_, _ = f(a)
 				}
 			}
-			rounds++
-			if time.Since(started) >= time.Duration(minMs)*time.Millisecond || rounds >= 10000 {
+			samples = append(samples, float64(time.Since(roundStart).Nanoseconds())/float64(repeat*len(args)))
+			if time.Since(started) >= time.Duration(minMs)*time.Millisecond || len(samples) >= 200000 {
 				break
 			}
 		}
-		per := float64(time.Since(started).Nanoseconds()) / float64(rounds*repeat*len(args))
+		sort.Float64s(samples)
+		per := samples[len(samples)/2]
 		rows = append(rows, row{Name: fn, Cases: len(args), NS: per, Unported: unported})
 	}
 	b, _ := json.Marshal(rows)
