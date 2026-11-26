@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	port "github.com/XiaoBinGan/golang-anything/testdata/realworld/go-ports/shellQuote-go"
@@ -16,9 +17,10 @@ type testCase struct {
 }
 
 type row struct {
-	Name  string  `json:"name"`
-	Cases int     `json:"cases"`
-	NS    float64 `json:"ns"`
+	Name     string  `json:"name"`
+	Cases    int     `json:"cases"`
+	NS       float64 `json:"ns"`
+	Unported int     `json:"unported,omitempty"`
 }
 
 func main() {
@@ -57,8 +59,11 @@ func main() {
 			continue
 		}
 		args := byFn[fn]
-		for _, a := range args { // warm up
-			_, _ = f(a)
+		unported := 0
+		for _, a := range args { // warm up; counting here keeps the timed loop free of a string check
+			if _, err := f(a); err != nil && strings.Contains(err.Error(), "not implemented: port ") {
+				unported++
+			}
 		}
 		started := time.Now()
 		rounds := 0
@@ -74,7 +79,7 @@ func main() {
 			}
 		}
 		per := float64(time.Since(started).Nanoseconds()) / float64(rounds*repeat*len(args))
-		rows = append(rows, row{Name: fn, Cases: len(args), NS: per})
+		rows = append(rows, row{Name: fn, Cases: len(args), NS: per, Unported: unported})
 	}
 	b, _ := json.Marshal(rows)
 	if err := os.WriteFile(out, b, 0o644); err != nil {

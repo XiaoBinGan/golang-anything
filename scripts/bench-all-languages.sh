@@ -51,7 +51,7 @@ filled = '''
 		return n * 2, nil
 	}
 	return nil, fmt.Errorf("twice: %T", args[0])'''
-src = re.sub(r'\treturn nil, fmt\.Errorf\("not implemented: port \w+"\)', filled, src)
+src = re.sub(r'\treturn nil, fmt\.Errorf\("not implemented: port [\w-]+"\)', filled, src)
 open(p, 'w').write(src)
 PYP
     $G build --fast go-ports/m-go >/dev/null 2>&1

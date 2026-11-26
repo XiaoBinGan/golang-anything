@@ -309,6 +309,23 @@ expect_ok "bench keeps literals out of the timing loop" $?
 cd "$ROOT"
 rm -rf /tmp/negative-bench
 
+# 25. bench must refuse a scaffold stub. The port body scaffold writes is `return nil, fmt.Errorf("not
+#     implemented: port …")`, and timing that is timing fmt.Errorf: the same C crate read 17 ns / 8.83x
+#     "slower" as a stub and 5 ns / 3.0x slower with one line filled in. A ratio for a function that answers
+#     nothing is the report inventing a result.
+mkdir -p /tmp/negative-stub && cd /tmp/negative-stub
+printf 'int twice(int n) { return n * 2; }\n' > m.c
+printf 'module negstub\n\ngo 1.24\n' > go.mod
+"$GO" scaffold --unit m.c go-ports/m-go >/dev/null 2>&1
+sed -i '' "s|example.com/m-go|negstub/go-ports/m-go|g" go-ports/m-go/*.go go-ports/m-go/golang-anything.json go-ports/m-go/cmd/*/main.go 2>/dev/null
+"$GO" record --unit m.c go-ports/m-go >/dev/null 2>&1
+"$GO" bench go-ports/m-go >/tmp/negative-stub/bench.err 2>&1
+expect_fail "bench refuses a scaffold stub instead of timing fmt.Errorf" $?
+grep -q 'not implemented: port' /tmp/negative-stub/bench.err ||
+  { printf 'FAIL  bench refused for some other reason: %s\n' "$(head -1 /tmp/negative-stub/bench.err)"; failures=$((failures + 1)); }
+cd "$ROOT"
+rm -rf /tmp/negative-stub
+
 # 14. perf: no rig, no numbers.
 RUST_ANYTHING=/nonexistent ./scripts/perf.sh >/dev/null 2>&1
 expect_fail "perf refuses a missing rig" $?

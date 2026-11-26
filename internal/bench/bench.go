@@ -40,6 +40,10 @@ type Row struct {
 	OriginalNS float64 `json:"original_ns,omitempty"`
 	PortNS     float64 `json:"port_ns,omitempty"`
 	Speedup    float64 `json:"speedup,omitempty"`
+	// Unported counts the calls whose answer was the scaffold's `not implemented: port …`. A row where
+	// every call said that is not a port: it is a timing of fmt.Errorf, which read 17 ns / 8.83x "slower"
+	// for a C function whose real port answers in 5 ns / 3.10x.
+	Unported int `json:"unported,omitempty"`
 }
 
 // Result is the whole measurement.
@@ -115,6 +119,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	port "` + cratePlaceholder + `"
@@ -126,9 +131,10 @@ type testCase struct {
 }
 
 type row struct {
-	Name  string  ` + "`json:\"name\"`" + `
-	Cases int     ` + "`json:\"cases\"`" + `
-	NS    float64 ` + "`json:\"ns\"`" + `
+	Name     string  ` + "`json:\"name\"`" + `
+	Cases    int     ` + "`json:\"cases\"`" + `
+	NS       float64 ` + "`json:\"ns\"`" + `
+	Unported int     ` + "`json:\"unported,omitempty\"`" + `
 }
 
 func main() {
@@ -167,8 +173,11 @@ func main() {
 			continue
 		}
 		args := byFn[fn]
-		for _, a := range args { // warm up
-			_, _ = f(a)
+		unported := 0
+		for _, a := range args { // warm up; counting here keeps the timed loop free of a string check
+			if _, err := f(a); err != nil && strings.Contains(err.Error(), "not implemented: port ") {
+				unported++
+			}
 		}
 		started := time.Now()
 		rounds := 0
@@ -184,7 +193,7 @@ func main() {
 			}
 		}
 		per := float64(time.Since(started).Nanoseconds()) / float64(rounds*repeat*len(args))
-		rows = append(rows, row{Name: fn, Cases: len(args), NS: per})
+		rows = append(rows, row{Name: fn, Cases: len(args), NS: per, Unported: unported})
 	}
 	b, _ := json.Marshal(rows)
 	if err := os.WriteFile(out, b, 0o644); err != nil {
@@ -460,6 +469,9 @@ func Run(opts Options) (Result, error) {
 		if !ok || p.NS <= 0 {
 			continue
 		}
+		if isStub(p) {
+			continue
+		}
 		row := Row{Name: p.Name, Cases: p.Cases, OriginalNS: o.NS, PortNS: p.NS, Speedup: o.NS / p.NS}
 		res.Rows = append(res.Rows, row)
 		if row.Speedup > 0 {
@@ -467,6 +479,10 @@ func Run(opts Options) (Result, error) {
 		}
 	}
 	sort.Slice(res.Rows, func(i, j int) bool { return res.Rows[i].Name < res.Rows[j].Name })
+	if len(res.Rows) == 0 && len(port) > 0 {
+		return Result{}, fmt.Errorf("nothing to time in %s: every function answers `not implemented: port …`, "+
+			"which is the scaffold, not a port — fill the function in and bench again", opts.CrateDir)
+	}
 	res.Speedup = geometric(ratios)
 	return res, nil
 }
@@ -498,6 +514,10 @@ func readRows(path string) ([]Row, error) {
 	}
 	return rows, nil
 }
+
+// isStub reports whether every call in a row answered the scaffold's `not implemented: port …`. Those
+// rows are dropped rather than printed with a ratio: the Go number is a timing of fmt.Errorf.
+func isStub(r Row) bool { return r.Unported > 0 && r.Unported == r.Cases }
 
 // geometric is the mean that a set of ratios wants: one slow function must not hide behind one fast.
 func geometric(xs []float64) float64 {
