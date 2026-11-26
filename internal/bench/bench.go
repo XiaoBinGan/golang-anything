@@ -36,7 +36,7 @@ type Options struct {
 type Row struct {
 	Name       string  `json:"name"`
 	Cases      int     `json:"cases"`
-	NS         float64 `json:"ns"`
+	NS         float64 `json:"ns,omitempty"` // only when reading a measurement back in
 	OriginalNS float64 `json:"original_ns,omitempty"`
 	PortNS     float64 `json:"port_ns,omitempty"`
 	Speedup    float64 `json:"speedup,omitempty"`

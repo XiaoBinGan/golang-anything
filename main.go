@@ -539,6 +539,7 @@ func runBench(args []string) error {
 	fs := flag.NewFlagSet("bench", flag.ExitOnError)
 	minMS := fs.Int("min-ms", 100, "minimum measured time per function and side")
 	repeat := fs.Int("repeat", 1, "calls per case in each round")
+	asJSON := fs.Bool("json", false, "print the measurement as JSON")
 	fs.Parse(args)
 	if fs.NArg() != 1 {
 		return fmt.Errorf("bench takes one crate folder")
@@ -546,6 +547,17 @@ func runBench(args []string) error {
 	res, err := bench.Run(bench.Options{CrateDir: fs.Arg(0), MinMS: *minMS, Repeat: *repeat})
 	if err != nil {
 		return err
+	}
+	if *asJSON {
+		// The table is for a person; a number that another tool has to read should not be scraped out of
+		// markdown. `report` and the sweep both want one row per function, and the rows already carry their
+		// own JSON tags.
+		raw, err := json.MarshalIndent(res, "", "  ")
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(raw))
+		return nil
 	}
 	fmt.Print(res.Markdown())
 	return nil

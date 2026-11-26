@@ -71,6 +71,8 @@ try "gate (finished port)"      "$GO" gate "$CRATE"
 try "diff"                      "$GO" diff "$CRATE"
 try "check (in-process)"        "$GO" check "$CRATE"
 try "bench"                     "$GO" bench "$CRATE"
+# The table is for a person; a row another tool reads should come out as JSON rather than be scraped.
+try "bench --json"              bash -c "$GO bench --json '$CRATE' | python3 -c 'import json,sys; d=json.load(sys.stdin); sys.exit(0 if d[\"rows\"] and d[\"rows\"][0][\"port_ns\"] > 0 else 1)'"
 try "fuzz --count --seed"       "$GO" fuzz --count 20 --seed 7 "$CRATE"
 try "fuzz --keep"               "$GO" fuzz --count 20 --seed 8 --keep "$CRATE"
 # diff has no --json: --json belongs to analyze and doctor, and writing a test for a flag that does not
