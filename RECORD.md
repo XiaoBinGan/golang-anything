@@ -5,9 +5,18 @@
 两条规则由 `scripts/doccheck.sh` 守着：每节标题上的条数等于该节实际条数；每个标题都必须对应一个真实存在的提交。
 数字都在对应的文档里（[PERF.md](PERF.md)、[EVAL.md](EVAL.md)、[PARITY.md](PARITY.md)、[CONTRACT.md](CONTRACT.md)）。
 
-## 一、修掉的错误（32 条）
+## 一、修掉的错误（36 条）
 
 每一条都是**工具说了假话**或**产物不对**，被一次具体实验抓到：
+
+- **the shadow template kept the declaration jswire.Canon already carries**
+  - `%JSWIRE_CANON%` replaced the stub body but the template kept its own `const canon = ` in front of it, so every generated shadow.cjs read `const canon = const canon = v => {` — a SyntaxError, and `require('./shadow.cjs')` threw before comparing anything. smoke stayed at 71 passed through all of it; the two shadow controls in `make negative` went red and said which check had stopped working.
+- **enable refuses a unit whose language has no block**
+  - `switched.Enable` rendered the JavaScript block for every unit that was not `.rb`, so a Rust unit got `count = (...args) => __goAnything.callSync(...)` written into `.rs` and the run printed `now calls the Go port`. `takeover` names the block by extension and only TypeScript/JavaScript and Ruby have one; everything else is refused before the file is opened, and the unit survives byte for byte.
+- **bench refuses to time a scaffold stub**
+  - The port side ran whatever the registry held, and scaffold writes `return nil, fmt.Errorf("not implemented: port …")`. Same C crate: 17 ns / 8.83x "slower" as a stub, 5 ns / 3.0x with one line of real body. The driver counts those refusals during the untimed warm-up, the row is dropped, and a crate with nothing but stubs stops with a sentence instead of a table.
+- **the merge gate benched the scaffold stub, and reported FAIL without failing**
+  - `bench-all-languages.sh` never filled its nine toy ports, so the sweep printed a comparison of the original against `fmt.Errorf`. It also did its work in a subshell, so `bad=$((bad + 1))` counted in a copy and the script exited 0 with FAIL lines on screen. Both fixed: the ports get a real body, and a failure now exits 1 (eight languages could not bench when the body was broken on purpose).
 
 - **a method that touches state is not a function, and two controls had gone stale**
   - Carbon's static factories read and write class variables; analyze offered all 506 of them as portable, and a port would have recorded answers that depend on a call order nobody wrote down. A method body that touches @ivar, self.x, $this, self:: or static:: now blocks with that sentence: Carbon drops to 199 portable of 506, sinatra to 47 of 55.
@@ -73,9 +82,15 @@
 - **the case generator was a cross product, and a green gate hid an untested export**
   - The comment said each argument position walks its own table; the code crossed every table against every other, which is 4,000 calls for two string parameters. Two runs replace it: a paired walk with a per-position stride, and a bounded cross product over the first six values of each position. Cheap values are tried first, because a table that opened with 1,000,000 filled the answer limit and left whole exports with nothing recorded.
 
-## 二、性能（11 条）
+## 二、性能（14 条）
 
 每条都有实测数字；赢的和没赢的都写着：
+- **the C bench handed clang constants, so it timed the loop instead of the call**
+  - The harness wrote each call with literal arguments, and a pure function of a constant is a constant: clang folded it, hoisted it, and the row measured the loop — `int magic(int n){return 42;}` read 1 ns / 13.46x slower against 3 ns / 6.99x once each numeric argument went through a volatile of its own type.
+- **the C timing harness measured zero, then measured vectorised code**
+  - macOS `clock_gettime` resolves to ~41.67 ns and one round of seventeen 2 ns calls is shorter than a tick, so the median came out 0.000000. Sampling per 256 rounds fixed that and exposed the next layer: 0.23 ns/call, faster than a cycle, because clang vectorised the accumulating loop. `sink` is volatile now: 1 ns, identical over three runs.
+- **the port side sampled 17 calls at a time, so the clock was a third of the measurement**
+  - Same crate and loop, only the sample width changed: 4.882 ns/call at 17 calls per sample, 3.973 at 4352. Seventeen calls are ~85 ns of work and the two clock reads around them are a third of that. With 64 rounds per sample the C comparison reads 1 ns against 4 ns, and the 4 ns is structural: ~2.1 ns call, ~1.8 ns walking seventeen `[]any`, ~0.33 ns loop.
 
 - **the help path skips fmt, and the startup gap is decomposed to the microsecond**
   - Measuring four binaries that differ by one property each says where the time goes: a 2 KB Go program that prints the same 2866 bytes starts at 2.08-2.21 ms and is faster than rust-anything; padding the same program to 3.6 MB changes nothing (-0.002 ms); our binary adds 0.24-0.32 ms of its own. Inside that: 0.02 ms of package init over the floor's eleven packages, 0.067 ms inside main, and about 0.15 ms of runtime setup for 118 linked packages.
@@ -163,9 +178,19 @@
 - **bench, map, clean, doctor, check, and the in-process bridge**
   - bench times both sides the same way; map writes PORT-MAP.md; clean and doctor round out the day-to-day commands. The fast bridge is a c-shared library plus a hand-written N-API addon: 0.73 us per call against rust-anything's ~1 us, and 16x faster than the stdio process.
 
-## 四、让检查本身可信（5 条）
+## 四、让检查本身可信（10 条）
 
 负向对照与冒烟测试——这些不增加功能，只增加「结论可信」：
+- **a control for the C bench fold, which had only a commit message behind it**
+  - The fold fix shipped with two numbers in a message and nothing that went red if it came back. Control 24 benches `int magic(int n){return 42;}` and asserts on the generated harness — every `magic(...)` call has to pass a volatile read — because 1 vs 3 ns is a clock reading while the volatile is the mechanism, on every machine.
+- **the $this half of the state rule had nothing guarding it**
+  - `phpTouchesState` refuses `$this`, `self::`, `static::` and `parent::`; every test and control named only `self::$count`, so the `$this` branch was deleted and the suite stayed green. Deleted on purpose now: a control and a parser test both fail, and both also check a pure sibling so a rule that marks everything cannot pass.
+- **a document that counts itself, and the one count that was wrong**
+  - RECORD.md states how many items each section holds and nothing checked it; section two had said 19 while holding 11. doccheck rule 7 counts the entries under every `## …（N 条）` header.
+- **the record can no longer name a commit that never happened**
+  - Section headers were checkable, the entries were not: a curated record and an invented one read the same. doccheck rule 8 requires every `- **entry**` to be a real commit subject (suffix match), and the header now says the file is a selection from git log rather than the log.
+- **bench names the rows it left out instead of printing a shorter table**
+  - Dropping a stub row is right and was silent: a crate with one ported function printed one row and said nothing about the second. The note names the rows actually dropped and does not appear when nothing was, so it cannot rot into a permanent disclaimer.
 
 - **a control for Ruby disable, and two ways it was passing without testing**
   - The control that a hand-edited block must be refused was green for two wrong reasons before it worked: negative.sh used a relative $GO, so the controls that cd into a crate exited 127 and 'failed' as expected; and enable silently did nothing because portctl had not been built, so there was no block to edit.
