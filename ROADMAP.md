@@ -31,7 +31,7 @@ survey 的结果：php-carbon 37 单元/506 导出、ruby-sinatra 47/454（本�
 | diff / record | 已赢 5–7x / 1.4x | 保持 |
 | 启动 | 已赢（拆 front/engine 之后） | 保持 |
 | **N-API addon 单次调用** | 慢 2.5–2.8x | cgo ABI 下限；**不再追**，文档写明 wasm 是主推路径 |
-| **C 的 bench** | 32x「慢」是因为 clang 把纯函数折叠成 0 ns | 在 bench 里检测 `ns == 0`，标注「原式被常量折叠，此数字无意义」 |
+| **C 的 bench** | 已修：字面量参数是编译期常量，clang 把整次调用折叠掉，量到的是循环不是函数（本机 `int magic(int n){return 42;}` 旧 harness 报 1 ns/13.46x slower） | 每个数值实参走 `volatile`（`__typeof__` 取类型，不另建类型表）；同一 crate 实测 1 ns→3 ns、13.46x→6.99x |
 
 ## 四、可信度：继续加负向对照
 

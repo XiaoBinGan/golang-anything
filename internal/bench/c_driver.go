@@ -33,16 +33,36 @@ func cBenchSource(plan map[string][]string, cpp bool) string {
 			b.WriteString("\tprintf(\",\");\n")
 		}
 		first = false
+		// A numeric literal is a compile-time constant, and clang folds the whole call away: `twice(7L)`
+		// became `sink += 14`, the original measured 0.00 ns/call, and the report said the Go port was 32x
+		// slower than a function that never ran. Each numeric argument is read through a volatile of its own
+		// type instead, so the call is really made. `__typeof__` keeps this working for any numeric type
+		// without a second table of types to drift from the first.
+		var decls []string
+		exprs := make([][]string, len(calls))
+		for k, args := range calls {
+			exprs[k] = make([]string, len(args))
+			for i := range args {
+				lit := cLiteralFor(args[i], types[i])
+				slot := fmt.Sprintf("arg%d_%d", k, i)
+				if decl, expr, ok := cVolatileArg(lit, slot); ok {
+					decls = append(decls, decl)
+					exprs[k][i] = expr
+					continue
+				}
+				exprs[k][i] = lit
+			}
+		}
 		b.WriteString("\t{\n")
+		for _, d := range decls {
+			b.WriteString("\t\t" + d + "\n")
+		}
 		b.WriteString("\t\tlong long start = now_ns();\n")
 		b.WriteString("\t\tint rounds = 0; long long elapsed = 0;\n")
 		b.WriteString("\t\tdo {\n")
 		b.WriteString("\t\t\tfor (int r = 0; r < repeat; r++) {\n")
-		for _, args := range calls {
-			lits := make([]string, len(args))
-			for i, v := range args {
-				lits[i] = cLiteralFor(v, types[i])
-			}
+		for k := range calls {
+			lits := exprs[k]
 			if cpp {
 				// The unit under test throws on some recorded inputs; a timing loop that lets the exception
 				// escape kills the process, which is what the first C++ bench run did.
@@ -64,4 +84,22 @@ func cBenchSource(plan map[string][]string, cpp bool) string {
 	b.WriteString("\tfprintf(stderr, \"sink=%lld\\n\", sink);\n")
 	b.WriteString("\treturn 0;\n}\n")
 	return b.String()
+}
+
+// cVolatileArg turns a numeric literal into a declaration plus an expression that reads it through a
+// volatile. A string literal is left alone: its type is an array, which `__typeof__` describes but a
+// pointer cast cannot read through, and passing a pointer is already opaque enough that clang keeps the
+// call.
+func cVolatileArg(lit, slot string) (decl, expr string, ok bool) {
+	if lit == "" {
+		return "", lit, false
+	}
+	c := lit[0]
+	numeric := (c >= '0' && c <= '9') || c == '-' || c == '+' || c == '.'
+	if !numeric {
+		return "", lit, false
+	}
+	decl = "static __typeof__(" + lit + ") " + slot + " = " + lit + ";"
+	expr = "*(volatile __typeof__(" + slot + " ) *)&" + slot
+	return decl, expr, true
 }
