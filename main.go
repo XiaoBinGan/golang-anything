@@ -909,6 +909,10 @@ const cases = (await readFile(process.argv[3], 'utf8')).split('\n').filter(Boole
 let matched = 0
 let calls = 0
 const bad = []
+// Counted over every call, not over the bad list: that list stops at five, and "3 of them are the scaffold"
+// when seventeen functions have not been written is the kind of number this file keeps having to correct.
+let unported = 0
+const unportedFns = new Set()
 for (const c of cases) {
   try {
     // The arguments go to the bridge as they were recorded, markers and all: decoding them here turns
@@ -929,15 +933,21 @@ for (const c of cases) {
       if (canon(got) === canon(want)) { matched++; continue }
       // A mismatch has to be readable: "want 0, got 0" is what a -0 against 0 looks like when the values
       // are printed the ordinary way.
-      if (bad.length < 5) bad.push({ fn: c.fn, args: c.args, want: show(want), got: show(got) })
+      const why = show(got)
+      if (String(why).includes('not implemented: port ')) { unported++; unportedFns.add(c.fn) }
+      if (bad.length < 5) bad.push({ fn: c.fn, args: c.args, want: show(want), got: why })
       break
     }
   } catch (e) {
     if (c.error && String(e.message).split(':')[0] === c.error.split(':')[0]) matched++
-    else if (bad.length < 5) bad.push({ fn: c.fn, args: c.args, want: c.error, got: String(e.message) })
+    else {
+      const why = String(e.message)
+      if (why.includes('not implemented: port ')) { unported++; unportedFns.add(c.fn) }
+      if (bad.length < 5) bad.push({ fn: c.fn, args: c.args, want: c.error, got: why })
+    }
   }
 }
-console.log(JSON.stringify({ matched, total: calls, cases: cases.length, bad, inProcess }))
+console.log(JSON.stringify({ matched, total: calls, cases: cases.length, bad, inProcess, unported, unportedFns: [...unportedFns] }))
 port.close?.()
 `
 
@@ -998,6 +1008,8 @@ func runCheck(args []string) error {
 			Want any    `json:"want"`
 			Got  any    `json:"got"`
 		} `json:"bad"`
+		Unported    int      `json:"unported"`
+		UnportedFns []string `json:"unportedFns"`
 	}
 	if err := json.Unmarshal(out, &res); err != nil {
 		return fmt.Errorf("reading the replay result: %w", err)
@@ -1011,6 +1023,14 @@ func runCheck(args []string) error {
 		fmt.Printf("- %s: want %v, got %v\n", b.Fn, b.Want, b.Got)
 	}
 	if res.Matched != res.Total {
+		// A crate whose port was never written and a crate whose port is wrong both read as "cases differ",
+		// and they need different work. The scaffold's own words separate them.
+		if res.Unported > 0 {
+			names := append([]string(nil), res.UnportedFns...)
+			sort.Strings(names)
+			return fmt.Errorf("check: %d case(s) differ through the bridge; %d of them because the port still "+
+				"answers `not implemented: port …` (%s)", res.Total-res.Matched, res.Unported, strings.Join(names, ", "))
+		}
 		return fmt.Errorf("check: %d case(s) differ through the bridge", res.Total-res.Matched)
 	}
 	return nil
