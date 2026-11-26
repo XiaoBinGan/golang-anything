@@ -28,6 +28,10 @@ type Fn struct {
 	Receiver  string  `json:"receiver,omitempty"` // the class, for a static method
 	// ThrowLines are the lines of `throw` statements: each needs a recorded failing case.
 	ThrowLines []int `json:"throw_lines,omitempty"`
+	// State marks a method whose body reads or writes state outside its arguments: `$this->`, `self::$x`,
+	// `@ivar`. It cannot cross a bridge — the port has no instance — and pretending otherwise records
+	// answers that depend on a call order nobody wrote down.
+	State bool `json:"state,omitempty"`
 	// Generic marks a declaration with type parameters, which a bridge cannot carry as-is.
 	Generic bool `json:"generic,omitempty"`
 }

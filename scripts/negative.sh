@@ -14,6 +14,19 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT" || exit 1
 
 failures=0
+# expect_ok is for a line that asserts a refusal: it passes when the check fires. Written this way because
+# "the rule still refuses this" is itself a claim that can stop being true.
+expect_ok() {
+  local what="$1"
+  local status="$2"
+  if [ "$status" -eq 0 ]; then
+    printf 'ok    %s\n' "$what"
+  else
+    printf 'FAIL  %s stopped holding\n' "$what"
+    failures=$((failures + 1))
+  fi
+}
+
 expect_fail() {
   local what="$1"
   local status="$2"
@@ -238,6 +251,22 @@ mv /tmp/negative-engine-moved bin/go-anything-engine
 ./scripts/smoke.sh >/dev/null 2>&1 || { printf 'FAIL  smoke does not recover\n'; failures=$((failures + 1)); }
 
 # 14. perf: no rig, no numbers.
+RUST_ANYTHING=/nonexistent ./scripts/perf.sh >/dev/null 2>&1
+# 19. the state rule: a static method that touches class variables must be refused. Carbon's static
+#     factories are this shape, and before this rule they were offered as portable.
+mkdir -p /tmp/negative-state
+cat > /tmp/negative-state/counter.php <<'PHP'
+<?php
+class Counter {
+    private static int $count = 0;
+    public static function bump(int $n): int { self::$count += $n; return self::$count; }
+}
+PHP
+"$GO" analyze --json /tmp/negative-state 2>/dev/null |
+  python3 -c 'import json,sys; d=json.load(sys.stdin); sys.exit(0 if d["units"][0]["exports"][0].get("blocked") else 1)'
+expect_ok "analyze refuses a method that touches class state" $?
+rm -rf /tmp/negative-state
+
 RUST_ANYTHING=/nonexistent ./scripts/perf.sh >/dev/null 2>&1
 expect_fail "perf refuses a missing rig" $?
 

@@ -93,6 +93,8 @@ Go 程序启动 1.93 ms，比 rust-anything 还快——所以差距不在语言
 | PowerShell（Strings.ps1） | 28 | ✅ | 50/50 | — |
 
 | PHP（strings.php） | 82 | ✅ | 139/139 | 2.41x 更快 |
+| PHP static methods（Carbon 真实源码） | 506 导出 / 199 可移植 | — | — | 307 个被拒：`touches state outside its arguments` |
+| Ruby module functions（真实源码） | 55 导出 / 47 可移植 | — | — | 8 个被拒：碰实例变量 |
 | Kotlin（Strings.kt） | 212 | ✅ | 368/368 | 7.11x 更快 |
 | C#（Strings.cs） | 212 | ✅ | 368/368 | 9.91x 更快 |
 | PowerShell（Strings.ps1） | 28 | ✅ | 50/50 | 779x 更快 |

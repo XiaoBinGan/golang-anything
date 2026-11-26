@@ -292,6 +292,11 @@ func unitOf(rel string, f *ts.File) Unit {
 				}
 			}
 		}
+		// A method that reads or writes state outside its arguments is not a function: the port has no
+		// instance and no class variables, so a recorded answer would depend on a call order.
+		if e.Blocked == "" && fn.State {
+			e.Blocked = "touches state outside its arguments: the bridge carries functions, not objects"
+		}
 		// A callback parameter cannot cross a JSON bridge: recording it produced calls like
 		// edgeSpan("a", 0) whose only outcome was "predicate is not a function", which proves nothing.
 		// An export that needs one is a redesign, not a port.

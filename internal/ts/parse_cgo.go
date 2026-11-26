@@ -425,18 +425,29 @@ func rbExports(root *sitter.Node, text func(*sitter.Node) string) []Fn {
 					fn.Method = true
 					fn.Receiver = owner
 				}
+				if rbTouchesState(rbBody(child, text)) {
+					fn.State = true
+				}
 				out = append(out, fn)
 			case "method":
 				name := text(child.ChildByFieldName("name"))
 				if !usableRbName(name) {
 					continue
 				}
+				if owner != "" && !strings.Contains(ownerKind, "module_function") {
+					// Inside a module or class, a plain def is an instance method: it needs an instance that
+					// a bridge cannot supply. Reading it as a free function was wrong — the recorder called
+					// it on Object and got NoMethodError, or worse, hit another class's method of the same
+					// name.
+					continue
+				}
 				fn := rbFn(child, name, text)
 				if strings.Contains(ownerKind, "module_function") && owner != "" {
-					// A module_function is both a private instance method and a module method: the module
-					// spelling is the one a caller uses.
 					fn.Method = true
 					fn.Receiver = owner
+				}
+				if rbTouchesState(rbBody(child, text)) {
+					fn.State = true
 				}
 				out = append(out, fn)
 			}
@@ -749,6 +760,9 @@ func phpExports(root *sitter.Node, text func(*sitter.Node) string) []Fn {
 					}
 				}
 				walkRaises(child, func(line int) { fn.ThrowLines = append(fn.ThrowLines, line) })
+				if phpTouchesState(rbBody(child, text)) {
+					fn.State = true
+				}
 				out = append(out, fn)
 			case "function_definition":
 				if owner != "" {
@@ -966,4 +980,43 @@ func hasYield(n *sitter.Node) bool {
 		}
 	}
 	return false
+}
+
+// rbTouchesState reports whether a Ruby method body reads or writes state outside its arguments: an
+// instance variable, a class variable, or an explicit self call.
+func rbTouchesState(body string) bool {
+	// Coarse on purpose: `@` anywhere in the body means an instance variable may be involved, and a false
+	// block is cheap (a person reads the reason) while a false pass records answers that depend on state.
+	for _, marker := range []string{"@", "self."} {
+		if strings.Contains(body, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+// phpTouchesState reports whether a PHP method body reads or writes class state.
+func phpTouchesState(body string) bool {
+	for _, marker := range []string{"$this", "self::", "static::", "parent::"} {
+		if strings.Contains(body, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+// rbBody answers a method's body text: the state check must not see the definition line, which says
+// `def self.name` whether or not the body touches anything.
+func rbBody(n *sitter.Node, text func(*sitter.Node) string) string {
+	for _, field := range []string{"body", "body_statement"} {
+		if b := n.ChildByFieldName(field); b != nil {
+			return text(b)
+		}
+	}
+	// None of the grammars agree on the field name: fall back to the last named child, which is the body in
+	// every one of them.
+	if n.NamedChildCount() > 0 {
+		return text(n.NamedChild(int(n.NamedChildCount()) - 1))
+	}
+	return ""
 }
