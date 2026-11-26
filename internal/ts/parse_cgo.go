@@ -388,30 +388,95 @@ func walkRaises(n *sitter.Node, report func(int)) {
 // convention here too, and a method defined inside a class belongs to that class.
 func rbExports(root *sitter.Node, text func(*sitter.Node) string) []Fn {
 	var out []Fn
-	for i := 0; i < int(root.NamedChildCount()); i++ {
-		n := root.NamedChild(i)
-		if n.Type() != "method" {
-			continue
-		}
-		name := text(n.ChildByFieldName("name"))
-		if name == "" || strings.HasPrefix(name, "_") || strings.HasSuffix(name, "?") || strings.HasSuffix(name, "!") {
-			continue
-		}
-		fn := Fn{Name: name, Line: int(n.StartPoint().Row) + 1, EndLine: int(n.EndPoint().Row) + 1, Params: []Param{}}
-		if params := n.ChildByFieldName("parameters"); params != nil {
-			for j := 0; j < int(params.NamedChildCount()); j++ {
-				p := params.NamedChild(j)
-				// Ruby has no annotations: every parameter is "any", and the recorder generates across
-				// types because of it.
-				if p.Type() == "identifier" {
-					fn.Params = append(fn.Params, Param{Name: text(p), Type: "any"})
+	// A Ruby library keeps its callable units in three shapes: a top-level def, a module function
+	// (`def self.x` or `module_function`), and a class method. The last two are what a real gem is made of —
+	// sinatra has ten `def self.` and Carbon is all class methods — and only the first was read before.
+	var walk func(n *sitter.Node, owner string, ownerKind string)
+	walk = func(n *sitter.Node, owner, ownerKind string) {
+		for i := 0; i < int(n.NamedChildCount()); i++ {
+			child := n.NamedChild(i)
+			switch child.Type() {
+			case "module", "class":
+				name := ""
+				for j := 0; j < int(child.NamedChildCount()); j++ {
+					if c := child.NamedChild(j); c.Type() == "constant" {
+						name = text(c)
+						break
+					}
 				}
+				kind := "module"
+				if child.Type() == "class" {
+					kind = "class"
+				}
+				moduleFunction := strings.Contains(text(child), "module_function")
+				for j := 0; j < int(child.NamedChildCount()); j++ {
+					if body := child.NamedChild(j); body.Type() == "body_statement" {
+						walk(body, name, kind+map[bool]string{true: ":module_function", false: ""}[moduleFunction])
+					}
+				}
+			case "singleton_method":
+				// `def self.name` inside a module or a class: callable as Owner.name.
+				name := text(singletonName(child))
+				if !usableRbName(name) {
+					continue
+				}
+				fn := rbFn(child, name, text)
+				if owner != "" {
+					fn.Method = true
+					fn.Receiver = owner
+				}
+				out = append(out, fn)
+			case "method":
+				name := text(child.ChildByFieldName("name"))
+				if !usableRbName(name) {
+					continue
+				}
+				fn := rbFn(child, name, text)
+				if strings.Contains(ownerKind, "module_function") && owner != "" {
+					// A module_function is both a private instance method and a module method: the module
+					// spelling is the one a caller uses.
+					fn.Method = true
+					fn.Receiver = owner
+				}
+				out = append(out, fn)
 			}
 		}
-		walkRaises(n, func(line int) { fn.ThrowLines = append(fn.ThrowLines, line) })
-		out = append(out, fn)
 	}
+	walk(root, "", "")
 	return out
+}
+
+// singletonName is the identifier after `self.` in `def self.name`.
+func singletonName(n *sitter.Node) *sitter.Node {
+	for i := 0; i < int(n.NamedChildCount()); i++ {
+		if c := n.NamedChild(i); c.Type() == "identifier" {
+			return c
+		}
+	}
+	return nil
+}
+
+// usableRbName keeps the names a bridge can call: not private by convention, not a predicate or a bang
+// method (the first answers a boolean, the second mutates), and not an operator.
+func usableRbName(name string) bool {
+	return name != "" && !strings.HasPrefix(name, "_") && !strings.HasSuffix(name, "?") &&
+		!strings.HasSuffix(name, "!") && !strings.HasSuffix(name, "=")
+}
+
+// rbFn reads one Ruby method definition.
+func rbFn(n *sitter.Node, name string, text func(*sitter.Node) string) Fn {
+	fn := Fn{Name: name, Line: int(n.StartPoint().Row) + 1, EndLine: int(n.EndPoint().Row) + 1, Params: []Param{}}
+	if params := n.ChildByFieldName("parameters"); params != nil {
+		for j := 0; j < int(params.NamedChildCount()); j++ {
+			p := params.NamedChild(j)
+			// Ruby has no annotations, so every parameter is "any" and the recorder generates across types.
+			if p.Type() == "identifier" {
+				fn.Params = append(fn.Params, Param{Name: text(p), Type: "any"})
+			}
+		}
+	}
+	walkRaises(n, func(line int) { fn.ThrowLines = append(fn.ThrowLines, line) })
+	return fn
 }
 
 // javaExports reads the public static methods of the classes in a file: those are the ones a bridge can
@@ -649,13 +714,44 @@ func hasPointer(n *sitter.Node) bool {
 // phpExports reads the free functions of a PHP file: those are the ones a bridge can call.
 func phpExports(root *sitter.Node, text func(*sitter.Node) string) []Fn {
 	var out []Fn
-	var walk func(n *sitter.Node, inside bool)
-	walk = func(n *sitter.Node, inside bool) {
+	var walk func(n *sitter.Node, inside string)
+	walk = func(n *sitter.Node, owner string) {
 		for i := 0; i < int(n.NamedChildCount()); i++ {
 			child := n.NamedChild(i)
 			switch child.Type() {
+			case "method_declaration":
+				// `public static function x()` inside a class is callable as Class::x(), which needs no
+				// instance: that is the shape a real PHP library is made of (Carbon has hundreds).
+				head := text(child)
+				if !strings.Contains(head, "static") || !strings.Contains(head, "public") {
+					continue
+				}
+				name := text(child.ChildByFieldName("name"))
+				if name == "" || strings.HasPrefix(name, "__") {
+					continue
+				}
+				fn := Fn{Name: name, Method: true, Receiver: owner,
+					Line: int(child.StartPoint().Row) + 1, EndLine: int(child.EndPoint().Row) + 1, Params: []Param{}}
+				if typ := child.ChildByFieldName("return_type"); typ != nil {
+					fn.Returns = cDialect(text(typ))
+				}
+				if params := child.ChildByFieldName("parameters"); params != nil {
+					for j := 0; j < int(params.NamedChildCount()); j++ {
+						p := params.NamedChild(j)
+						if p.Type() != "simple_parameter" {
+							continue
+						}
+						typ := "any"
+						if t := p.ChildByFieldName("type"); t != nil {
+							typ = cDialect(text(t))
+						}
+						fn.Params = append(fn.Params, Param{Name: text(p.ChildByFieldName("name")), Type: typ})
+					}
+				}
+				walkRaises(child, func(line int) { fn.ThrowLines = append(fn.ThrowLines, line) })
+				out = append(out, fn)
 			case "function_definition":
-				if inside {
+				if owner != "" {
 					continue
 				}
 				fn := Fn{Name: text(child.ChildByFieldName("name")),
@@ -679,13 +775,20 @@ func phpExports(root *sitter.Node, text func(*sitter.Node) string) []Fn {
 				walkRaises(child, func(line int) { fn.ThrowLines = append(fn.ThrowLines, line) })
 				out = append(out, fn)
 			case "class_declaration", "interface_declaration", "trait_declaration":
-				walk(child, true)
+				name := ""
+				for j := 0; j < int(child.NamedChildCount()); j++ {
+					if c := child.NamedChild(j); c.Type() == "name" {
+						name = text(c)
+						break
+					}
+				}
+				walk(child, name)
 			case "declaration_list":
-				walk(child, inside)
+				walk(child, owner)
 			}
 		}
 	}
-	walk(root, false)
+	walk(root, "")
 	return out
 }
 

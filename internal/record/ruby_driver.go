@@ -98,18 +98,22 @@ end
 written = 0
 File.open(out_path, 'w') do |out|
   calls.each do |name, path, args|
+    # A dotted path is Owner.method: the owner is a constant, the last segment is the method.
     target = if path.include?('.')
-               path.split('.').inject(Object) { |mod, part| mod.const_get(part) }
+               owner = path.split('.')[0..-2].inject(Object) { |mod, part| mod.const_get(part) }
+               owner
              else
                Object
              end
+    method_name = path.include?('.') ? path.split('.').last : name
     # A top-level def is a private method of Object, so method_defined? is false and respond_to? is false
     # too; send is the only way to reach it, and that is what a caller of the original does.
-    visible = target.method_defined?(name) || target.private_method_defined?(name) || target.respond_to?(name)
+    visible = target.method_defined?(method_name) || target.private_method_defined?(method_name) ||
+              target.respond_to?(method_name)
     next unless visible
     case_ = { 'fn' => name, 'args' => args.map { |a| mark(a) } }
     begin
-      answer = mark(target.send(name, *args))
+      answer = mark(target.send(method_name, *args))
       next if JSON.generate(answer).bytesize > MAX_BYTES
       case_['ok'] = answer
     rescue StandardError, TypeError => e

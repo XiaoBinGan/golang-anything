@@ -166,6 +166,11 @@ try "bench works on every language" ./scripts/bench-all-languages.sh
 try "powershell: analyze + record" bash -c "mkdir -p $WORK/ps0 && printf 'function Get-Twice {\n  param([int]\$N)\n  return \$N * 2\n}\n' > $WORK/ps0/M.ps1 && $GO analyze '$WORK/ps0' | grep -q '(powershell)' && cd '$WORK/ps0' && printf 'module ps0\\n\\ngo 1.24\\n' > go.mod && $GO scaffold --unit M.ps1 go-ports/m-go >/dev/null 2>&1 && $GO record --unit M.ps1 go-ports/m-go 2>&1 | grep -q 'Recorded'"
 
 echo
+echo "== class methods, the shape a real library is made of =="
+try "ruby: module functions"     bash -c "mkdir -p $WORK/rbm && printf 'module U\n  def self.double(n)\n    n * 2\n  end\nend\n' > $WORK/rbm/u.rb && $GO analyze '$WORK/rbm' | grep -q 'U.double'"
+try "php: static methods"        bash -c "mkdir -p $WORK/phs && printf '<?php class U { public static function double(int \$n): int { return \$n * 2; } }' > $WORK/phs/u.php && $GO analyze '$WORK/phs' | grep -q 'U.double'"
+
+echo
 echo "== agents =="
 try "setup --print"             "$GO" setup --print
 try "mcp answers tools/list"    bash -c "printf '%s\n' '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}' | $GO mcp | python3 -c 'import json,sys; d=json.loads(sys.stdin.readline()); assert d[\"result\"][\"tools\"]'"
