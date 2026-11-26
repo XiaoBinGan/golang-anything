@@ -55,8 +55,18 @@ src = re.sub(r'\treturn nil, fmt\.Errorf\("not implemented: port [\w-]+"\)', fil
 open(p, 'w').write(src)
 PYP
     $G build --fast go-ports/m-go >/dev/null 2>&1
-    out=$($G bench go-ports/m-go 2>&1) || { echo "FAIL $name: $(echo "$out"|tail -1)"; exit 1; }
-    echo "ok   $name: $(echo "$out"|grep -o 'Geometric mean: .*')" ) || bad=$((bad + 1))
+    # --json, not the table: scraping `Geometric mean: …` out of markdown breaks silently the day the
+    # sentence is reworded, and the numbers are the whole point of this script.
+    # stdout only: bench writes `sink=…` to stderr, and merging the two turned the JSON into a parse error
+    # for five of the nine languages on the first try.
+    out=$($G bench --json go-ports/m-go 2>"$W/$name.err") || { echo "FAIL $name: $(tail -1 "$W/$name.err")"; exit 1; }
+    printf '%s' "$out" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+x = d['speedup']
+print('ok   %s: %.2fx %s over %d function(s), %d ms per side minimum.' % (
+    '$name', x if x >= 1 else 1 / x, 'faster' if x >= 1 else 'slower', len(d['rows']), d['min_ms']))
+" ) || bad=$((bad + 1))
 }
 mkdir -p $W/src
 printf 'fun twice(n: Int): Int = n * 2\n' > $W/src/M.kt

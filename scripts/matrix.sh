@@ -62,7 +62,17 @@ run() {
     if [ "$bridge" = "stdio!" ]; then failures=$((failures+1)); fi
 
     # speed: the geometric mean over the crate's functions, or "-" when it cannot be timed.
-    speed=$("$GO" bench "$crate" 2>/dev/null | grep -o 'Geometric mean: [0-9.]*x [a-z]*' | sed 's/Geometric mean: //')
+    # --json rather than the table: `grep -o 'Geometric mean: …'` dies quietly the day the sentence changes,
+    # and then the column reads "-" for every crate and nobody knows why.
+    speed=$("$GO" bench --json "$crate" 2>/dev/null | python3 -c "
+import json, sys
+try:
+    x = json.load(sys.stdin)['speedup']
+except Exception:
+    print('-')
+    sys.exit(0)
+print('%.2fx %s' % (x if x >= 1 else 1 / x, 'faster' if x >= 1 else 'slower'))
+")
     speed=${speed:-"-"}
 
     printf '%-16s %7s %5s %6s %-9s %s\n' "$name" "$cases" "$gate" "$check" "$bridge" "$speed"
