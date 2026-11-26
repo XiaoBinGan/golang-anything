@@ -6,6 +6,10 @@ set -uo pipefail
 . "$(dirname "$0")/env.sh"
 
 GO=${GO:-$(pwd)/bin/go-anything}
+case "$GO" in
+  /*) ;;
+  *) GO=$(cd "$(dirname "$GO")" && pwd)/$(basename "$GO") ;;
+esac
 SRC=${SRC:-testdata/sample}
 UNIT=${UNIT:-src/text.ts}
 WORK=$(mktemp -d)
