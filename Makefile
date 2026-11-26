@@ -6,7 +6,7 @@ GO ?= go
 BIN ?= bin
 SHELL := /bin/bash
 
-.PHONY: all build test check contract evidence matrix perf negative clean
+.PHONY: all build test check contract evidence matrix smoke perf negative clean
 
 all: build
 
@@ -19,7 +19,7 @@ test:
 
 # Everything the project claims, in the order a person would check it: the shared rules, then the
 # crates, then the claims about the tool as a whole.
-check: build test contract matrix evidence
+check: build test contract matrix evidence smoke
 	@echo
 	@echo "all checks passed"
 
@@ -31,6 +31,10 @@ matrix:
 
 evidence:
 	GO=$(BIN)/go-anything ./scripts/evidence.sh
+
+# Every command and every flag that changes behaviour, once, on a throwaway copy.
+smoke:
+	GO=$(BIN)/go-anything ./scripts/smoke.sh
 
 perf:
 	GO=$(BIN)/go-anything GO_ANYTHING_PARSE=$(BIN)/go-anything-cgo ./scripts/perf.sh

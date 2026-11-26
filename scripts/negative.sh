@@ -228,11 +228,20 @@ expect_fail "the front says it cannot find its engine" $?
 cp /tmp/negative-engine bin/go-anything-engine
 ./bin/go-anything diff testdata/sample/port-rs >/dev/null 2>&1 || { printf 'FAIL  the front does not recover\n'; failures=$((failures + 1)); }
 
-# 13. perf: no rig, no numbers.
+# 13. the smoke test: a command that cannot run must be reported. Renaming the engine makes every engine
+#     command fail, and the smoke test has to say so rather than pass on the front's two answers.
+cp bin/go-anything-engine /tmp/negative-engine2
+mv bin/go-anything-engine /tmp/negative-engine-moved
+./scripts/smoke.sh >/dev/null 2>&1
+expect_fail "smoke notices a tool that cannot run its commands" $?
+mv /tmp/negative-engine-moved bin/go-anything-engine
+./scripts/smoke.sh >/dev/null 2>&1 || { printf 'FAIL  smoke does not recover\n'; failures=$((failures + 1)); }
+
+# 14. perf: no rig, no numbers.
 RUST_ANYTHING=/nonexistent ./scripts/perf.sh >/dev/null 2>&1
 expect_fail "perf refuses a missing rig" $?
 
-# 14. npm install: a loader that answers a hard-coded wrong value, built from a patched template.
+# 15. npm install: a loader that answers a hard-coded wrong value, built from a patched template.
 cp internal/pkg/pkg.go /tmp/negative-pkg.go
 python3 - internal/pkg/pkg.go <<'PY2'
 import sys

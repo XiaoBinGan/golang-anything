@@ -1266,3 +1266,34 @@ VERDICT wasm faster than napi: 1.49x                     # rc=0
 | `contract` 报 `stale committed copies` | `testdata/sample/port-rs/addon.node` 是**被 git 跟踪的二进制**，每次构建都变；`internal/pkg/mk-darwin-arm64/` 是测试跑 `npm pack` 留在源码树里的产物 |
 
 两处都是「生成物进了版本库」。现在都进 `.gitignore`。
+
+## 功能到底实现了没有：`make smoke`（第 61 轮）
+
+`PARITY.md` 的 ✅ 是主张。`scripts/smoke.sh` 是核对：**每条命令、每个会改变行为的参数，在一次性副本上跑一遍**，
+一共 48 项，`make check` 里也会跑（+7 秒）。
+
+```
+== the tool itself ==      --help --version doctor 未知命令必须失败
+== plan ==                 analyze analyze --json map scaffold --unit
+== record ==               record · --only · --inputs · --test-coverage · 写指纹
+== 端口 ==                 gate(骨架必须红) bridge refresh(不动 port.go) build build --fast wasm
+== 完成的端口 ==           gate diff check bench fuzz --count/--seed fuzz --keep doctor --json
+== 接管 ==                 enable disable(字节一致) enable --only enable --async shadow shadow-report
+== 报告与打包 ==           report report --out package(library|cli|service)
+== 整程序 ==               app record app replay front-door new wire lift(拒绝半接管)
+== 剖析与整条链 ==         profile go --unit
+== agent ==                setup --print mcp tools/list
+48 passed, 0 failed
+```
+
+**写这个脚本时，前 12 项失败全是我写错了调用**——不是功能缺失。举三个：
+
+| 我最初的写法 | 实际约定 |
+| --- | --- |
+| `record --count 40` | `record` 没有 `--count`（那是 `fuzz` 的）；`record` 用 `--only` |
+| `record --test-coverage`（当开关） | 它要一个**命令**：`--test-coverage 'true'` |
+| `front-door wire <repo> --command …` | 参数在前、根目录在后；而且 `wire` 接受的是 `<repo>/go-app`，命令键要写全（`hello --version`） |
+
+这三条能说明为什么要有这个脚本：**文档里的 ✅ 和「我会用」是两件事**。
+
+负向对照（第 19 条）：把引擎移走，`smoke` 必须失败而不是靠前端那两条答案蒙混过关。
