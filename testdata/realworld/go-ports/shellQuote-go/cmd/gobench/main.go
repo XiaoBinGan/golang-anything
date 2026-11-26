@@ -70,16 +70,22 @@ func main() {
 		// moved the answer by 40% (5 ns against 7 ns on the same crate, five runs), and a mean keeps that
 		// hiccup. The median discards it, which is the difference between "this crate is 3 ns" and "this
 		// crate was 3 ns on the run that did not get interrupted".
+		// A sample has to span more than a few calls. Seventeen calls are ~85 ns of work, and the two clock
+		// reads around them are a third of that: measuring seventeen calls per sample reported 4.882 ns
+		// where 4352 calls per sample report 3.973, on the same crate and the same loop.
+		const chunk = 64
 		started := time.Now()
 		var samples []float64
 		for {
-			roundStart := time.Now()
-			for i := 0; i < repeat; i++ {
-				for _, a := range args {
-					_, _ = f(a)
+			chunkStart := time.Now()
+			for k := 0; k < chunk; k++ {
+				for i := 0; i < repeat; i++ {
+					for _, a := range args {
+						_, _ = f(a)
+					}
 				}
 			}
-			samples = append(samples, float64(time.Since(roundStart).Nanoseconds())/float64(repeat*len(args)))
+			samples = append(samples, float64(time.Since(chunkStart).Nanoseconds())/float64(chunk*repeat*len(args)))
 			if time.Since(started) >= time.Duration(minMs)*time.Millisecond || len(samples) >= 200000 {
 				break
 			}
