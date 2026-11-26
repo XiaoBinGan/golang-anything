@@ -62,6 +62,9 @@ end
 		t.Errorf("the instance method was dropped instead of counted: InstanceMethods = %d, want 1",
 			file.InstanceMethods)
 	}
+	if file.InstanceFree != 1 {
+		t.Errorf("InstanceFree = %d, want 1: `helper` reads nothing but its argument", file.InstanceFree)
+	}
 }
 
 // `$this` is a different token from `self::`, and it is the one that decides whether an instance method
@@ -110,5 +113,9 @@ class Timer {
 	}
 	if file.InstanceMethods != 2 {
 		t.Errorf("InstanceMethods = %d, want 2", file.InstanceMethods)
+	}
+	// `elapsed` only reads its argument; `shifted` reads $this->offset. One of the two could be promoted.
+	if file.InstanceFree != 1 {
+		t.Errorf("InstanceFree = %d, want 1: only `elapsed` is free of state", file.InstanceFree)
 	}
 }

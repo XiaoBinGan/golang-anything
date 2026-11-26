@@ -48,6 +48,7 @@ type Unit struct {
 	Exports      []Export `json:"exports"`
 	Bridgeable   int      `json:"bridgeable"`
 	InstanceOnly int      `json:"instance_methods,omitempty"`
+	InstanceFree int      `json:"instance_free,omitempty"`
 	Readiness    int      `json:"readiness"`
 	Priority     int      `json:"priority"`
 	Density      float64  `json:"density"`
@@ -242,7 +243,8 @@ func isComponent(rel string, e Export) bool {
 
 // unitOf turns a parsed file into a unit: exports with their bridge blocks, risks with file:line.
 func unitOf(rel string, f *ts.File) Unit {
-	u := Unit{ID: rel, Files: []string{rel}, Loc: f.Loc, ParseErrors: !f.ParseOK, InstanceOnly: f.InstanceMethods}
+	u := Unit{ID: rel, Files: []string{rel}, Loc: f.Loc, ParseErrors: !f.ParseOK, InstanceOnly: f.InstanceMethods,
+		InstanceFree: f.InstanceFree}
 	for _, fn := range f.Fns {
 		e := Export{
 			Name:       fn.Name,
@@ -481,6 +483,10 @@ func notes(u Unit) []string {
 	if u.InstanceOnly > 0 {
 		out = append(out, fmt.Sprintf("%d instance method(s) need an object: a bridge carries functions, so "+
 			"their state has to be passed in explicitly", u.InstanceOnly))
+	}
+	if u.InstanceFree > 0 {
+		out = append(out, fmt.Sprintf("%d of them touch no state and could be promoted to `Owner.name(...)` "+
+			"once the crate has a shim that supplies the instance", u.InstanceFree))
 	}
 	if len(u.InternalDeps) > 0 {
 		out = append(out, fmt.Sprintf("imports %s: port %s first, or together",

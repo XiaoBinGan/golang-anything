@@ -57,11 +57,14 @@ type File struct {
 	// InstanceMethods counts the methods that are not exports and never will be: a bridge has no instance to
 	// call them on. Counted rather than dropped, because a library whose whole surface is instance methods
 	// then reads "0 exports, 6 of them need an object" instead of just "0".
-	InstanceMethods int      `json:"instance_methods,omitempty"`
-	Fns             []Fn     `json:"fns"`
-	Imports         []Import `json:"imports"`
-	Risks           []Risk   `json:"risks"`
-	ParseOK         bool     `json:"parse_ok"`
+	InstanceMethods int `json:"instance_methods,omitempty"`
+	// InstanceFree counts the subset of those whose body touches no `@ivar`/`$this`: the only ones that could
+	// ever be promoted to `Owner.name(...)`, and the number ROADMAP's first item is about.
+	InstanceFree int      `json:"instance_free,omitempty"`
+	Fns          []Fn     `json:"fns"`
+	Imports      []Import `json:"imports"`
+	Risks        []Risk   `json:"risks"`
+	ParseOK      bool     `json:"parse_ok"`
 }
 
 // Lang picks the grammar.
