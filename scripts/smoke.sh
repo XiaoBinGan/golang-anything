@@ -34,6 +34,11 @@ cp -r "$SRC" "$WORK/repo"
 REPO="$WORK/repo"
 try "analyze"                   "$GO" analyze "$REPO"
 try "analyze --json"            bash -c "$GO analyze --json '$REPO' | python3 -c 'import json,sys; json.load(sys.stdin)'"
+# A unit whose surface is instance methods has to say so in the table a person reads, not only in --json:
+# "0 exports" with no sentence is how a library looks like an empty file.
+mkdir -p "$WORK/instances"
+printf 'module Util\n  def helper(n)\n    n * 2\n  end\n  def self.double(n)\n    n * 2\n  end\nend\n' > "$WORK/instances/util.rb"
+try "analyze prints its notes"  bash -c "$GO analyze '$WORK/instances' | grep -q '## Notes' && $GO analyze '$WORK/instances' | grep -q 'could be promoted'"
 try "map"                       "$GO" map "$REPO"
 mkdir -p "$REPO/go-ports"
 try "scaffold --unit"           "$GO" scaffold --unit "$UNIT" "$REPO/go-ports/one-go"
