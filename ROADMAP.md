@@ -15,9 +15,13 @@ survey 的结果：php-carbon 37 单元/506 导出、ruby-sinatra 47/454（本�
 
 ## 二、功能：`enable` 覆盖更多语言
 
-**现状**：只有 TS/JS（重绑定导出）与 Python（包一层）。其余八种语言的 `enable` 会明确拒绝。
-**要做什么**：Ruby 用 `alias_method` + 覆盖、PHP 用 `class_alias`/装饰、Java/Kotlin/C# 用静态转发。
-**怎么算做完**：每种语言一个 `enable → 调用 → disable → 字节一致` 的测试，像 Python 现在那样。
+**现状**：有块的语言是 TS/JS（重绑定导出）与 Ruby（`class << self` 覆盖，`enable → 调用 → disable → 字节一致`
+已验）。没有块的语言（Rust/Go/C/Python…）现在**直接拒绝**：`switched.takeover` 只认 `.ts .tsx .js .jsx .mjs .cjs`
+与 `.rb`，其余报 `enable has no takeover for …`，不写任何字节（对照 22）。在这之前它会把 JS 块写进 `.rs` 文件并
+报成功——那个文件只是不再能编译。
+**要做什么**：Python 用模块属性覆盖、PHP 用 `class_alias`/装饰、Java/Kotlin/C# 用静态转发。
+**怎么算做完**：每种语言一个 `enable → 调用 → disable → 字节一致` 的测试，并把这些扩展加进 `takeover`；
+在加进去之前，对照 22 必须一直是绿的。
 
 ## 三、性能：没有赢下来的两处，要么赢要么写死理由
 
@@ -31,9 +35,11 @@ survey 的结果：php-carbon 37 单元/506 导出、ruby-sinatra 47/454（本�
 
 ## 四、可信度：继续加负向对照
 
-`make negative` 现在 19 条。要补的：
-* 类方法被误判为可移植（构造一个带 `$this->` 的反例）；
-* `enable` 在非 TS/JS 语言上不能静默成功；
+`make negative` 现在 21 条（打出 22 行 ok：对照 4 还带一条「gate 在坏 bridge 下仍通过」的确认行）。已销账：
+* `enable` 在非 TS/JS/Ruby 语言上不能静默成功 —— 对照 22，坏版本会把 JS 块写进 `.rs` 且 exit 0。
+
+还要补的：
+* 类方法被误判为可移植（构造一个带 `$this->` 的反例，现在只有 `self::$count` 那一条）；
 * `bench` 遇到被常量折叠的原式必须标注而不是报慢。
 
 ## 五、真实项目：扩大到每语言 3 个

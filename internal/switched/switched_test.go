@@ -191,3 +191,43 @@ func TestATruncatedBlockIsReportedNotRemoved(t *testing.T) {
 		t.Errorf("the code after the block was taken with it:\n%s", after)
 	}
 }
+
+// A unit written in a language with no block is refused, and refused before anything is written: the
+// JavaScript block went into a .rs file, the run printed success, and the compiler found out later. The
+// refusal is the only place that knows the difference between "switched on" and "no longer compiles".
+func TestEnableRefusesAUnitWithNoTakeover(t *testing.T) {
+	dir, path := crate(t, "src/text.rs")
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = Enable(Options{CrateDir: dir, Unit: "src/text.rs", Crate: "port-rs", Exports: []string{"pad"}})
+	if err == nil {
+		t.Fatal("enable accepted a Rust unit")
+	}
+	if !strings.Contains(err.Error(), "no takeover") || !strings.Contains(err.Error(), "Ruby (.rb)") {
+		t.Errorf("the refusal does not say what is supported: %v", err)
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != string(before) {
+		t.Errorf("the refused enable wrote to the file anyway:\nwant %q\ngot  %q", before, after)
+	}
+}
+
+// The languages that do have a block must keep working: a guard that refuses everything also passes the
+// test above.
+func TestEveryLanguageWithABlockIsAccepted(t *testing.T) {
+	for _, unit := range []string{"src/a.ts", "src/a.tsx", "src/a.js", "src/a.jsx", "src/a.mjs", "src/a.cjs", "src/a.rb"} {
+		if _, ok := takeover(unit); !ok {
+			t.Errorf("%s has a block but enable refuses it", unit)
+		}
+	}
+	for _, unit := range []string{"src/a.rs", "src/a.go", "src/a.py", "src/a.c", "src/a", "src/a.ts.bak"} {
+		if kind, ok := takeover(unit); ok {
+			t.Errorf("%s has no block but enable calls it %q", unit, kind)
+		}
+	}
+}

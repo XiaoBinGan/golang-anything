@@ -256,6 +256,32 @@ expect_fail "smoke notices a tool that cannot run its commands" $?
 mv /tmp/negative-engine-moved bin/go-anything-engine
 ./scripts/smoke.sh >/dev/null 2>&1 || { printf 'FAIL  smoke does not recover\n'; failures=$((failures + 1)); }
 
+# 22. enable in a language with no block must refuse, not write the JavaScript one into a .rs file. The
+#     exit code alone would also pass on a crate that is merely unbuilt, so the message has to name the
+#     missing takeover and the file has to survive byte for byte.
+mkdir -p /tmp/negative-takeover/src
+cat > /tmp/negative-takeover/src/text.rs <<'RS'
+pub fn range_of(s: &str, sub: &str) -> Option<(usize, usize)> {
+    let start = s.find(sub)?;
+    Some((start, start + sub.len()))
+}
+RS
+cat > /tmp/negative-takeover/go-anything.json <<'JSON'
+{"unit":"src/text.rs","crate":"neg/takeover","exports":[{"name":"range_of","params":["string"],"returns":""}]}
+JSON
+# The pre-fix tool reached the write with these present, which is what made the corruption silent: a
+# control that stops at "index.cjs is missing" would report a refusal it never earned.
+: > /tmp/negative-takeover/index.cjs
+: > /tmp/negative-takeover/addon.node
+cp /tmp/negative-takeover/src/text.rs /tmp/negative-takeover/original.rs
+"$GO" enable /tmp/negative-takeover >/tmp/negative-takeover/enable.err 2>&1
+expect_fail "enable refuses a language with no block" $?
+grep -q 'no takeover' /tmp/negative-takeover/enable.err ||
+  { printf 'FAIL  enable refused for some other reason: %s\n' "$(head -1 /tmp/negative-takeover/enable.err)"; failures=$((failures + 1)); }
+cmp -s /tmp/negative-takeover/src/text.rs /tmp/negative-takeover/original.rs ||
+  { printf 'FAIL  the refused enable wrote the JavaScript block into the Rust file anyway\n'; failures=$((failures + 1)); }
+rm -rf /tmp/negative-takeover
+
 # 14. perf: no rig, no numbers.
 RUST_ANYTHING=/nonexistent ./scripts/perf.sh >/dev/null 2>&1
 expect_fail "perf refuses a missing rig" $?

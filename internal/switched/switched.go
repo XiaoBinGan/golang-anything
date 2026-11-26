@@ -46,6 +46,20 @@ type Owned struct {
 	Owner string
 }
 
+// takeover names the block a unit gets, by the language its extension says it is written in. An
+// extension with no block is refused rather than given the JavaScript one: `render` would otherwise be
+// right about the names and wrong about the file, and nothing downstream would notice until a compiler
+// did.
+func takeover(unit string) (string, bool) {
+	switch strings.ToLower(filepath.Ext(unit)) {
+	case ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs":
+		return "javascript", true
+	case ".rb":
+		return "ruby", true
+	}
+	return "", false
+}
+
 // markOpen is the first line of the block: a reader and `disable` both find it by this prefix.
 func markOpen(crate string) string {
 	return "// >>> go-anything: " + crate + " is on. `go-anything disable` removes this block."
@@ -74,13 +88,22 @@ func Enable(opts Options) (string, error) {
 	if len(names) == 0 {
 		return "", fmt.Errorf("nothing to switch on: the crate has no bridgeable export")
 	}
+	// The block is written in the unit's own language, so a language with no block has no takeover. Each
+	// language is a different way of rebinding the same names, and the missing one used to be silent: the
+	// JavaScript block went into a .rs file and the run reported success on a file that no longer compiles.
+	kind, ok := takeover(opts.Unit)
+	if !ok {
+		return "", fmt.Errorf("enable has no takeover for %s: the block has to be written in the unit's own "+
+			"language, and only TypeScript/JavaScript (.ts .tsx .js .jsx .mjs .cjs) and Ruby (.rb) have one",
+			opts.Unit)
+	}
 	// A switched call has to land somewhere: without the wrapper or the binaries the original would
 	// fail at its first call, and that is worse than not switching it on.
-	// What a switched call needs depends on where the block lands: a JavaScript or Python unit talks to the
-	// addon (or the pipe), a Ruby unit talks to the stdio binary through port.rb.
+	// What a switched call needs depends on where the block lands: a JavaScript unit talks to the addon,
+	// a Ruby unit talks to the stdio binary through port.rb.
 	needed := []string{"index.cjs", "addon.node"}
 	how := "go-anything build --fast"
-	if strings.HasSuffix(opts.Unit, ".rb") {
+	if kind == "ruby" {
 		needed = []string{"port.rb", "portctl"}
 		how = "go-anything build"
 	}
@@ -177,7 +200,7 @@ func IsOn(crateDir, unit, crate string) (bool, error) {
 // render builds the block. Everything it needs comes from the caller, so the block is the same on every
 // run: a stable block is one `disable` can find and a diff can ignore.
 func render(opts Options, names []string, rel string, original string, name string) string {
-	if strings.HasSuffix(opts.Unit, ".rb") {
+	if kind, _ := takeover(opts.Unit); kind == "ruby" {
 		return renderRuby(opts, names, rel, name)
 	}
 	var b strings.Builder
