@@ -120,7 +120,9 @@ func ParseSource(src []byte, lang Lang, path string) (*File, error) {
 		return out, nil
 	}
 	if lang == Java {
-		out.Fns = append(out.Fns, javaExports(root, text)...)
+		fns, instances, free := javaExports(root, text)
+		out.Fns = append(out.Fns, fns...)
+		out.InstanceMethods, out.InstanceFree = instances, free
 		return out, nil
 	}
 	if lang == Ruby {
@@ -516,8 +518,12 @@ func rbFn(n *sitter.Node, name string, text func(*sitter.Node) string) Fn {
 
 // javaExports reads the public static methods of the classes in a file: those are the ones a bridge can
 // call without an instance.
-func javaExports(root *sitter.Node, text func(*sitter.Node) string) []Fn {
+func javaExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int, int) {
 	var out []Fn
+	// Java is the language where a library is a set of classes full of instance methods (jadx is one), and the plan
+	// said nothing about them: no count, no sentence. Counted here, not promoted — a Java proxy class is a separate
+	// piece of work.
+	instances, free := 0, 0
 	var walkClass func(n *sitter.Node, className string)
 	walkClass = func(n *sitter.Node, className string) {
 		for i := 0; i < int(n.NamedChildCount()); i++ {
@@ -539,6 +545,13 @@ func javaExports(root *sitter.Node, text func(*sitter.Node) string) []Fn {
 					}
 				}
 				if !strings.Contains(mods, "static") || !strings.Contains(mods, "public") {
+					if strings.Contains(mods, "public") && !strings.Contains(mods, "static") &&
+						!strings.Contains(mods, "abstract") && !strings.Contains(mods, "native") {
+						instances++
+						if body := child.ChildByFieldName("body"); body != nil && !strings.Contains(text(body), "this.") {
+							free++
+						}
+					}
 					continue
 				}
 				name := text(child.ChildByFieldName("name"))
@@ -579,7 +592,7 @@ func javaExports(root *sitter.Node, text func(*sitter.Node) string) []Fn {
 		}
 	}
 	walkClass(root, "")
-	return out
+	return out, instances, free
 }
 
 // javaDialect narrows a Java type to one of the generator's tables, the way dialectType does for TypeScript.

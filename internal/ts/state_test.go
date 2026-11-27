@@ -119,3 +119,29 @@ class Timer {
 		t.Errorf("InstanceFree = %d, want 1: only `elapsed` is free of state", file.InstanceFree)
 	}
 }
+
+// Java is the language where a library is classes full of instance methods, and the plan said nothing about them:
+// no count, no sentence, only the static methods as exports.
+func TestJavaInstanceMethodsAreCounted(t *testing.T) {
+	src := []byte(`public final class Timer {
+    private int offset = 5;
+
+    public int shifted(int n) { return n + this.offset; }
+
+    public int double(int n) { return n * 2; }
+
+    public static int twice(int n) { return n * 2; }
+}`)
+	file, err := ParseSource(src, Java, "Timer.java")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if file.InstanceMethods != 2 || file.InstanceFree != 1 {
+		t.Errorf("InstanceMethods=%d InstanceFree=%d, want 2/1", file.InstanceMethods, file.InstanceFree)
+	}
+	for _, fn := range file.Fns {
+		if fn.Name != "twice" {
+			t.Errorf("%s was offered as an export; only the static method needs no object", fn.Name)
+		}
+	}
+}

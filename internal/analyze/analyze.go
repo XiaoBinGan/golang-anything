@@ -488,8 +488,8 @@ func notes(u Unit) []string {
 			"their state has to be passed in explicitly", u.InstanceOnly))
 	}
 	if u.InstanceFree > 0 {
-		out = append(out, fmt.Sprintf("%d of them touch no state and could be promoted to `Owner.name(...)` "+
-			"once the crate has a shim that supplies the instance", u.InstanceFree))
+		out = append(out, fmt.Sprintf("%d of them touch no state and could be promoted to a static entry point "+
+			"once the language has a shim; `promote` writes one for Ruby and PHP today", u.InstanceFree))
 	}
 	if u.InstancePromotable > 0 {
 		out = append(out, fmt.Sprintf("%d of those live in a class, where `allocate` can supply the instance; "+
