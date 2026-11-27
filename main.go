@@ -1180,8 +1180,11 @@ func runPromote(args []string) error {
 			return fmt.Errorf("nothing to promote in %s: all %d instance method(s) read state, and a shim that "+
 				"skips the constructor would answer differently wherever that state mattered", m.Unit, file.InstanceMethods)
 		case file.InstancePromotable == 0:
-			return fmt.Errorf("nothing to promote in %s: %d instance method(s) touch no state, but they live in a "+
-				"module, which cannot be instantiated", m.Unit, file.InstanceFree)
+			// Two shapes land here and the parse cannot tell them apart from counts alone: a module (never
+			// instantiable) and a class whose constructors all want arguments. Naming both beats naming the wrong one.
+			return fmt.Errorf("nothing to promote in %s: %d instance method(s) touch no state, but their type cannot "+
+				"be built without arguments — a module cannot be instantiated, and a class whose constructors all "+
+				"take parameters needs values a proxy cannot invent", m.Unit, file.InstanceFree)
 		}
 		return fmt.Errorf("nothing to promote in %s: no class has a state-free instance method", m.Unit)
 	}

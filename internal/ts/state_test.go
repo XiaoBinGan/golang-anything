@@ -314,3 +314,29 @@ func TestKotlinObjectMembersAreNotInstanceMethods(t *testing.T) {
 			file.InstanceMethods, file.InstancePromotable)
 	}
 }
+
+// A secondary constructor lives in the class body and spells its parameters `function_value_parameters`. Reading only
+// the class's own children found no constructor at all and answered "no arguments", so `promote` wrote `Timer()` on a
+// class whose only constructor takes one — kotlinc: "no value passed for parameter 'unit'".
+func TestKotlinSecondaryConstructorBlocksPromotion(t *testing.T) {
+	src := []byte("class Timer {\n    constructor(unit: Int) {\n        println(unit)\n    }\n\n    fun doubled(n: Int): Int = n * 2\n}\n")
+	file, err := ParseSource(src, Kotlin, "Timer.kt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if file.InstanceFree != 1 {
+		t.Errorf("InstanceFree=%d, want 1: doubled reads no state", file.InstanceFree)
+	}
+	if file.InstancePromotable != 0 {
+		t.Errorf("InstancePromotable=%d, want 0: `Timer()` does not compile", file.InstancePromotable)
+	}
+	// A no-arg secondary constructor is still a way in.
+	withNoArg := []byte("class Maths {\n    constructor() {\n        println(1)\n    }\n\n    fun triple(n: Int): Int = n * 3\n}\n")
+	file, err = ParseSource(withNoArg, Kotlin, "Maths.kt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if file.InstancePromotable != 1 {
+		t.Errorf("InstancePromotable=%d, want 1: `Maths()` compiles", file.InstancePromotable)
+	}
+}

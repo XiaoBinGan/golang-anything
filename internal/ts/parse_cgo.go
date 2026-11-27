@@ -1179,14 +1179,41 @@ func csReturns(n *sitter.Node, text func(*sitter.Node) string) string {
 // kotlinHasNoArgCtor reports whether `Owner()` compiles: no primary constructor at all, or one that declares no
 // parameter carrying `val`/`var` (a plain parameter without those is still an argument the proxy cannot supply).
 func kotlinHasNoArgCtor(class *sitter.Node) bool {
+	// A secondary constructor lives inside the class body, not beside it: reading only the class's own children found
+	// none and answered "no arguments", which is how a proxy came to call `Timer()` on a class whose only constructor
+	// takes one.
+	var body *sitter.Node
 	for i := 0; i < int(class.NamedChildCount()); i++ {
-		c := class.NamedChild(i)
-		if c.Type() != "primary_constructor" {
+		if c := class.NamedChild(i); c.Type() == "class_body" {
+			body = c
+			break
+		} else if c.Type() == "primary_constructor" {
+			return int(c.NamedChildCount()) == 0
+		}
+	}
+	if body == nil {
+		return true
+	}
+	sawSecondary := false
+	for i := 0; i < int(body.NamedChildCount()); i++ {
+		c := body.NamedChild(i)
+		if c.Type() != "secondary_constructor" {
 			continue
 		}
-		return int(c.NamedChildCount()) == 0
+		sawSecondary = true
+		// Kotlin spells the parameter list `function_value_parameters`, and it is a child, not the `parameters` field.
+		params := 0
+		for j := 0; j < int(c.NamedChildCount()); j++ {
+			if p := c.NamedChild(j); p.Type() == "function_value_parameters" {
+				params = int(p.NamedChildCount())
+				break
+			}
+		}
+		if params == 0 {
+			return true
+		}
 	}
-	return true
+	return !sawSecondary
 }
 
 // kotlinClassHasProps reports whether a Kotlin class body declares a property: a `val`/`var` inside the body, or a
