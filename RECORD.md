@@ -5,10 +5,12 @@
 两条规则由 `scripts/doccheck.sh` 守着：每节标题上的条数等于该节实际条数；每个标题都必须对应一个真实存在的提交。
 数字都在对应的文档里（[PERF.md](PERF.md)、[EVAL.md](EVAL.md)、[PARITY.md](PARITY.md)、[CONTRACT.md](CONTRACT.md)）。
 
-## 一、修掉的错误（51 条）
+## 一、修掉的错误（52 条）
 
 每一条都是**工具说了假话**或**产物不对**，被一次具体实验抓到：
 
+- **a JVM int is 32 bits, and the typed entry point has to say so**
+  - Promoting a Java method and gating it answered `doubled(-2147483648): expected 0, got -4294967296`: Java's int wraps, Go's does not, and the stub said `func Doubled(n int) (int32, error)`. Java and Kotlin map int→int32, long→int64, float→float32, double→float64 now; bench passes int32 at the typed call site, and the sweep fills the int32 stub body (without that it timed a delegating stub and reported kt 1.13x slower).
 - **a Kotlin member function knows its class again**
   - Kotlin keeps the class name in a `type_identifier` child, and `ChildByFieldName("name")` answers "" for it, so the walk entered the class body with an empty owner and every member function came out as if it were free: `double method=false receiver=""` → `method=true receiver="Timer"`. Nothing failed loudly; only the missing receiver said they belonged to a class.
 - **a Java method is only state-free if its class has no instance fields**
@@ -259,9 +261,11 @@
 - **bench, map, clean, doctor, check, and the in-process bridge**
   - bench times both sides the same way; map writes PORT-MAP.md; clean and doctor round out the day-to-day commands. The fast bridge is a c-shared library plus a hand-written N-API addon: 0.73 us per call against rust-anything's ~1 us, and 16x faster than the stdio process.
 
-## 四、让检查本身可信（30 条）
+## 四、让检查本身可信（31 条）
 
 负向对照与冒烟测试——这些不增加功能，只增加「结论可信」：
+- **smoke runs the Java promote chain through record and gate**
+  - Four named steps with a port that multiplies in int32, because that is what the Java int does. The gate case is the one that found the width difference, so the chain now holds the thing that caught it. 98 passed, 0 failed.
 - **smoke runs the Java promote route and compiles the proxy**
   - Four cases: the proxy is written, `javac` accepts it, `analyze` reads `MathsPromoted.doubled`, and `--revert` deletes it. The compile case is the one that would have caught both Java surprises without anyone reading the generated file. 94 passed, 0 failed.
 - **smoke reads the instance-method counts for Kotlin and Java**
