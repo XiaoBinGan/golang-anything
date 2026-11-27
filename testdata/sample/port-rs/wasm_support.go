@@ -5,6 +5,7 @@
 package port
 
 import (
+	"math"
 	"fmt"
 	"unsafe"
 )
@@ -29,12 +30,20 @@ func bytesAt(ptr, n uint32) string {
 
 // WasmCountStringNumber answers count(string) with a number.
 func WasmCountStringNumber(ptr, n uint32) float64 {
-	return count(bytesAt(ptr, n))
+	v, err := count(bytesAt(ptr, n))
+	if err != nil {
+		return math.NaN()
+	}
+	return v
 }
 
 // WasmRatioNumberNumber answers ratio(number, number) with a number.
 func WasmRatioNumberNumber(a, b float64) float64 {
-	return ratio(a, b)
+	v, err := ratio(a, b)
+	if err != nil {
+		return math.NaN()
+	}
+	return v
 }
 
 

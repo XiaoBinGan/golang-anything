@@ -504,13 +504,23 @@ func directMap(exports []Export) string {
 // fast path calls, or only the registry entry every scaffold produces. It was declared and never filled
 // for a while: every wrapper went through the registry, and the typed path that measured 53 ns a call was
 // dead code, which is why the wasm bridge measured 0.23 µs instead of 0.05.
-var portStyle = map[string]string{}
+var portStyle = map[string]portFn{}
+
+// portFn is what a typed port declares: the Go spelling of the name, and how many values it returns.
+//
+// The count matters. `func Count(text string) (float64, error)` returns two values and the wrapper needs
+// `v, err :=`; `func width(text string) float64` returns one and needs `return width(...)`. Assuming one
+// value emitted `return count(...)` — "too many return values" — the moment the typed path was taken.
+type portFn struct {
+	Name    string
+	Results int
+}
 
 // detectPortStyle reads port.go and records which exports are declared with a typed signature. A port
 // written by hand as `func f(a, b float64) float64` gets the direct call; the scaffold's `func f(args
 // []any)` does not.
 func detectPortStyle(dir string) {
-	portStyle = map[string]string{}
+	portStyle = map[string]portFn{}
 	file, err := gofile(dir, "port.go")
 	if err != nil {
 		return
@@ -542,7 +552,11 @@ func detectPortStyle(dir string) {
 		if len(key) > 0 {
 			key = strings.ToLower(key[:1]) + key[1:]
 		}
-		portStyle[key] = fn.Name.Name
+		results := 0
+		if fn.Type.Results != nil {
+			results = fn.Type.Results.NumFields()
+		}
+		portStyle[key] = portFn{Name: fn.Name.Name, Results: results}
 	}
 }
 
@@ -559,11 +573,12 @@ func gofile(dir, name string) (string, error) {
 // registry otherwise. The registry always exists, so the generated file compiles for every crate; a
 // crate that types its port gets the version that measured 53 ns a call.
 func typedCall(export, args, shape, first string) string {
-	if name, ok := portStyle[export]; ok {
-		// A typed function returns the value and no error, so the wrapper returns it directly: `v, err :=` here
-		// is `assignment mismatch: 2 variables but Count returns 1 value`, which is how this branch was found —
-		// it had never been taken.
-		return fmt.Sprintf("return %s(%s)", name, args)
+	if fn, ok := portStyle[export]; ok {
+		if fn.Results >= 2 {
+			// (value, error): the error becomes NaN, the way the registry path answers one.
+			return fmt.Sprintf("v, err := %s(%s)\n\tif err != nil {\n\t\treturn math.NaN()\n\t}\n\treturn v", fn.Name, args)
+		}
+		return fmt.Sprintf("return %s(%s)", fn.Name, args)
 	}
 	return fmt.Sprintf("v, err := portCall(%q, []any{%s})\n\tif err != nil {\n\t\treturn math.NaN()\n\t}\n\tf, ok := v.(float64)\n"+
 		"\tif !ok {\n\t\treturn math.NaN()\n\t}\n\treturn f", export, args)
