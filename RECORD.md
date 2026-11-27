@@ -151,9 +151,11 @@
 - **measure both bridges head to head and report where we lose**
   - Built rust-anything 4.0.0 here, bridged the same unit with both tools, filled both ports and timed one call alternately in blocks so a load spike hits both sides. rust-anything's napi bridge answers in 0.073 us, ours in 0.294 us after the one-string fast path (no JSON, no malloc, quote written straight into the caller's buffer). The gap is structural: cgo costs 40-60 ns per call.
 
-## 三、能力（42 条）
+## 三、能力（43 条）
 
 功能与语言支持，每条都在提交里说明了如何验证：
+- **promote has a PHP route — a proxy class in promoted.php**
+  - PHP cannot reopen a class, so the Ruby block was actively wrong there. The route is a proxy class in its own file, which `analyze` reads as its own unit (`TimerPromoted.double`), and `--revert` deletes the file when it held nothing but the proxy.
 - **the PHP proxy is typed and loads its class, so a promoted method records and gates**
   - Two gaps in the proxy `promote` writes: `...$args` is variadic and `analyze` refuses it, so there was no bridgeable export at all; and without `require_once` the class it instantiates is not loaded, which the recorder filed as `Error: Class "Timer" not found`. With both fixed: `php -l` clean, `record` 15 cases, `gate` every case matches.
 - **the bench table marks the rows it timed through the typed entry point**
@@ -241,9 +243,15 @@
 - **bench, map, clean, doctor, check, and the in-process bridge**
   - bench times both sides the same way; map writes PORT-MAP.md; clean and doctor round out the day-to-day commands. The fast bridge is a c-shared library plus a hand-written N-API addon: 0.73 us per call against rust-anything's ~1 us, and 16x faster than the stdio process.
 
-## 四、让检查本身可信（23 条）
+## 四、让检查本身可信（26 条）
 
 负向对照与冒烟测试——这些不增加功能，只增加「结论可信」：
+- **smoke runs the PHP promote route end to end**
+  - Four cases after the Ruby chain: the proxy class is written, `php -l` says it parses, `analyze` reports `TimerPromoted.double`, and `--revert` removes the file. The third is the one that matters: a proxy nothing parses is a file.
+- **control 30 keeps promote away from a method that reads state**
+  - The proxy instantiates without the constructor's state, and a method reading `$this->offset` would disagree with the original only where the state mattered — invisible to `gate`. The control requires the refusal, the reason, and that no file was written.
+- **control 31 holds the PHP proxy's two properties**
+  - Typed, because a variadic proxy has no bridgeable export; and `require_once`, because without it the recorder files `Class "Timer" not found` as the case. Both were missing once and both were invisible.
 - **smoke runs the PHP promote chain through record and gate**
   - Four named steps instead of one subshell: the first version swallowed the reason (gate failed on `Class "Timer" not found`, the report said "PHP promote → record → gate"). 88 passed, 0 failed.
 - **smoke requires bench --json to say which path it timed**
