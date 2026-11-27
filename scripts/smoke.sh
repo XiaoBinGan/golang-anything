@@ -91,6 +91,16 @@ printf 'module smoke-javaprom\n\ngo 1.24\n' > "$WORK/javaprom/go.mod"
 try "promote writes a Java proxy" bash -c "$GO promote --unit Maths.java '$WORK/javaprom' && grep -q 'class MathsPromoted' '$WORK/javaprom/MathsPromoted.java'"
 try "the Java proxy compiles"    bash -c "cd '$WORK/javaprom' && javac -d out Maths.java MathsPromoted.java"
 try "analyze sees the Java proxy" bash -c "$GO analyze '$WORK/javaprom' | grep -q 'MathsPromoted.doubled'"
+# And the chain the proxy exists for: record, port, gate — with Java's 32-bit int, which the gate checks at -2^31.
+"$GO" scaffold --unit MathsPromoted.java "$WORK/javaprom/go-ports/j-go" >/dev/null 2>&1
+sed -i '' "s|example.com/j-go|smoke-javaprom/go-ports/j-go|g" "$WORK/javaprom/go-ports/j-go"/*.go \
+  "$WORK/javaprom/go-ports/j-go/golang-anything.json" "$WORK/javaprom/go-ports/j-go/cmd"/*/main.go 2>/dev/null
+python3 -c 'import sys;p=sys.argv[1];s=open(p).read();s=s.replace("return nil, fmt.Errorf(\"not implemented: port doubled\")","n, ok := args[0].(float64)\n\tif !ok {\n\t\treturn nil, fmt.Errorf(\"ClassCastException: doubled expects int, got %T\", args[0])\n\t}\n\treturn int32(n) * 2, nil");open(p,"w").write(s)' \
+  "$WORK/javaprom/go-ports/j-go/port.go"
+try "Java record"                bash -c "cd '$WORK/javaprom' && $GO record --unit MathsPromoted.java go-ports/j-go"
+try "Java bridge"                bash -c "cd '$WORK/javaprom' && $GO bridge go-ports/j-go"
+try "Java build"                 bash -c "cd '$WORK/javaprom' && $GO build --fast go-ports/j-go"
+try "Java gate"                  bash -c "cd '$WORK/javaprom' && $GO gate go-ports/j-go"
 try "Java promote --revert"      bash -c "$GO promote --revert --unit Maths.java '$WORK/javaprom' && [ ! -f '$WORK/javaprom/MathsPromoted.java' ]"
 try "map"                       "$GO" map "$REPO"
 mkdir -p "$REPO/go-ports"
