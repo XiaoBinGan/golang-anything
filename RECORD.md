@@ -5,9 +5,14 @@
 两条规则由 `scripts/doccheck.sh` 守着：每节标题上的条数等于该节实际条数；每个标题都必须对应一个真实存在的提交。
 数字都在对应的文档里（[PERF.md](PERF.md)、[EVAL.md](EVAL.md)、[PARITY.md](PARITY.md)、[CONTRACT.md](CONTRACT.md)）。
 
-## 一、修掉的错误（43 条）
+## 一、修掉的错误（45 条）
 
 每一条都是**工具说了假话**或**产物不对**，被一次具体实验抓到：
+
+- **the wasm typed path was dead, and its call site named the wrong function**
+  - `detectPortStyle` required an exported name, and every scaffolded port declares `func count(args []any)` — lower case, so it was skipped, `portStyle` stayed empty, and every wrapper went through the registry. Behind that, the typed branch could not have worked: detection keyed the export name and the call used it verbatim (`count(...)` for a `Count` declaration), and the wrapper assumed `(v, err)`.
+- **the wasm typed path assumed one return value, and a two-value port stopped compiling**
+  - `func Count(text string) (float64, error)` returns two values and the wrapper wrote `return Count(...)`: "too many return values". `portFn` records the count now and emits the shape the declaration has — one value or value and error.
 
 - **scaffold's summary names the step that makes cmd/godriver compile**
   - A fresh scaffold writes `cmd/godriver/main.go`, which names `port.Undefined`; that type lives in `answer.go`, and `answer.go` is written by `bridge`. A `go build ./...` between the two answered `undefined: port.Undefined` with nothing pointing at the missing step. Declaring the type in the port template was tried first and is wrong — `answer.go` already declares it, so every crate said `Undefined redeclared`. The summary line is the fix that does not fight the generator.
@@ -136,9 +141,13 @@
 - **measure both bridges head to head and report where we lose**
   - Built rust-anything 4.0.0 here, bridged the same unit with both tools, filled both ports and timed one call alternately in blocks so a load spike hits both sides. rust-anything's napi bridge answers in 0.073 us, ours in 0.294 us after the one-string fast path (no JSON, no malloc, quote written straight into the caller's buffer). The gap is structural: cgo costs 40-60 ns per call.
 
-## 三、能力（37 条）
+## 三、能力（39 条）
 
 功能与语言支持，每条都在提交里说明了如何验证：
+- **fuzz runs a Ruby unit through its own runtime**
+  - The Ruby driver existed for `record` and not for `fuzz`, so a Ruby crate could record cases and not fuzz them: the seed replay, the throw paths and `--keep` all worked for TypeScript and stopped at the language boundary. The driver is shared now.
+- **scaffold writes the typed entry point, in the shape the wasm wrapper records**
+  - Every unit gets `func Count(text string) (float64, error)` beside the bridge's `func count(args []any) (any, error)`, delegating until a person writes the body. Three shapes were tried and two are wrong — a panic stub turns every driver red, a one-value stub breaks `wasm_support.go` — which is why this took four rounds and left the wrong assumptions in two of them.
 - **a state-free method in a module is not promotable, and the plan says so**
   - "Touch no state" is necessary and not sufficient: a Ruby module cannot be instantiated, so a shim would answer `NoMethodError` on the first call. The count splits again — `instance_promotable` — and the plan says which methods live in a class (`allocate` supplies the instance) and which sit in a module.
 - **the plan names the promotable methods, not just how many there are**
