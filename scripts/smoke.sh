@@ -83,6 +83,15 @@ try "PHP bridge"                bash -c "cd '$WORK/phpprom' && $GO bridge go-por
 try "PHP build"                 bash -c "cd '$WORK/phpprom' && $GO build --fast go-ports/p-go"
 try "PHP gate"                  bash -c "cd '$WORK/phpprom' && $GO gate go-ports/p-go"
 try "PHP promote --revert"      bash -c "$GO promote --revert --unit timer.php '$WORK/phpprom' && [ ! -f '$WORK/phpprom/promoted.php' ]"
+# Java: one proxy file per class, with `//` markers, and `javac` has to accept it — a proxy that does not compile is
+# not a shim.
+mkdir -p "$WORK/javaprom"
+printf 'public final class Maths {\n    public int doubled(int n) { return n * 2; }\n\n    public static int twice(int n) { return n * 2; }\n}\n' > "$WORK/javaprom/Maths.java"
+printf 'module smoke-javaprom\n\ngo 1.24\n' > "$WORK/javaprom/go.mod"
+try "promote writes a Java proxy" bash -c "$GO promote --unit Maths.java '$WORK/javaprom' && grep -q 'class MathsPromoted' '$WORK/javaprom/MathsPromoted.java'"
+try "the Java proxy compiles"    bash -c "cd '$WORK/javaprom' && javac -d out Maths.java MathsPromoted.java"
+try "analyze sees the Java proxy" bash -c "$GO analyze '$WORK/javaprom' | grep -q 'MathsPromoted.doubled'"
+try "Java promote --revert"      bash -c "$GO promote --revert --unit Maths.java '$WORK/javaprom' && [ ! -f '$WORK/javaprom/MathsPromoted.java' ]"
 try "map"                       "$GO" map "$REPO"
 mkdir -p "$REPO/go-ports"
 try "scaffold --unit"           "$GO" scaffold --unit "$UNIT" "$REPO/go-ports/one-go"
