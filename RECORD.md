@@ -279,7 +279,7 @@
 
 负向对照与冒烟测试——这些不增加功能，只增加「结论可信」：
 - **control 33 holds the state rule on the JVM route too**
-  - Control 30 asserted it for PHP; a Java proxy instantiates the class without its constructor state, and `gate` cannot see the difference. `Needs.java` (a field) must be refused with no proxy written; with the field check removed the control fails three ways. Its first version read `$?` after an assignment and accused the shipped binary of a break it did not have.
+  - Control 30 asserted it for PHP; a Java proxy instantiates the class without its constructor state, and `gate` cannot see the difference. `Needs.java` (a field) must be refused with no proxy written; with the field check removed the control fails three ways. Its first version read `$?` after an assignment and accused the shipped binary of a break it did not have. It now covers Kotlin and C# as well: removing the C# field check makes it fail twice, while blinding `kotlinClassHasProps` alone changes nothing — that fixture is refused by more than one check, which is worth knowing before trusting the control for Kotlin.
 - **smoke runs the Java promote chain through record and gate**
   - Four named steps with a port that multiplies in int32, because that is what the Java int does. The gate case is the one that found the width difference, so the chain now holds the thing that caught it. 98 passed, 0 failed.
 - **smoke runs the Java promote route and compiles the proxy**
