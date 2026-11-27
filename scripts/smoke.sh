@@ -65,6 +65,9 @@ mkdir -p "$WORK/phpprom"
 printf '<?php\nclass Timer {\n    public function double(int $n): int { return $n * 2; }\n}\n' > "$WORK/phpprom/timer.php"
 try "promote writes a PHP proxy" bash -c "$GO promote --unit timer.php '$WORK/phpprom' && grep -q 'class TimerPromoted' '$WORK/phpprom/promoted.php'"
 try "the PHP proxy parses"       bash -c "php -l '$WORK/phpprom/promoted.php'"
+# Enabling twice must not write a second block: the marker is what makes the command idempotent, and a second
+# `class TimerPromoted` is a fatal error in PHP.
+try "promote is idempotent (PHP)" bash -c "$GO promote --unit timer.php '$WORK/phpprom' >/dev/null 2>&1; grep -c 'class TimerPromoted' '$WORK/phpprom/promoted.php' | grep -qx 1"
 try "analyze sees the proxy"     bash -c "$GO analyze '$WORK/phpprom' | grep -q 'TimerPromoted.double'"
 # And the chain the proxy exists for: record, port, gate. It failed for two rounds — a variadic proxy has no
 # export and a proxy that does not require its class records the class error as the case.
