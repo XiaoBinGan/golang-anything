@@ -2,7 +2,7 @@
 
 目标：**全部 26 条命令对齐**，并在性能上超过它（桥接单次调用、diff/record 吞吐、工具启动）。
 
-**当前：26/26 对齐 + 4 条 rust-anything 没有的命令（`scaffold`、`check`、`wasm`、`shadow-report`）。**
+**当前：31 行——25 行点名上游命令（rust-anything 的 26 条里有一条没有对应行）、6 条自创（`check` `fast` `promote` `scaffold` `shadow-report` `wasm`）。**
 
 这个数字由 `scripts/doccheck.sh` 算出来并核对，不是记着的：它取 `--help` 的命令集合减去 PARITY 左列的集合。
 性能五项里四项赢、一项（`--help` 冷启动）慢 0.1 ms，原因与实测见 [PERF.md](PERF.md) 的「启动的下限」一节。
@@ -12,7 +12,7 @@
 | # | rust-anything | golang-anything | 状态 | 说明 |
 | --- | --- | --- | --- | --- |
 | 1 | `analyze` | `analyze` | ✅ | tree-sitter 解析 TS/TSX/JS：导出、参数与返回类型、`throw` 行、导入、风险；波次、readiness、priority、start_here 用同一套公式 |
-| 2 | `bridge` | `scaffold` + `bridge` | ✅ | `scaffold` 生成 `port.go` 骨架/驱动/清单；`bridge` 生成 `index.cjs`、`port.py`、stdio 桥 |
+| 2 | `bridge` | `bridge` | ✅ | 生成 `index.cjs`、`port.py`、stdio 桥 |
 | 3 | `refresh` | `refresh` | ✅ | 从清单重生成 `wire.go`/驱动/清单/包装器，**不动 `port.go`**（有测试） |
 | 4 | `record` | `record` | ✅ | 按声明类型生成边界值；`--inputs` 回放真实调用；`--test-coverage` 跑原式测试找没人碰的导出；源指纹 |
 | 5 | `build` | `build` | ✅ | `go build` 出 `portctl`；`--fast` 额外出 c-shared 库 + N-API addon |
@@ -25,7 +25,7 @@
 | 12 | `disable` | `disable` | ✅ | 精确移除该块，文件回到**字节一致**（有测试断言） |
 | 13 | `report` | `report` | ✅ | `REPORT.md` + `card.svg`（840×240，不通过时换色），数字全部来自当场跑的 `diff`/`bench` |
 | 14 | `clean` | `clean` | ✅ | 删 `work/`、`portctl`、`cmd/gobench`，不动源码 |
-| 15 | `shadow` | `shadow` + `shadow-report` | ✅ | 生成 `shadow.cjs`：同一调用跑原式与端口，比对后**返回原式的答案**，差异写 `shadow.jsonl`；`shadow-report` 汇总 |
+| 15 | `shadow` | `shadow` | ✅ | 生成 `shadow.cjs`：同一调用跑原式与端口，比对后**返回原式的答案**，差异写 `shadow.jsonl` |
 | 16 | `gate` | `gate` | ✅ | 每例匹配 + 每个 `throw` 必须有录到的失败用例 + 导出不缺 + 不许 panic |
 | 17 | `package` | `package` | ✅ | 三种形态（library / cli / service）：npm 主包 + 每平台子包 + Go module + Dockerfile + GitHub Actions；重跑只替换上次写的文件 |
 | 18 | `app record` | `app record` | ✅ | 黑盒跑整程序（argv/stdin/env 进，stdout/stderr/exit 出），每例跑两次以识别不稳定输出 |
@@ -39,8 +39,11 @@
 | 26 | — | `check` | ✅ 额外 | 用真正被调用的那条桥（addon 或 stdio）回放全部用例，**每个用例跑两遍**：一遍传录制里的标记、一遍传解码后的值——只有第二遍会走到包装器的 `encode` |
 | 27 | — | `fast` | ✅ 额外 | 只构建进程内桥 |
 | 28 | — | `promote` | ✅ 额外 | 给**不碰状态**的实例方法写 Ruby shim（`def self.x(*args) = allocate.x(*args)`），让 `Owner.name(...)` 可调用；`--revert` 按标记删除，文件**字节一致**。module 的方法不提供——module 不能实例化 |
+| 29 | — | `scaffold` | ✅ 额外 | 生成 `port.go` 骨架、驱动与清单；`--force` 覆盖已填的实现 |
+| 30 | — | `shadow-report` | ✅ 额外 | 汇总 `shadow.jsonl`：调用数、按函数的不一致、第一次出现的位置 |
+| 31 | — | `wasm` | ✅ 额外 | 生成 wasm 包装（`index.wasm.mjs`）：类型化直调，比 JSON 桥快；不能承载时明确拒绝 |
 
-**当前：26 条里 26 条已实现（含 3 条自创：`check` `fast` `shadow-report`）。**
+**当前：31 行全部 ✅（含 6 条自创）。**
 
 ## 性能（本机 macOS arm64，Node 22.22，Go 1.26，rust-anything 4.0.0 本地编出）
 

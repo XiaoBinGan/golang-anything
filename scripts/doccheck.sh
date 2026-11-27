@@ -54,10 +54,26 @@ for cmd in $invented; do
   grep -qi "自创\|invented\|not in rust-anything" PARITY.md || true
 done
 
-# 3. the counts the document states have to match the tool
-stated=$(grep -o '[0-9]*/26' PARITY.md | head -1 | cut -d/ -f1)
-actual=$(printf '%s\n' "$help_text" | sed -n 's/^  golang-anything \([a-z][a-z-]*\).*/\1/p' | sort -u | wc -l | tr -d ' ')
-echo "      commands: --help says $actual, PARITY states $stated/26"
+# 3. the table is the claim: every command in --help has a row, and the row count matches what the header says.
+#    "26/26" was echoed for rounds and compared with nothing; three commands were documented inside other rows
+#    (`scaffold` in bridge's, `shadow-report` in shadow's, `wasm` in neither), so no count could have been right.
+rows=$(grep -c '^| [0-9]' PARITY.md)
+missing_row=""
+for cmd in $(printf '%s\n' "$help_text" | sed -n 's/^  golang-anything \([a-z][a-z-]*\).*/\1/p' | sort -u); do
+  # the third cell is our command name; the second is the upstream one, and every invented row has `—` there,
+  # so matching the second cell made the check pass for all six of them.
+  # the third cell starts with the command's own name: `app record` covers `app`, `setup` + `mcp` covers both.
+  grep -qE "^\| [0-9]+ \| [^|]*\| [^|]*\`$cmd" PARITY.md || missing_row="$missing_row $cmd"
+done
+stated_rows=$(grep -o '当前：[0-9]* 行' PARITY.md | head -1 | grep -o '[0-9]*')
+echo "      commands: --help says $(printf '%s\n' "$help_text" | sed -n 's/^  golang-anything \([a-z][a-z-]*\).*/\1/p' | sort -u | wc -l | tr -d ' '), PARITY rows: $rows, header says $stated_rows"
+if [ -n "$missing_row" ]; then
+  fail "commands with no row of their own:$missing_row"
+elif [ "$rows" != "$stated_rows" ]; then
+  fail "PARITY has $rows rows; its header says $stated_rows"
+else
+  pass "PARITY.md has $rows rows and every command has one"
+fi
 
 # 4. every MCP tool is named in README.md
 missing_tool=""
