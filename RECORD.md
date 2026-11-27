@@ -5,10 +5,12 @@
 两条规则由 `scripts/doccheck.sh` 守着：每节标题上的条数等于该节实际条数；每个标题都必须对应一个真实存在的提交。
 数字都在对应的文档里（[PERF.md](PERF.md)、[EVAL.md](EVAL.md)、[PARITY.md](PARITY.md)、[CONTRACT.md](CONTRACT.md)）。
 
-## 一、修掉的错误（55 条）
+## 一、修掉的错误（56 条）
 
 每一条都是**工具说了假话**或**产物不对**，被一次具体实验抓到：
 
+- **a Kotlin object's members are not instance methods, and promoting one wrote `Timer()`**
+  - Since `object` bodies started being read, their members counted as instance methods, and `promote` wrote a proxy calling `Timer().doubled(n)`. A Kotlin `object` cannot be instantiated, so that file does not compile: the tool offered a route that could not work. The walk carries `countInstances` now — false inside an object, true inside a class — and the member stays an export, which is what recording a proxy needs.
 - **the C# recorder and C# widths, so a promoted C# method records and gates**
   - The same two lessons Java taught, in C#: `dotnet` built the unit alone, and the proxy instantiates a sibling class (`Sibling_*.cs` is copied into the project the way `require_once` carries PHP's shim); and a C# `int` is 32 bits, so `Doubled(-2147483648)` answered 0 in C# and -4294967296 in a port that used Go's int. After both: 17 cases, gate green.
 - **two tests that need a transforming node now skip where the node cannot transform**
