@@ -5,9 +5,12 @@
 两条规则由 `scripts/doccheck.sh` 守着：每节标题上的条数等于该节实际条数；每个标题都必须对应一个真实存在的提交。
 数字都在对应的文档里（[PERF.md](PERF.md)、[EVAL.md](EVAL.md)、[PARITY.md](PARITY.md)、[CONTRACT.md](CONTRACT.md)）。
 
-## 一、修掉的错误（46 条）
+## 一、修掉的错误（47 条）
 
 每一条都是**工具说了假话**或**产物不对**，被一次具体实验抓到：
+
+- **the PHP recorder called the export name, so a promoted method recorded zero cases**
+  - `function_exists($name)` is false for every method — a method is not a function — so every call was skipped and `record` wrote `0 cases` with nothing else said. The plan carries both names: the export is what a case is filed under, the path (`Class.method`) is what can be called; it now calls the path, spelled `Class::method`, and files under the export. 0 → 15 cases.
 
 - **the typed path lost track of a stub, and control 29 now watches the table**
   - `bench`'s warm-up counted `not implemented: port …` only on the registry branch, and the typed entry point delegates to that same refusal, so a scaffold crate got a ratio printed again — control 25 caught it on the first run (`bench refuses a scaffold stub … exited 0 on a known break`).
@@ -148,9 +151,11 @@
 - **measure both bridges head to head and report where we lose**
   - Built rust-anything 4.0.0 here, bridged the same unit with both tools, filled both ports and timed one call alternately in blocks so a load spike hits both sides. rust-anything's napi bridge answers in 0.073 us, ours in 0.294 us after the one-string fast path (no JSON, no malloc, quote written straight into the caller's buffer). The gap is structural: cgo costs 40-60 ns per call.
 
-## 三、能力（41 条）
+## 三、能力（42 条）
 
 功能与语言支持，每条都在提交里说明了如何验证：
+- **the PHP proxy is typed and loads its class, so a promoted method records and gates**
+  - Two gaps in the proxy `promote` writes: `...$args` is variadic and `analyze` refuses it, so there was no bridgeable export at all; and without `require_once` the class it instantiates is not loaded, which the recorder filed as `Error: Class "Timer" not found`. With both fixed: `php -l` clean, `record` 15 cases, `gate` every case matches.
 - **the bench table marks the rows it timed through the typed entry point**
   - `--json` had the flag and the table — the thing a person reads — did not: `| twice † | 17 | 1 ns | 2 ns | 1.69x slower |` with one footnote, present only when a row used it.
 - **the sweep fills the typed entry point as well as the generic one**
@@ -236,9 +241,11 @@
 - **bench, map, clean, doctor, check, and the in-process bridge**
   - bench times both sides the same way; map writes PORT-MAP.md; clean and doctor round out the day-to-day commands. The fast bridge is a c-shared library plus a hand-written N-API addon: 0.73 us per call against rust-anything's ~1 us, and 16x faster than the stdio process.
 
-## 四、让检查本身可信（22 条）
+## 四、让检查本身可信（23 条）
 
 负向对照与冒烟测试——这些不增加功能，只增加「结论可信」：
+- **smoke runs the PHP promote chain through record and gate**
+  - Four named steps instead of one subshell: the first version swallowed the reason (gate failed on `Class "Timer" not found`, the report said "PHP promote → record → gate"). 88 passed, 0 failed.
 - **smoke requires bench --json to say which path it timed**
   - The flag existed and nothing checked it survived; the case benches the smoke crate and requires a row with `typed: true`. 80 passed, 0 failed.
 - **control 28 keeps the typed entry point delegating**
