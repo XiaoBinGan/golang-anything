@@ -60,7 +60,13 @@ fun main() {
 			for i, v := range args {
 				lits[i] = KotlinLiteral(v, entry.Types[i])
 			}
-			invocation := fmt.Sprintf("%s(%s)", name, strings.Join(lits, ", "))
+			// A promoted unit is a proxy, so the callable is `TimerPromoted.doubled` — the plan carries that path. The
+			// bare name is what a free function is called by.
+			callee := name
+			if entry.Path != "" {
+				callee = entry.Path
+			}
+			invocation := fmt.Sprintf("%s(%s)", callee, strings.Join(lits, ", "))
 			argsJSON := kotlinString(wireArgsJSON(args, entry.Types))
 			b.WriteString("    try { emit(" + fmt.Sprintf("%q", name) + ", " + argsJSON + ", " + invocation + ") }\n")
 			b.WriteString("    catch (t: Throwable) { fail(" + fmt.Sprintf("%q", name) + ", " + argsJSON + ", t) }\n")

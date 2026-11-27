@@ -484,7 +484,18 @@ func Run(opts Options) (Summary, error) {
 		if err := os.MkdirAll(classes, 0o755); err != nil {
 			return Summary{}, err
 		}
-		build := exec.CommandContext(ctx, "kotlinc", unitPath, recorder, "-include-runtime", "-d", filepath.Join(work, "recorder.jar"))
+		// A promoted unit is a proxy in its own file, and the class it instantiates is a sibling: PHP's shim does the
+		// same with `require_once`. Compiling the unit alone answers `unresolved reference: Timer`.
+		sources := []string{unitPath, recorder}
+		if siblings, err := filepath.Glob(filepath.Join(filepath.Dir(unitPath), "*.kt")); err == nil {
+			for _, f := range siblings {
+				if f != unitPath {
+					sources = append(sources, f)
+				}
+			}
+		}
+		build := exec.CommandContext(ctx, "kotlinc",
+			append(sources, "-include-runtime", "-d", filepath.Join(work, "recorder.jar"))...)
 		build.Stderr = os.Stderr
 		if err := build.Run(); err != nil {
 			return Summary{}, fmt.Errorf("compiling the unit and the recorder: %w", err)
