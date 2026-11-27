@@ -424,6 +424,23 @@ fi
 cd "$ROOT"
 rm -rf /tmp/negative-allocate
 
+# 33. the same rule on a JVM language: a class that holds a field is not offered, and no proxy file appears. Java's
+#     proxy instantiates the class without its constructor state, so a recorded answer would be right only where that
+#     state did not matter — and `gate` cannot see the difference.
+mkdir -p /tmp/negative-jvmstate && cd /tmp/negative-jvmstate
+printf 'public final class Needs {\n    private int offset = 5;\n\n    public int doubled(int n) { return n * 2; }\n\n    public static int twice(int n) { return n * 2; }\n}\n' > Needs.java
+printf 'module negjvmstate\n\ngo 1.24\n' > go.mod
+before=$failures
+"$GO" promote --unit Needs.java . >/tmp/negative-jvmstate/promote.err 2>&1
+expect_fail "promote refuses a Java class that holds a field" $?
+grep -q 'read state' /tmp/negative-jvmstate/promote.err ||
+  { printf 'FAIL  promote refused for some other reason: %s\n' "$(head -1 /tmp/negative-jvmstate/promote.err)"; failures=$((failures + 1)); }
+[ ! -f NeedsPromoted.java ] ||
+  { printf 'FAIL  a proxy file was written for a stateful class\n'; failures=$((failures + 1)); }
+[ "$failures" -eq "$before" ] && printf 'ok    promote leaves a stateful Java class alone\n'
+cd "$ROOT"
+rm -rf /tmp/negative-jvmstate
+
 # 14. perf: no rig, no numbers.
 RUST_ANYTHING=/nonexistent ./scripts/perf.sh >/dev/null 2>&1
 expect_fail "perf refuses a missing rig" $?
