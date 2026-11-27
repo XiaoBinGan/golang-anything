@@ -122,6 +122,75 @@ func ShimJava(owner string, methods []Method) string {
 func javaOpen(owner string) string  { return "// >>> go-anything promote: " + owner }
 func javaClose(owner string) string { return "// <<< go-anything promote: " + owner }
 
+// ShimKotlin renders a Kotlin proxy: an `object` whose members are reachable as `TimerPromoted.name(...)`, which is the
+// shape `analyze` reads now. `Owner()` needs no arguments, which is the condition that produced the entry.
+func ShimKotlin(owner string, methods []Method) string {
+	var b strings.Builder
+	b.WriteString(javaOpen(owner) + "\n")
+	b.WriteString("object " + owner + "Promoted\n{\n")
+	for _, m := range methods {
+		params := make([]string, len(m.Params))
+		args := make([]string, len(m.Params))
+		for i, p := range m.Params {
+			name := p.Name
+			if name == "" {
+				name = fmt.Sprintf("arg%d", i)
+			}
+			typ := ktType(p.Type)
+			if typ == "" {
+				typ = "Any"
+			}
+			params[i] = name + ": " + typ
+			args[i] = name
+		}
+		ret := ktType(m.Returns)
+		if ret == "" {
+			ret = "Unit"
+		}
+		fmt.Fprintf(&b, "    fun %s(%s): %s = %s().%s(%s)\n\n",
+			m.Name, strings.Join(params, ", "), ret, owner, m.Name, strings.Join(args, ", "))
+	}
+	b.WriteString("}\n")
+	b.WriteString(javaClose(owner) + "\n")
+	return b.String()
+}
+
+// ktType spells a recorded type as Kotlin, or "" when it cannot be written down. The widths are the JVM's: an `int` is
+// 32 bits there, which the gate found the hard way on Java.
+func ktType(t string) string {
+	switch strings.TrimSpace(t) {
+	case "int":
+		return "Int"
+	case "long", "int64":
+		return "Long"
+	case "float", "float32":
+		return "Float"
+	case "double", "number", "float64":
+		return "Double"
+	case "string", "String":
+		return "String"
+	case "bool", "boolean":
+		return "Boolean"
+	}
+	return ""
+}
+
+// InsertKotlin writes the proxy into its own file, refusing to overwrite one this tool did not write.
+func InsertKotlin(path, owner string, methods []Method) (bool, error) {
+	block := ShimKotlin(owner, methods)
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return false, err
+		}
+		return true, os.WriteFile(path, []byte(block), 0o644)
+	}
+	if strings.Contains(string(raw), javaOpen(owner)) {
+		return false, nil
+	}
+	return false, fmt.Errorf("%s already exists and this tool did not write it", path)
+}
+
 // InsertJava writes the proxy into its own file. It refuses to overwrite a file it did not write: a user's
 // `MathsPromoted.java` is theirs.
 func InsertJava(path, owner string, methods []Method) (bool, error) {

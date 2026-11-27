@@ -112,9 +112,10 @@ func ParseSource(src []byte, lang Lang, path string) (*File, error) {
 		return out, nil
 	}
 	if lang == Kotlin || lang == CSharp {
-		fns, instances, free := typedExports(root, text)
+		fns, instances, free, promotable := typedExports(root, text)
 		out.Fns = append(out.Fns, fns...)
 		out.InstanceMethods, out.InstanceFree = instances, free
+		out.InstancePromotable, out.Promotable = len(promotable), promotable
 		return out, nil
 	}
 	if lang == C || lang == Cpp {
@@ -950,13 +951,14 @@ func phpExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int, i
 }
 
 // typedExports reads Kotlin and C# functions: top-level `fun` for Kotlin, public static methods for C#.
-func typedExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int, int) {
+func typedExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int, int, []Promotable) {
 	var out []Fn
 	// Kotlin's libraries are classes full of member functions, and the plan said nothing about them. Counted, not
 	// promoted: a Kotlin proxy is a separate piece of work.
 	instances, free := 0, 0
-	var walk func(n *sitter.Node, className string, hasProps bool)
-	walk = func(n *sitter.Node, className string, hasProps bool) {
+	var promotable []Promotable
+	var walk func(n *sitter.Node, className string, hasProps, noArgCtor bool)
+	walk = func(n *sitter.Node, className string, hasProps, noArgCtor bool) {
 		for i := 0; i < int(n.NamedChildCount()); i++ {
 			child := n.NamedChild(i)
 			switch child.Type() {
@@ -1003,6 +1005,13 @@ func typedExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int,
 					// the same state `this.offset` reads, so looking for `this.` alone is not enough.
 					if !hasProps && !strings.Contains(text(child), "this.") {
 						free++
+						// A Kotlin proxy is `Owner().name(args)`, so the class needs a no-arg constructor: none
+						// declared (the implicit one) or one declared without parameters.
+						if noArgCtor {
+							promotable = append(promotable, Promotable{
+								Owner: className, Name: fn.Name, Params: fn.Params, Returns: fn.Returns,
+							})
+						}
 					}
 				}
 			case "method_declaration":
@@ -1053,7 +1062,7 @@ func typedExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int,
 				}
 				for j := 0; j < int(child.NamedChildCount()); j++ {
 					if body := child.NamedChild(j); body.Type() == "class_body" {
-						walk(body, name, kotlinClassHasProps(body))
+						walk(body, name, kotlinClassHasProps(child), kotlinHasNoArgCtor(child))
 					}
 				}
 			case "class_declaration":
@@ -1070,14 +1079,27 @@ func typedExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int,
 				}
 				for j := 0; j < int(child.NamedChildCount()); j++ {
 					if body := child.NamedChild(j); body.Type() == "class_body" || body.Type() == "declaration_list" {
-						walk(body, name, kotlinClassHasProps(child))
+						walk(body, name, kotlinClassHasProps(child), kotlinHasNoArgCtor(child))
 					}
 				}
 			}
 		}
 	}
-	walk(root, "", false)
-	return out, instances, free
+	walk(root, "", false, false)
+	return out, instances, free, promotable
+}
+
+// kotlinHasNoArgCtor reports whether `Owner()` compiles: no primary constructor at all, or one that declares no
+// parameter carrying `val`/`var` (a plain parameter without those is still an argument the proxy cannot supply).
+func kotlinHasNoArgCtor(class *sitter.Node) bool {
+	for i := 0; i < int(class.NamedChildCount()); i++ {
+		c := class.NamedChild(i)
+		if c.Type() != "primary_constructor" {
+			continue
+		}
+		return int(c.NamedChildCount()) == 0
+	}
+	return true
 }
 
 // kotlinClassHasProps reports whether a Kotlin class body declares a property: a `val`/`var` inside the body, or a

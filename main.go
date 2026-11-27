@@ -1113,8 +1113,8 @@ func runPromote(args []string) error {
 		// A proxy file that held nothing but its header is not part of the original: leaving it behind makes the
 		// revert visibly incomplete.
 		// Java proxies are one file per class, named after it, so a revert looks for them beside the unit.
-		if strings.EqualFold(filepath.Ext(path), ".java") {
-			matches, _ := filepath.Glob(filepath.Join(filepath.Dir(path), "*Promoted.java"))
+		if ext := strings.ToLower(filepath.Ext(path)); ext == ".java" || ext == ".kt" {
+			matches, _ := filepath.Glob(filepath.Join(filepath.Dir(path), "*Promoted"+ext))
 			for _, file := range matches {
 				raw, err := os.ReadFile(file)
 				if err != nil {
@@ -1200,6 +1200,9 @@ func runPromote(args []string) error {
 		switch {
 		case strings.EqualFold(filepath.Ext(target), ".php"):
 			added, err = promote.InsertPHP(target, owner, methods, filepath.Base(path))
+		case strings.EqualFold(filepath.Ext(path), ".kt"):
+			target = filepath.Join(filepath.Dir(path), owner+"Promoted.kt")
+			added, err = promote.InsertKotlin(target, owner, methods)
 		case strings.EqualFold(filepath.Ext(path), ".java"):
 			// One file per class: Java requires the public class to match the file name.
 			target = filepath.Join(filepath.Dir(path), owner+"Promoted.java")
@@ -1214,7 +1217,8 @@ func runPromote(args []string) error {
 			fmt.Printf("%s already has a shim in %s.\n", owner, filepath.ToSlash(target))
 			continue
 		}
-		if strings.EqualFold(filepath.Ext(target), ".php") || strings.EqualFold(filepath.Ext(target), ".java") {
+		switch strings.ToLower(filepath.Ext(target)) {
+		case ".php", ".java", ".kt":
 			fmt.Printf("%sPromoted::%s now reaches the instance method through a proxy class (%s).\n",
 				owner, strings.Join(names, ", "), filepath.ToSlash(target))
 			continue
@@ -1229,7 +1233,7 @@ func runPromote(args []string) error {
 // proxy class plus a recorder that calls it, and that does not exist yet.
 func promoteSupported(path, unit string) error {
 	switch strings.ToLower(filepath.Ext(path)) {
-	case ".rb", ".php", ".java":
+	case ".rb", ".php", ".java", ".kt":
 		return nil
 	}
 	return fmt.Errorf("promote has no shim for %s: Ruby reopens the class and PHP gets a proxy class, and no other "+

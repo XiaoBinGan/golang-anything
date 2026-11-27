@@ -140,3 +140,29 @@ func TestTheJavaProxyCompilesAsJava(t *testing.T) {
 		t.Errorf("the revert left content behind:\n%s", back)
 	}
 }
+
+// Kotlin proxies are an `object`: its members are reachable as `TimerPromoted.name(...)`, which is the shape analyze
+// reads, and `Owner()` needs no arguments — the condition that produced the entry.
+func TestTheKotlinProxyIsASingletonObject(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "TimerPromoted.kt")
+	added, err := InsertKotlin(path, "Timer", []Method{{
+		Name:    "doubled",
+		Params:  []Param{{Name: "n", Type: "int"}},
+		Returns: "int",
+	}})
+	if err != nil || !added {
+		t.Fatalf("InsertKotlin = %v, %v", added, err)
+	}
+	src, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(src)
+	if !strings.Contains(text, "object TimerPromoted") || !strings.Contains(text, "fun doubled(n: Int): Int = Timer().doubled(n)") {
+		t.Errorf("the proxy is not a singleton forwarding with a no-arg constructor:\n%s", text)
+	}
+	if strings.Contains(text, "#") {
+		t.Errorf("the file uses # where Kotlin wants //:\n%s", text)
+	}
+}
