@@ -5,10 +5,14 @@
 两条规则由 `scripts/doccheck.sh` 守着：每节标题上的条数等于该节实际条数；每个标题都必须对应一个真实存在的提交。
 数字都在对应的文档里（[PERF.md](PERF.md)、[EVAL.md](EVAL.md)、[PARITY.md](PARITY.md)、[CONTRACT.md](CONTRACT.md)）。
 
-## 一、修掉的错误（47 条）
+## 一、修掉的错误（49 条）
 
 每一条都是**工具说了假话**或**产物不对**，被一次具体实验抓到：
 
+- **shadow carried a copy of canon again, and the contract caught it**
+  - The template kept its own `const canon = ` in front of the placeholder that already held the declaration, so every generated `shadow.cjs` read `const canon = const canon = v => {` — a SyntaxError, and `require('./shadow.cjs')` threw before comparing anything. `smoke` stayed at 71 passed through all of it; the two shadow controls in `make negative` went red and said which check had stopped working.
+- **the port side of bench timed the whole loop once, so a hiccup moved the answer 40%**
+  - Same crate, five runs each: one clock around the loop gave 5, 7, 4, 9, 5 ns; the median of per-round samples gave 5 ns five times. That spread is why an earlier optimisation looked, then did not look, like a win. The driver now samples per round and reports the median.
 - **the PHP recorder called the export name, so a promoted method recorded zero cases**
   - `function_exists($name)` is false for every method — a method is not a function — so every call was skipped and `record` wrote `0 cases` with nothing else said. The plan carries both names: the export is what a case is filed under, the path (`Class.method`) is what can be called; it now calls the path, spelled `Class::method`, and files under the export. 0 → 15 cases.
 
