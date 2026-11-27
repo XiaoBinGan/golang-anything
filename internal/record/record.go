@@ -418,6 +418,22 @@ func Run(opts Options) (Summary, error) {
 		if err := os.WriteFile(filepath.Join(dir, "Unit.cs"), src, 0o644); err != nil {
 			return Summary{}, err
 		}
+		// A promoted unit is a proxy in its own file and the class it instantiates is a sibling: dotnet cannot see it
+		// otherwise, the same way `require_once` carries PHP's shim.
+		if siblings, err := filepath.Glob(filepath.Join(filepath.Dir(unitPath), "*.cs")); err == nil {
+			for _, f := range siblings {
+				if f == unitPath {
+					continue
+				}
+				body, err := os.ReadFile(f)
+				if err != nil {
+					continue
+				}
+				if err := os.WriteFile(filepath.Join(dir, "Sibling_"+filepath.Base(f)), body, 0o644); err != nil {
+					return Summary{}, err
+				}
+			}
+		}
 		if err := os.WriteFile(filepath.Join(dir, "Recorder.cs"), []byte(csharpRecorder(plan, csClassName(opts.Unit.Files[0]))), 0o644); err != nil {
 			return Summary{}, err
 		}

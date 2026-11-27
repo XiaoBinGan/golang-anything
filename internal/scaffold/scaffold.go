@@ -412,7 +412,7 @@ func typedStub(e analyze.Export, files []string) string {
 	javaLike := false
 	if len(files) > 0 {
 		switch strings.ToLower(filepath.Ext(files[0])) {
-		case ".java", ".kt":
+		case ".java", ".kt", ".cs":
 			javaLike = true
 		}
 	}

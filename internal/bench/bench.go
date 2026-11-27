@@ -575,7 +575,7 @@ func typedTable(exports []struct {
 }, unit string) string {
 	// A JVM `int` is 32 bits: the typed entry point takes int32, and passing a Go int is a compile error the first time
 	// a Kotlin or Java crate is benched.
-	javaLike := strings.HasSuffix(unit, ".java") || strings.HasSuffix(unit, ".kt")
+	javaLike := strings.HasSuffix(unit, ".java") || strings.HasSuffix(unit, ".kt") || strings.HasSuffix(unit, ".cs")
 	var entries []string
 	for _, e := range exports {
 		// Only the exports `scaffold` wrote a typed entry point for: a name it skipped (an unmappable return
