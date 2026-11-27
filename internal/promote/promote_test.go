@@ -64,7 +64,11 @@ func TestRevertRefusesATruncatedBlock(t *testing.T) {
 func TestThePHPSentinelIsAProxynItsOwnFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "promoted.php")
-	added, err := InsertPHP(path, "Timer", []string{"double"})
+	added, err := InsertPHP(path, "Timer", []Method{{
+		Name:    "double",
+		Params:  []Param{{Name: "$n", Type: "int"}},
+		Returns: "int",
+	}}, "timer.php")
 	if err != nil || !added {
 		t.Fatalf("InsertPHP = %v, %v", added, err)
 	}
@@ -76,7 +80,14 @@ func TestThePHPSentinelIsAProxynItsOwnFile(t *testing.T) {
 	if !strings.HasPrefix(text, "<?php") || !strings.Contains(text, "class TimerPromoted") {
 		t.Errorf("the proxy is not a PHP file with a proxy class:\n%s", text)
 	}
-	if !strings.Contains(text, "return (new \\Timer)->double(...$args);") {
+	// Typed and required: a variadic proxy is unbridgeable and `new \\Timer` needs the original loaded.
+	if !strings.Contains(text, "public static function double(int $n): int") {
+		t.Errorf("the proxy does not declare the method's own types:\n%s", text)
+	}
+	if !strings.Contains(text, "require_once __DIR__ . '/timer.php';") {
+		t.Errorf("the proxy does not load the class it instantiates:\n%s", text)
+	}
+	if !strings.Contains(text, "return (new \\Timer)->double($n);") {
 		t.Errorf("the proxy does not reach the instance method:\n%s", text)
 	}
 	removed, err := Revert(path, "Timer")

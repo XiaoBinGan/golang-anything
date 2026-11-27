@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-func open(owner string) string  { return "# >>> go-anything promote: " + owner }
+func open(owner string) string   { return "# >>> go-anything promote: " + owner }
 func close_(owner string) string { return "# <<< go-anything promote: " + owner }
 
 // Shim renders the block for one owner and its methods, sorted so the block is the same on every run.
@@ -31,19 +31,56 @@ func Shim(owner string, methods []string) string {
 // ShimPHP renders the PHP proxy for one owner. PHP cannot reopen a class — `class Timer` twice is a fatal error —
 // so the shim is a second class whose static methods hand the call to a fresh instance. The name is the proxy's,
 // which is why `analyze` then reports `TimerPromoted::double` rather than `Timer::double`.
-func ShimPHP(owner string, methods []string) string {
+func ShimPHP(owner string, methods []Method, original string) string {
 	var b strings.Builder
 	b.WriteString("<?php\n")
 	b.WriteString(open(owner) + "\n")
+	// The proxy lives in its own file: without this the class it instantiates is undefined the moment anything
+	// loads the proxy, and the recorder answers error cases for a class that exists.
+	b.WriteString("require_once __DIR__ . '/" + original + "';\n\n")
 	b.WriteString("class " + owner + "Promoted\n{\n")
-	for _, name := range methods {
-		// `...$args` and no types: the shim must not decide how the original is called.
-		fmt.Fprintf(&b, "    public static function %s(...$args)\n    {\n        return (new \\%s)->%s(...$args);\n    }\n\n",
-			name, owner, name)
+	for _, m := range methods {
+		// The method's own types, not variadic: analyze refuses a variadic method, and the point is an export.
+		params := make([]string, len(m.Params))
+		args := make([]string, len(m.Params))
+		for i, p := range m.Params {
+			name := p.Name
+			if name == "" {
+				name = fmt.Sprintf("arg%d", i)
+			}
+			if !strings.HasPrefix(name, "$") {
+				name = "$" + name
+			}
+			if p.Type == "" || p.Type == "any" {
+				params[i] = name
+			} else {
+				params[i] = p.Type + " " + name
+			}
+			args[i] = name
+		}
+		ret := ""
+		if m.Returns != "" && m.Returns != "any" {
+			ret = ": " + m.Returns
+		}
+		fmt.Fprintf(&b, "    public static function %s(%s)%s\n    {\n        return (new \\%s)->%s(%s);\n    }\n\n",
+			m.Name, strings.Join(params, ", "), ret, owner, m.Name, strings.Join(args, ", "))
 	}
 	b.WriteString("}\n")
 	b.WriteString(close_(owner) + "\n")
 	return b.String()
+}
+
+// Method is one method a shim has to make callable, with the types the original declares.
+type Method struct {
+	Name    string
+	Params  []Param
+	Returns string
+}
+
+// Param is one parameter as the original declares it.
+type Param struct {
+	Name string
+	Type string
 }
 
 // Insert appends the block to the file and reports whether anything was written.
@@ -67,8 +104,8 @@ func Insert(path, owner string, methods []string) (bool, error) {
 
 // InsertPHP writes the proxy class into the file, creating it when it is not there yet. A PHP file that already
 // has a `<?php` header gets the block appended; a new one starts with the header.
-func InsertPHP(path, owner string, methods []string) (bool, error) {
-	block := ShimPHP(owner, methods)
+func InsertPHP(path, owner string, methods []Method, original string) (bool, error) {
+	block := ShimPHP(owner, methods, original)
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		if !os.IsNotExist(err) {

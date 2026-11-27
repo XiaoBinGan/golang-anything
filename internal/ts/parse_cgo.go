@@ -766,7 +766,28 @@ func phpExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int, i
 					if strings.Contains(head, "public") && !strings.Contains(head, "static") {
 						if !phpTouchesState(rbBody(child, text)) {
 							free++
-							promotableNames = append(promotableNames, Promotable{Owner: owner, Name: text(child.ChildByFieldName("name"))})
+							var params []Param
+							if list := child.ChildByFieldName("parameters"); list != nil {
+								for j := 0; j < int(list.NamedChildCount()); j++ {
+									p := list.NamedChild(j)
+									if p.Type() != "simple_parameter" {
+										continue
+									}
+									typ := "any"
+									if t := p.ChildByFieldName("type"); t != nil {
+										typ = cDialect(text(t))
+									}
+									params = append(params, Param{Name: text(p.ChildByFieldName("name")), Type: typ})
+								}
+							}
+							returns := ""
+							if typ := child.ChildByFieldName("return_type"); typ != nil {
+								returns = cDialect(text(typ))
+							}
+							promotableNames = append(promotableNames, Promotable{
+								Owner: owner, Name: text(child.ChildByFieldName("name")),
+								Params: params, Returns: returns,
+							})
 						}
 						instances++
 					}

@@ -1134,9 +1134,13 @@ func runPromote(args []string) error {
 	if err != nil {
 		return err
 	}
-	byOwner := map[string][]string{}
+	byOwner := map[string][]promote.Method{}
 	for _, p := range file.Promotable {
-		byOwner[p.Owner] = append(byOwner[p.Owner], p.Name)
+		params := make([]promote.Param, len(p.Params))
+		for i, want := range p.Params {
+			params[i] = promote.Param{Name: want.Name, Type: want.Type}
+		}
+		byOwner[p.Owner] = append(byOwner[p.Owner], promote.Method{Name: p.Name, Params: params, Returns: p.Returns})
 	}
 	if len(byOwner) == 0 {
 		return fmt.Errorf("nothing to promote in %s: no class has a state-free instance method", m.Unit)
@@ -1148,13 +1152,19 @@ func runPromote(args []string) error {
 	sort.Strings(owners)
 	target := shimTarget(path)
 	for _, owner := range owners {
-		names := byOwner[owner]
-		sort.Strings(names)
-		insert := promote.Insert
-		if strings.EqualFold(filepath.Ext(target), ".php") {
-			insert = promote.InsertPHP
+		methods := byOwner[owner]
+		sort.Slice(methods, func(i, j int) bool { return methods[i].Name < methods[j].Name })
+		names := make([]string, len(methods))
+		for i, m := range methods {
+			names[i] = m.Name
 		}
-		added, err := insert(target, owner, names)
+		var added bool
+		var err error
+		if strings.EqualFold(filepath.Ext(target), ".php") {
+			added, err = promote.InsertPHP(target, owner, methods, filepath.Base(path))
+		} else {
+			added, err = promote.Insert(target, owner, names)
+		}
 		if err != nil {
 			return err
 		}

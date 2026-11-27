@@ -77,6 +77,10 @@ type File struct {
 type Promotable struct {
 	Owner string `json:"owner"`
 	Name  string `json:"name"`
+	// Params and Returns are the method's own types: a PHP shim has to declare them, or the proxy is variadic and
+	// analyze refuses a variadic method as unbridgeable.
+	Params  []Param `json:"params,omitempty"`
+	Returns string  `json:"returns,omitempty"`
 }
 
 // Lang picks the grammar.
