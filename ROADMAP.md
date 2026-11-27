@@ -2,7 +2,7 @@
 
 按「值不值」排序，每条都写清楚**现状**、**要做什么**、**怎么算做完**。
 
-## 一、功能：让类库也能移植（已完成，四路）
+## 一、功能：让类库也能移植（已完成，五路）
 
 **现状**：实例方法**已经能进 plan**——`analyze` 数出 `instance_methods` / `instance_free` / `instance_promotable`，
 `promote` 在**原文件一侧**补一个能拿到实例的入口，于是这些方法像自由函数一样进入 scaffold → record → gate。
@@ -14,6 +14,7 @@
 | PHP | `promoted.php` 里的代理类，带方法自己的类型 + `require_once` | 方法不碰 `$this` | record **0 → 15 例**，gate 绿 |
 | Java | `MathsPromoted.java`，`new Maths().doubled(n)` | 无实例字段 + 有无参构造 | `javac` 通过，gate 绿 |
 | Kotlin | `object TimerPromoted { fun doubled(...) }` | 无属性（类体/主构造器）+ 主构造器无参 | `kotlinc` 通过，record 17 例，gate 绿 |
+| C# | `MathsPromoted.cs` 静态类，`new Maths().Doubled(n)` | 无实例字段 + 有无参构造 | `dotnet build` 0 警示 0 错误，record 17 例，gate 绿 |
 
 **拒绝的理由分三种，逐条说清**（对照 30/31 盯着）：没有实例方法；方法全部读状态；不碰状态但住在 module 里
 （module 不能实例化）。
