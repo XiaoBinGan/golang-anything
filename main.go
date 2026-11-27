@@ -385,6 +385,11 @@ func runScaffold(args []string) error {
 	for _, f := range files {
 		fmt.Printf("  %s\n", f)
 	}
+	// cmd/godriver names port.Undefined, which answer.go declares, and answer.go is written by `bridge`. A
+	// `go build ./...` between the two steps answers `undefined: port.Undefined` with nothing pointing at the
+	// missing step.
+	fmt.Println("\nNext: `golang-anything bridge " + filepath.ToSlash(dir) + "` writes answer.go, which " +
+		"cmd/godriver needs; build after that.")
 	return nil
 }
 
