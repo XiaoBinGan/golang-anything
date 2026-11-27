@@ -5,9 +5,12 @@
 两条规则由 `scripts/doccheck.sh` 守着：每节标题上的条数等于该节实际条数；每个标题都必须对应一个真实存在的提交。
 数字都在对应的文档里（[PERF.md](PERF.md)、[EVAL.md](EVAL.md)、[PARITY.md](PARITY.md)、[CONTRACT.md](CONTRACT.md)）。
 
-## 一、修掉的错误（45 条）
+## 一、修掉的错误（46 条）
 
 每一条都是**工具说了假话**或**产物不对**，被一次具体实验抓到：
+
+- **the typed path lost track of a stub, and control 29 now watches the table**
+  - `bench`'s warm-up counted `not implemented: port …` only on the registry branch, and the typed entry point delegates to that same refusal, so a scaffold crate got a ratio printed again — control 25 caught it on the first run (`bench refuses a scaffold stub … exited 0 on a known break`).
 
 - **the wasm typed path was dead, and its call site named the wrong function**
   - `detectPortStyle` required an exported name, and every scaffolded port declares `func count(args []any)` — lower case, so it was skipped, `portStyle` stayed empty, and every wrapper went through the registry. Behind that, the typed branch could not have worked: detection keyed the export name and the call used it verbatim (`count(...)` for a `Count` declaration), and the wrapper assumed `(v, err)`.
@@ -106,9 +109,11 @@
 - **the case generator was a cross product, and a green gate hid an untested export**
   - The comment said each argument position walks its own table; the code crossed every table against every other, which is 4,000 calls for two string parameters. Two runs replace it: a paired walk with a per-position stride, and a bounded cross product over the first six values of each position. Cheap values are tried first, because a table that opened with 1,000,000 filled the answer limit and left whole exports with nothing recorded.
 
-## 二、性能（15 条）
+## 二、性能（16 条）
 
 每条都有实测数字；赢的和没赢的都写着：
+- **bench calls the typed entry point, and the C row drops from 3.3x to 1.7x**
+  - Every row paid the assertion and the box of `func(args []any) (any, error)`. The driver now prefers a generated `map[string]func([]any) error` when `scaffold` wrote the typed entry point: c 3.28x → **1.72x** slower, cpp 3.31x → **1.72x**, kt 9.56x → 18.43x faster. Three defects on the way, each by a failing sweep: the table injected inside `main`, an int asserted as float64 (panics on Ruby's string recorder), `strconv` imported but unused.
 - **the C bench 4x is the interface's shape, written down where the numbers live**
   - ROADMAP said "either win it or write the reason down". The reason, measured: port body (assert, multiply, box) ~2.1 ns, seventeen separately allocated `[]any` ~1.8 ns, empty loop ~0.33 ns, the C side 1 ns. Beating it needs scaffold-generated typed call sites; two guesses (registry dispatch, slice locality) are recorded as excluded so nobody pays for them twice.
 - **the C bench handed clang constants, so it timed the loop instead of the call**
@@ -141,9 +146,11 @@
 - **measure both bridges head to head and report where we lose**
   - Built rust-anything 4.0.0 here, bridged the same unit with both tools, filled both ports and timed one call alternately in blocks so a load spike hits both sides. rust-anything's napi bridge answers in 0.073 us, ours in 0.294 us after the one-string fast path (no JSON, no malloc, quote written straight into the caller's buffer). The gap is structural: cgo costs 40-60 ns per call.
 
-## 三、能力（39 条）
+## 三、能力（40 条）
 
 功能与语言支持，每条都在提交里说明了如何验证：
+- **the sweep fills the typed entry point as well as the generic one**
+  - A delegating stub is assertion plus box, which is what bench would then time once it prefers the typed path; filling both bodies makes the typed call the direct one. The prerequisite that let the bench change land.
 - **fuzz runs a Ruby unit through its own runtime**
   - The Ruby driver existed for `record` and not for `fuzz`, so a Ruby crate could record cases and not fuzz them: the seed replay, the throw paths and `--keep` all worked for TypeScript and stopped at the language boundary. The driver is shared now.
 - **scaffold writes the typed entry point, in the shape the wasm wrapper records**
@@ -225,9 +232,11 @@
 - **bench, map, clean, doctor, check, and the in-process bridge**
   - bench times both sides the same way; map writes PORT-MAP.md; clean and doctor round out the day-to-day commands. The fast bridge is a c-shared library plus a hand-written N-API addon: 0.73 us per call against rust-anything's ~1 us, and 16x faster than the stdio process.
 
-## 四、让检查本身可信（20 条）
+## 四、让检查本身可信（21 条）
 
 负向对照与冒烟测试——这些不增加功能，只增加「结论可信」：
+- **control 28 keeps the typed entry point delegating**
+  - The shape was found the hard way — a panic stub turns nine drivers red, a one-value stub breaks `wasm_support.go` — so the control reads the generated port and requires the `(T, error)` shape, the delegation, and no panic.
 - **doctor --json has to name the checks the text output prints**
   - The case parsed the output and stopped there, so a JSON carrying four of the eight checks passed while a JSON reader — `mcp`, a CI job — saw fewer checks than a person. The first version also assumed an object with a `checks` key; the command prints a bare array, and the failure said so in one line.
 - **smoke builds the generated driver, which nothing compiled**
