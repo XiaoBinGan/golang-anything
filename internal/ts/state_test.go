@@ -296,3 +296,21 @@ func TestCSharpInstanceMethodsAreCounted(t *testing.T) {
 			file.InstanceFree, file.InstancePromotable)
 	}
 }
+
+// A Kotlin `object` is a singleton: its members are reachable as `Timer.doubled(...)` and there is no instance to
+// create. Counting them as instance methods offered `promote` a target whose proxy would say `Timer()`, which does not
+// compile.
+func TestKotlinObjectMembersAreNotInstanceMethods(t *testing.T) {
+	src := []byte("object Timer {\n    fun doubled(n: Int): Int = n * 2\n}\n")
+	file, err := ParseSource(src, Kotlin, "Timer.kt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(file.Fns) != 1 || file.Fns[0].Receiver != "Timer" {
+		t.Fatalf("the member is not an export of the object: %+v", file.Fns)
+	}
+	if file.InstanceMethods != 0 || file.InstancePromotable != 0 {
+		t.Errorf("instances=%d promotable=%d, want 0/0: an object has no instance",
+			file.InstanceMethods, file.InstancePromotable)
+	}
+}

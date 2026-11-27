@@ -957,8 +957,10 @@ func typedExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int,
 	// promoted: a Kotlin proxy is a separate piece of work.
 	instances, free := 0, 0
 	var promotable []Promotable
-	var walk func(n *sitter.Node, className string, hasProps, noArgCtor bool)
-	walk = func(n *sitter.Node, className string, hasProps, noArgCtor bool) {
+	// countInstances is false inside a Kotlin `object`: a singleton has no instance to create, so its members are not
+	// instance methods — and offering them would write `Timer()`, which does not compile.
+	var walk func(n *sitter.Node, className string, hasProps, noArgCtor, countInstances bool)
+	walk = func(n *sitter.Node, className string, hasProps, noArgCtor, countInstances bool) {
 		for i := 0; i < int(n.NamedChildCount()); i++ {
 			child := n.NamedChild(i)
 			switch child.Type() {
@@ -999,7 +1001,7 @@ func typedExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int,
 				}
 				walkRaises(child, func(line int) { fn.ThrowLines = append(fn.ThrowLines, line) })
 				out = append(out, fn)
-				if className != "" {
+				if className != "" && countInstances {
 					instances++
 					// A member function is only state-free when the class declares no property: `n + offset` reads
 					// the same state `this.offset` reads, so looking for `this.` alone is not enough.
@@ -1076,7 +1078,7 @@ func typedExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int,
 				}
 				for j := 0; j < int(child.NamedChildCount()); j++ {
 					if body := child.NamedChild(j); body.Type() == "class_body" {
-						walk(body, name, kotlinClassHasProps(child), kotlinHasNoArgCtor(child))
+						walk(body, name, kotlinClassHasProps(child), kotlinHasNoArgCtor(child), false)
 					}
 				}
 			case "class_declaration":
@@ -1096,16 +1098,16 @@ func typedExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int,
 						// C# reports `declaration_list`, Kotlin `class_body`: the shape helper follows the syntax.
 						if body.Type() == "declaration_list" {
 							fields, noArg := csClassShape(body, text)
-							walk(body, name, fields, noArg)
+							walk(body, name, fields, noArg, true)
 						} else {
-							walk(body, name, kotlinClassHasProps(child), kotlinHasNoArgCtor(child))
+							walk(body, name, kotlinClassHasProps(child), kotlinHasNoArgCtor(child), true)
 						}
 					}
 				}
 			}
 		}
 	}
-	walk(root, "", false, false)
+	walk(root, "", false, false, true)
 	return out, instances, free, promotable
 }
 
