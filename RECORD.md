@@ -155,9 +155,11 @@
 - **measure both bridges head to head and report where we lose**
   - Built rust-anything 4.0.0 here, bridged the same unit with both tools, filled both ports and timed one call alternately in blocks so a load spike hits both sides. rust-anything's napi bridge answers in 0.073 us, ours in 0.294 us after the one-string fast path (no JSON, no malloc, quote written straight into the caller's buffer). The gap is structural: cgo costs 40-60 ns per call.
 
-## 三、能力（43 条）
+## 三、能力（44 条）
 
 功能与语言支持，每条都在提交里说明了如何验证：
+- **promote says which of the three reasons it has nothing to do**
+  - One sentence — "no class has a state-free instance method" — covered three situations, and the parse knows which: no instance methods at all, every one reading state, or state-free ones living in a module that cannot be instantiated. The last is the common case in a gem (sinatra's helpers are module methods) and read like the second, which sends a person looking for state that is not there.
 - **promote has a PHP route — a proxy class in promoted.php**
   - PHP cannot reopen a class, so the Ruby block was actively wrong there. The route is a proxy class in its own file, which `analyze` reads as its own unit (`TimerPromoted.double`), and `--revert` deletes the file when it held nothing but the proxy.
 - **the PHP proxy is typed and loads its class, so a promoted method records and gates**
