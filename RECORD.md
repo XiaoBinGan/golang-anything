@@ -155,9 +155,11 @@
 - **measure both bridges head to head and report where we lose**
   - Built rust-anything 4.0.0 here, bridged the same unit with both tools, filled both ports and timed one call alternately in blocks so a load spike hits both sides. rust-anything's napi bridge answers in 0.073 us, ours in 0.294 us after the one-string fast path (no JSON, no malloc, quote written straight into the caller's buffer). The gap is structural: cgo costs 40-60 ns per call.
 
-## 三、能力（44 条）
+## 三、能力（45 条）
 
 功能与语言支持，每条都在提交里说明了如何验证：
+- **Java instance methods are counted, and the note stops promising a route**
+  - Java is the language where a library is classes full of instance methods — jadx is one — and the plan said nothing about them: no count, no sentence, only the static methods as exports. `Timer.java` now reads `InstanceMethods=2, InstanceFree=1`, and the note says `promote` writes an entry point for Ruby and PHP today rather than implying every language has one.
 - **promote says which of the three reasons it has nothing to do**
   - One sentence — "no class has a state-free instance method" — covered three situations, and the parse knows which: no instance methods at all, every one reading state, or state-free ones living in a module that cannot be instantiated. The last is the common case in a gem (sinatra's helpers are module methods) and read like the second, which sends a person looking for state that is not there.
 - **promote has a PHP route — a proxy class in promoted.php**
