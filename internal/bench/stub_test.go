@@ -46,3 +46,30 @@ func TestLeftOutRowsAreNamedInTheTable(t *testing.T) {
 		t.Errorf("a run with nothing left out says something was:\n%s", clean.Markdown())
 	}
 }
+
+// The table has to say which path timed the row: the same crate measures 1.72x through the typed entry point and
+// 3.28x through the registry, and a number without the marker invites the wrong comparison.
+func TestTheTableMarksTypedRows(t *testing.T) {
+	res := Result{
+		Rows: []Row{
+			{Name: "twice", Cases: 17, OriginalNS: 1, PortNS: 2, Speedup: 0.5, Typed: true},
+			{Name: "words", Cases: 9, OriginalNS: 30, PortNS: 10, Speedup: 3},
+		},
+		Speedup: 1,
+		MinMS:   100,
+	}
+	out := res.Markdown()
+	if !strings.Contains(out, "| `twice` † |") {
+		t.Errorf("a typed row is not marked:\n%s", out)
+	}
+	if strings.Contains(out, "| `words` † |") {
+		t.Errorf("a registry row is marked as typed:\n%s", out)
+	}
+	if !strings.Contains(out, "† 1 row(s) timed through the typed entry point") {
+		t.Errorf("the footnote is missing:\n%s", out)
+	}
+	clean := Result{Rows: res.Rows[1:], Speedup: 3, MinMS: 100}
+	if strings.Contains(clean.Markdown(), "†") {
+		t.Errorf("a run with no typed rows has a footnote:\n%s", clean.Markdown())
+	}
+}

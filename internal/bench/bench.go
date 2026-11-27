@@ -661,9 +661,20 @@ func geometric(xs []float64) float64 {
 func (r Result) Markdown() string {
 	var b strings.Builder
 	b.WriteString("| Function | Cases | Original per call | Go per call | Speedup |\n| --- | ---: | ---: | ---: | ---: |\n")
+	typed := 0
 	for _, row := range r.Rows {
-		fmt.Fprintf(&b, "| `%s` | %d | %s | %s | %s |\n",
-			row.Name, row.Cases, ns(row.OriginalNS), ns(row.PortNS), times(row.Speedup))
+		mark := ""
+		if row.Typed {
+			// The same crate measures 1.72x through the typed entry point and 3.28x through the registry; a table
+			// that does not say which one was timed invites the wrong comparison.
+			mark = " †"
+			typed++
+		}
+		fmt.Fprintf(&b, "| `%s`%s | %d | %s | %s | %s |\n",
+			row.Name, mark, row.Cases, ns(row.OriginalNS), ns(row.PortNS), times(row.Speedup))
+	}
+	if typed > 0 {
+		fmt.Fprintf(&b, "\n† %d row(s) timed through the typed entry point, not the registry.\n", typed)
 	}
 	if len(r.Unported) > 0 {
 		sort.Strings(r.Unported)
