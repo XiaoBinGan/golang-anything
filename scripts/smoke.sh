@@ -102,6 +102,23 @@ try "Java bridge"                bash -c "cd '$WORK/javaprom' && $GO bridge go-p
 try "Java build"                 bash -c "cd '$WORK/javaprom' && $GO build --fast go-ports/j-go"
 try "Java gate"                  bash -c "cd '$WORK/javaprom' && $GO gate go-ports/j-go"
 try "Java promote --revert"      bash -c "$GO promote --revert --unit Maths.java '$WORK/javaprom' && [ ! -f '$WORK/javaprom/MathsPromoted.java' ]"
+# Kotlin: the proxy is a singleton object, and recording it needs the class beside it — the recorder compiles every .kt
+# in the folder, and calls `TimerPromoted.doubled(...)` from the plan's path.
+mkdir -p "$WORK/ktprom"
+printf 'class Timer {\n    fun doubled(n: Int): Int = n * 2\n}\n' > "$WORK/ktprom/Timer.kt"
+printf 'module smoke-ktprom\n\ngo 1.24\n' > "$WORK/ktprom/go.mod"
+try "promote writes a Kotlin proxy" bash -c "$GO promote --unit Timer.kt '$WORK/ktprom' && grep -q 'object TimerPromoted' '$WORK/ktprom/TimerPromoted.kt'"
+try "the Kotlin proxy compiles"  bash -c "cd '$WORK/ktprom' && kotlinc Timer.kt TimerPromoted.kt -include-runtime -d out.jar"
+"$GO" scaffold --unit TimerPromoted.kt "$WORK/ktprom/go-ports/k-go" >/dev/null 2>&1
+sed -i '' "s|example.com/k-go|smoke-ktprom/go-ports/k-go|g" "$WORK/ktprom/go-ports/k-go"/*.go \
+  "$WORK/ktprom/go-ports/k-go/golang-anything.json" "$WORK/ktprom/go-ports/k-go/cmd"/*/main.go 2>/dev/null
+python3 -c 'import sys;p=sys.argv[1];s=open(p).read();s=s.replace("return nil, fmt.Errorf(\"not implemented: port doubled\")","n, ok := args[0].(float64)\n\tif !ok {\n\t\treturn nil, fmt.Errorf(\"ClassCastException: doubled expects int, got %T\", args[0])\n\t}\n\treturn int32(n) * 2, nil");open(p,"w").write(s)' \
+  "$WORK/ktprom/go-ports/k-go/port.go"
+try "Kotlin record"              bash -c "cd '$WORK/ktprom' && $GO record --unit TimerPromoted.kt go-ports/k-go"
+try "Kotlin bridge"              bash -c "cd '$WORK/ktprom' && $GO bridge go-ports/k-go"
+try "Kotlin build"               bash -c "cd '$WORK/ktprom' && $GO build --fast go-ports/k-go"
+try "Kotlin gate"                bash -c "cd '$WORK/ktprom' && $GO gate go-ports/k-go"
+try "Kotlin promote --revert"    bash -c "$GO promote --revert --unit Timer.kt '$WORK/ktprom' && [ ! -f '$WORK/ktprom/TimerPromoted.kt' ]"
 try "map"                       "$GO" map "$REPO"
 mkdir -p "$REPO/go-ports"
 try "scaffold --unit"           "$GO" scaffold --unit "$UNIT" "$REPO/go-ports/one-go"
