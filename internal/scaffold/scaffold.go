@@ -73,7 +73,8 @@ func %s(args []any) (any, error) {
 	return nil, fmt.Errorf("not implemented: port %s")
 }
 
-`, goName(e.Name), e.Name, opts.Unit.ID, e.Line, len(e.Params), signature(e), goName(e.Name), e.Name)
+%s`, goName(e.Name), e.Name, opts.Unit.ID, e.Line, len(e.Params), signature(e), goName(e.Name), e.Name,
+			typedStub(e))
 	}
 	formatted, err := format.Source(buf.Bytes())
 	if err != nil {
@@ -392,6 +393,95 @@ func fileExists(path string) bool {
 // goName spells a unit's export as a Go identifier: `Get-Thing` cannot be a function name, and a name that
 // starts with a digit cannot be one either. The original name stays the registry key and stays in the doc
 // comment, so nothing is lost.
+// typedStub is the same function without the []any/any round trip: the bridge needs the generic shape, while
+// `internal/wasmbridge` and a Go caller take the typed one, and the assertion plus the box are most of a 5 ns
+// call.
+//
+// It returns `(T, error)`, the shape a hand-written typed port has (`func Count(text string) (float64, error)`)
+// and the one `wasmbridge` records a result count for. A one-value stub compiles next to it and then breaks
+// `wasm_support.go` with "too many return values", which is how this shape was found.
+//
+// The body delegates to the generic wrapper rather than panicking: `build`, `bench` and `check` prefer a typed
+// entry point the moment the port declares one, so a stub that panics turns every driver red.
+func typedStub(e analyze.Export) string {
+	// A C# method is already exported (`Twice`), so the wrapper next to it would be the same identifier.
+	if exported(e.Name) == goName(e.Name) {
+		return ""
+	}
+	params := make([]string, len(e.Params))
+	args := make([]string, len(e.Params))
+	for i, p := range e.Params {
+		t := goType(p.Type)
+		if t == "" {
+			return ""
+		}
+		name := p.Name
+		if name == "" || !isGoIdent(name) {
+			name = fmt.Sprintf("arg%d", i)
+		}
+		params[i] = name + " " + t
+		args[i] = name
+	}
+	ret := goType(e.Returns)
+	if ret == "" {
+		return ""
+	}
+	return fmt.Sprintf(`// %s is the typed entry point: bench and the wasm wrapper take it without the []any round trip. It
+// delegates to %s until you write the body; the generic wrapper stays the contract.
+func %s(%s) (%s, error) {
+	v, err := %s([]any{%s})
+	if err != nil {
+		return %s, err
+	}
+	typed, ok := v.(%s)
+	if !ok {
+		return %s, fmt.Errorf("port %s: %%T is not %s", v)
+	}
+	return typed, nil
+}
+
+`, exported(e.Name), goName(e.Name), exported(e.Name), strings.Join(params, ", "), ret,
+		goName(e.Name), strings.Join(args, ", "), zeroOf(ret), ret, zeroOf(ret), e.Name, ret)
+}
+
+// zeroOf is the zero value to return beside an error.
+func zeroOf(t string) string {
+	switch t {
+	case "string":
+		return `""`
+	case "bool":
+		return "false"
+	}
+	return "0"
+}
+
+// exported capitalises the first rune, so the typed entry point is a different identifier from the wrapper.
+func exported(name string) string {
+	if name == "" {
+		return name
+	}
+	r := []rune(name)
+	if r[0] >= 'a' && r[0] <= 'z' {
+		r[0] -= 'a' - 'A'
+	}
+	return string(r)
+}
+
+// goType writes a recorded type as Go, or "" when it cannot be written down without guessing.
+func goType(t string) string {
+	switch strings.TrimSpace(t) {
+	case "number", "float", "float64":
+		return "float64"
+	case "int", "int32", "int64", "integer", "long":
+		return "int"
+	case "string", "char":
+		return "string"
+	case "bool", "boolean":
+		return "bool"
+	}
+	return ""
+}
+
 func goName(name string) string {
 	// A name that is already a Go identifier stays as it is: `count` is called by that name from every
 	// generated wrapper, and capitalising it produced `Count` in the stub and `count` at the call site.
