@@ -57,15 +57,18 @@ func TestHelpGoesToStdout(t *testing.T) {
 	}
 }
 
-// The shim is a reopening of the class. PHP cannot reopen one, and before this guard `promote` wrote the Ruby
-// block into a .php file and reported success — a file that no longer parses, with a message saying it worked.
-func TestPromoteRefusesANonRubyUnit(t *testing.T) {
-	if err := promoteSupported("/tmp/timer.php", "timer.php"); err == nil {
-		t.Fatal("promote accepted a PHP unit")
-	} else if !strings.Contains(err.Error(), "only Ruby") {
-		t.Errorf("the refusal does not say why: %v", err)
+// PHP cannot reopen a class, so `promote` writes a proxy class instead — and a language with neither route is
+// refused. The refusal is a function of its own because `runWith` cannot see an os.Exit.
+func TestPromoteRefusesALanguageWithNoShim(t *testing.T) {
+	if err := promoteSupported("/tmp/timer.php", "timer.php"); err != nil {
+		t.Errorf("promote refused PHP, which has a proxy route: %v", err)
 	}
 	if err := promoteSupported("/tmp/timer.rb", "timer.rb"); err != nil {
 		t.Errorf("promote refused Ruby: %v", err)
+	}
+	if err := promoteSupported("/tmp/text.ts", "text.ts"); err == nil {
+		t.Fatal("promote accepted a TypeScript unit")
+	} else if !strings.Contains(err.Error(), "no other language is written yet") {
+		t.Errorf("the refusal does not say why: %v", err)
 	}
 }

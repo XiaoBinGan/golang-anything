@@ -1093,23 +1093,33 @@ func runPromote(args []string) error {
 	}
 	path := filepath.Join(root, filepath.FromSlash(m.Unit))
 	if *revert {
-		raw, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
 		removed := 0
-		for _, match := range promoteMarker.FindAllStringSubmatch(string(raw), -1) {
-			ok, err := promote.Revert(path, match[1])
+		for _, target := range []string{path, shimTarget(path)} {
+			raw, err := os.ReadFile(target)
 			if err != nil {
-				return err
+				continue
 			}
-			if ok {
-				removed++
-				fmt.Printf("Removed the %s shim from %s.\n", match[1], filepath.ToSlash(path))
+			for _, match := range promoteMarker.FindAllStringSubmatch(string(raw), -1) {
+				ok, err := promote.Revert(target, match[1])
+				if err != nil {
+					return err
+				}
+				if ok {
+					removed++
+					fmt.Printf("Removed the %s shim from %s.\n", match[1], filepath.ToSlash(target))
+				}
 			}
 		}
 		if removed == 0 {
 			fmt.Printf("%s has no shim: nothing to remove.\n", filepath.ToSlash(path))
+		}
+		// A proxy file that held nothing but its header is not part of the original: leaving it behind makes the
+		// revert visibly incomplete.
+		if target := shimTarget(path); target != path {
+			if raw, err := os.ReadFile(target); err == nil && strings.TrimSpace(string(raw)) == "<?php" {
+				_ = os.Remove(target)
+				fmt.Printf("Removed %s: it held only the proxy.\n", filepath.ToSlash(target))
+			}
 		}
 		return nil
 	}
@@ -1136,18 +1146,28 @@ func runPromote(args []string) error {
 		owners = append(owners, owner)
 	}
 	sort.Strings(owners)
+	target := shimTarget(path)
 	for _, owner := range owners {
 		names := byOwner[owner]
 		sort.Strings(names)
-		added, err := promote.Insert(path, owner, names)
+		insert := promote.Insert
+		if strings.EqualFold(filepath.Ext(target), ".php") {
+			insert = promote.InsertPHP
+		}
+		added, err := insert(target, owner, names)
 		if err != nil {
 			return err
 		}
-		if added {
-			fmt.Printf("%s.%s now takes an instance through allocate (promoted).\n", owner, strings.Join(names, ", "))
-		} else {
-			fmt.Printf("%s already has a shim in %s.\n", owner, filepath.ToSlash(path))
+		if !added {
+			fmt.Printf("%s already has a shim in %s.\n", owner, filepath.ToSlash(target))
+			continue
 		}
+		if strings.EqualFold(filepath.Ext(target), ".php") {
+			fmt.Printf("%sPromoted::%s now reaches the instance method through a proxy class (%s).\n",
+				owner, strings.Join(names, ", "), filepath.ToSlash(target))
+			continue
+		}
+		fmt.Printf("%s.%s now takes an instance through allocate (promoted).\n", owner, strings.Join(names, ", "))
 	}
 	return nil
 }
@@ -1156,11 +1176,21 @@ func runPromote(args []string) error {
 // Ruby lets a class be reopened: PHP answers `class Timer` twice with a fatal error, so its route is a generated
 // proxy class plus a recorder that calls it, and that does not exist yet.
 func promoteSupported(path, unit string) error {
-	if ext := strings.ToLower(filepath.Ext(path)); ext != ".rb" {
-		return fmt.Errorf("promote has no shim for %s: a shim reopens the class, which only Ruby allows; "+
-			"%s needs a generated proxy class and a recorder that calls it, and that is not written yet", unit, ext)
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".rb", ".php":
+		return nil
 	}
-	return nil
+	return fmt.Errorf("promote has no shim for %s: Ruby reopens the class and PHP gets a proxy class, and no other "+
+		"language is written yet", unit)
+}
+
+// shimTarget is the file a shim goes into. Ruby reopens the class in place; PHP cannot, so the proxy class lives in
+// promoted.php beside the unit and `analyze` finds it as its own file.
+func shimTarget(unitPath string) string {
+	if strings.EqualFold(filepath.Ext(unitPath), ".php") {
+		return filepath.Join(filepath.Dir(unitPath), "promoted.php")
+	}
+	return unitPath
 }
 
 // promoteMarker finds the owners a revert can undo, in the file itself: the shim is already there, and the

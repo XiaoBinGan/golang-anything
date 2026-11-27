@@ -58,3 +58,36 @@ func TestRevertRefusesATruncatedBlock(t *testing.T) {
 		t.Errorf("the refused revert changed the file:\n%s", after)
 	}
 }
+
+// PHP cannot reopen a class, so the shim is a proxy class in its own file: `class Timer` twice is a fatal error.
+// The proxy has to parse, and a revert that leaves an empty `<?php` behind is a revert nobody can see.
+func TestThePHPSentinelIsAProxynItsOwnFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "promoted.php")
+	added, err := InsertPHP(path, "Timer", []string{"double"})
+	if err != nil || !added {
+		t.Fatalf("InsertPHP = %v, %v", added, err)
+	}
+	src, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(src)
+	if !strings.HasPrefix(text, "<?php") || !strings.Contains(text, "class TimerPromoted") {
+		t.Errorf("the proxy is not a PHP file with a proxy class:\n%s", text)
+	}
+	if !strings.Contains(text, "return (new \\Timer)->double(...$args);") {
+		t.Errorf("the proxy does not reach the instance method:\n%s", text)
+	}
+	removed, err := Revert(path, "Timer")
+	if err != nil || !removed {
+		t.Fatalf("Revert = %v, %v", removed, err)
+	}
+	back, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(string(back)) != "<?php" {
+		t.Errorf("the revert left more than the header:\n%s", back)
+	}
+}

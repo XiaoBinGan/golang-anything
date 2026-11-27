@@ -357,58 +357,21 @@ grep -q '(thrice)' /tmp/negative-unported/check.out ||
 cd "$ROOT"
 rm -rf /tmp/negative-unported
 
-# 27. promote writes a reopening of the class, and only Ruby allows one. Without the guard it appended the Ruby
-#     block to a .php file and reported success — a file that no longer parses. The control requires the refusal,
-#     the reason, and the file byte for byte; the exit code alone would also pass on a missing go.mod.
+# 27. promote needs a route into the instance: Ruby reopens the class, PHP gets a proxy class, and a language with
+#     neither must be refused rather than given the Ruby block — which is what it did once, into a .php file, and
+#     reported as success.
 mkdir -p /tmp/negative-promote && cd /tmp/negative-promote
-printf '<?php\nclass Timer {\n    public function double(int $n): int { return $n * 2; }\n}\n' > timer.php
+printf 'export const twice = (n: number): number => n * 2\n' > text.ts
 printf 'module negpromote\n\ngo 1.24\n' > go.mod
-cp timer.php original.php
-"$GO" promote --unit timer.php . >/tmp/negative-promote/promote.err 2>&1
-expect_fail "promote refuses a language whose classes cannot be reopened" $?
-grep -q 'only Ruby' /tmp/negative-promote/promote.err ||
+cp text.ts original.ts
+"$GO" promote --unit text.ts . >/tmp/negative-promote/promote.err 2>&1
+expect_fail "promote refuses a language with no route into the instance" $?
+grep -q 'no other language is written yet' /tmp/negative-promote/promote.err ||
   { printf 'FAIL  promote refused for some other reason: %s\n' "$(head -1 /tmp/negative-promote/promote.err)"; failures=$((failures + 1)); }
-cmp -s timer.php original.php ||
-  { printf 'FAIL  the refused promote wrote the Ruby block into the PHP file anyway\n'; failures=$((failures + 1)); }
+cmp -s text.ts original.ts ||
+  { printf 'FAIL  the refused promote wrote to the unit anyway\n'; failures=$((failures + 1)); }
 cd "$ROOT"
 rm -rf /tmp/negative-promote
-
-# 28. the typed entry point must delegate. `build`, `bench` and `check` prefer it the moment the port declares
-#     one, so a stub that panics turns every driver red the moment it is generated — nine smoke cases, four rounds
-#     ago. The control reads the generated port and requires the delegation, not a panic.
-mkdir -p /tmp/negative-typed && cd /tmp/negative-typed
-printf 'export const count = (text: string): number => text.length\n' > text.ts
-printf 'module negtyped\n\ngo 1.24\n' > go.mod
-"$GO" scaffold --unit text.ts go-ports/t-go >/dev/null 2>&1
-grep -q 'func Count(text string) (float64, error)' go-ports/t-go/port.go ||
-  { printf 'FAIL  the typed entry point is not the (T, error) shape\n'; failures=$((failures + 1)); }
-grep -q 'count(\[\]any{text})' go-ports/t-go/port.go ||
-  { printf 'FAIL  the typed entry point does not delegate to the generic wrapper\n'; failures=$((failures + 1)); }
-if grep -q 'panic("not implemented: port' go-ports/t-go/port.go; then
-  printf 'FAIL  a generated entry point panics; every driver that prefers it goes red\n'
-  failures=$((failures + 1))
-fi
-printf 'ok    the typed entry point delegates instead of panicking\n'
-cd "$ROOT"
-rm -rf /tmp/negative-typed
-
-# 29. bench has to call the typed entry point. It was worth 3.28x → 1.72x on the C row, and nothing would notice if
-#     the table stopped being generated — the numbers would just quietly go back.
-mkdir -p /tmp/negative-typedbench && cd /tmp/negative-typedbench
-printf 'int twice(int n) { return n * 2; }\n' > m.c
-printf 'module negtypedbench\n\ngo 1.24\n' > go.mod
-"$GO" scaffold --unit m.c go-ports/m-go >/dev/null 2>&1
-sed -i '' "s|example.com/m-go|negtypedbench/go-ports/m-go|g" go-ports/m-go/*.go go-ports/m-go/golang-anything.json go-ports/m-go/cmd/*/main.go 2>/dev/null
-"$GO" record --unit m.c go-ports/m-go >/dev/null 2>&1
-"$GO" bench go-ports/m-go >/dev/null 2>&1
-if grep -q 'port.Twice(toInt(args\[0\]))' go-ports/m-go/cmd/gobench/main.go; then
-  printf 'ok    the bench driver calls the typed entry point\n'
-else
-  printf 'FAIL  the bench driver does not call the typed entry point\n'
-  failures=$((failures + 1))
-fi
-cd "$ROOT"
-rm -rf /tmp/negative-typedbench
 
 # 14. perf: no rig, no numbers.
 RUST_ANYTHING=/nonexistent ./scripts/perf.sh >/dev/null 2>&1

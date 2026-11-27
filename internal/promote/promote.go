@@ -28,6 +28,24 @@ func Shim(owner string, methods []string) string {
 	return b.String()
 }
 
+// ShimPHP renders the PHP proxy for one owner. PHP cannot reopen a class — `class Timer` twice is a fatal error —
+// so the shim is a second class whose static methods hand the call to a fresh instance. The name is the proxy's,
+// which is why `analyze` then reports `TimerPromoted::double` rather than `Timer::double`.
+func ShimPHP(owner string, methods []string) string {
+	var b strings.Builder
+	b.WriteString("<?php\n")
+	b.WriteString(open(owner) + "\n")
+	b.WriteString("class " + owner + "Promoted\n{\n")
+	for _, name := range methods {
+		// `...$args` and no types: the shim must not decide how the original is called.
+		fmt.Fprintf(&b, "    public static function %s(...$args)\n    {\n        return (new \\%s)->%s(...$args);\n    }\n\n",
+			name, owner, name)
+	}
+	b.WriteString("}\n")
+	b.WriteString(close_(owner) + "\n")
+	return b.String()
+}
+
 // Insert appends the block to the file and reports whether anything was written.
 func Insert(path, owner string, methods []string) (bool, error) {
 	raw, err := os.ReadFile(path)
@@ -45,6 +63,30 @@ func Insert(path, owner string, methods []string) (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+// InsertPHP writes the proxy class into the file, creating it when it is not there yet. A PHP file that already
+// has a `<?php` header gets the block appended; a new one starts with the header.
+func InsertPHP(path, owner string, methods []string) (bool, error) {
+	block := ShimPHP(owner, methods)
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return false, err
+		}
+		return true, os.WriteFile(path, []byte(block), 0o644)
+	}
+	text := string(raw)
+	if strings.Contains(text, open(owner)) {
+		return false, nil
+	}
+	if strings.HasPrefix(text, "<?php") {
+		block = strings.TrimPrefix(block, "<?php\n")
+		if !strings.HasSuffix(text, "\n") {
+			text += "\n"
+		}
+	}
+	return true, os.WriteFile(path, []byte(text+"\n"+block), 0o644)
 }
 
 // Revert removes the block again, and refuses a half-removed one: a shim that leaves the file changed is a
