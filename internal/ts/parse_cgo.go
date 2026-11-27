@@ -122,9 +122,10 @@ func ParseSource(src []byte, lang Lang, path string) (*File, error) {
 		return out, nil
 	}
 	if lang == Java {
-		fns, instances, free := javaExports(root, text)
+		fns, instances, free, promotable := javaExports(root, text)
 		out.Fns = append(out.Fns, fns...)
 		out.InstanceMethods, out.InstanceFree = instances, free
+		out.InstancePromotable, out.Promotable = len(promotable), promotable
 		return out, nil
 	}
 	if lang == Ruby {
@@ -520,14 +521,15 @@ func rbFn(n *sitter.Node, name string, text func(*sitter.Node) string) Fn {
 
 // javaExports reads the public static methods of the classes in a file: those are the ones a bridge can
 // call without an instance.
-func javaExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int, int) {
+func javaExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int, int, []Promotable) {
 	var out []Fn
 	// Java is the language where a library is a set of classes full of instance methods (jadx is one), and the plan
 	// said nothing about them: no count, no sentence. Counted here, not promoted — a Java proxy class is a separate
 	// piece of work.
 	instances, free := 0, 0
-	var walkClass func(n *sitter.Node, className string, hasFields bool)
-	walkClass = func(n *sitter.Node, className string, hasFields bool) {
+	var promotable []Promotable
+	var walkClass func(n *sitter.Node, className string, hasFields, noArgCtor bool)
+	walkClass = func(n *sitter.Node, className string, hasFields, noArgCtor bool) {
 		for i := 0; i < int(n.NamedChildCount()); i++ {
 			child := n.NamedChild(i)
 			switch child.Type() {
@@ -535,7 +537,7 @@ func javaExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int, 
 				name := text(child.ChildByFieldName("name"))
 				for j := 0; j < int(child.NamedChildCount()); j++ {
 					if body := child.NamedChild(j); body.Type() == "class_body" {
-						walkClass(body, name, classHasInstanceFields(body, text))
+						walkClass(body, name, classHasInstanceFields(body, text), classHasNoArgCtor(body))
 					}
 				}
 			case "method_declaration":
@@ -555,6 +557,14 @@ func javaExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int, 
 						if body := child.ChildByFieldName("body"); body != nil && !hasFields &&
 							!strings.Contains(text(body), "this.") {
 							free++
+							// Promotable needs one more thing a proxy cannot invent: a no-arg constructor to call.
+							// Java supplies an implicit one when the class declares none.
+							if noArgCtor {
+								promotable = append(promotable, Promotable{
+									Owner: className, Name: text(child.ChildByFieldName("name")),
+									Params: javaParams(child, text), Returns: javaReturns(child, text),
+								})
+							}
 						}
 					}
 					continue
@@ -571,8 +581,8 @@ func javaExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int, 
 			}
 		}
 	}
-	walkClass(root, "", false)
-	return out, instances, free
+	walkClass(root, "", false, false)
+	return out, instances, free, promotable
 }
 
 // classHasInstanceFields reports whether a Java class body declares a non-static field: the only stateless methods a
@@ -597,14 +607,37 @@ func classHasInstanceFields(body *sitter.Node, text func(*sitter.Node) string) b
 	return false
 }
 
+// classHasNoArgCtor reports whether `new Owner()` will compile: no constructor at all (Java's implicit one), or one
+// declared without parameters. A constructor with parameters means a proxy cannot supply them.
+func classHasNoArgCtor(body *sitter.Node) bool {
+	declared := false
+	for i := 0; i < int(body.NamedChildCount()); i++ {
+		child := body.NamedChild(i)
+		if child.Type() != "constructor_declaration" {
+			continue
+		}
+		declared = true
+		if params := child.ChildByFieldName("parameters"); params == nil || int(params.NamedChildCount()) == 0 {
+			return true
+		}
+	}
+	return !declared
+}
+
 // javaReturns reads a Java method's return type: the first child that is neither a modifier, the name, the parameter
 // list nor the body, and that has no children of its own (a qualified name would).
 func javaReturns(n *sitter.Node, text func(*sitter.Node) string) string {
 	for j := 0; j < int(n.NamedChildCount()); j++ {
 		c := n.NamedChild(j)
-		if t := c.Type(); t == "modifiers" || t == "identifier" || t == "formal_parameters" || t == "block" {
+		switch c.Type() {
+		case "modifiers", "identifier", "formal_parameters", "block":
 			continue
-		} else if c.ChildCount() == 0 {
+		case "integral_type", "floating_point_type", "void_type", "boolean_type":
+			// These have children of their own (`int` is an `integral_type` with a keyword), so the "no children"
+			// rule skipped them and the return type came out empty — a proxy written from that would not compile.
+			return javaDialect(text(c))
+		}
+		if c.ChildCount() == 0 {
 			return javaDialect(text(c))
 		}
 	}

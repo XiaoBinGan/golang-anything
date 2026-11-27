@@ -206,3 +206,38 @@ class Maths {
 		t.Errorf("InstanceMethods=%d InstanceFree=%d, want 3/1", file.InstanceMethods, file.InstanceFree)
 	}
 }
+
+// A Java class whose proxy could actually be written: no instance fields, a no-arg constructor, and a return type the
+// shim can spell. `InstancePromotable` is what tells a person a Java proxy is even possible.
+func TestJavaPromotableNeedsAFieldlessClassAndANoArgConstructor(t *testing.T) {
+	withDefault := []byte(`public final class Maths {
+    public int double(int n) { return n * 2; }
+
+    public static int twice(int n) { return n * 2; }
+}`)
+	file, err := ParseSource(withDefault, Java, "Maths.java")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if file.InstancePromotable != 1 || len(file.Promotable) != 1 {
+		t.Fatalf("InstancePromotable=%d promotable=%d, want 1/1", file.InstancePromotable, len(file.Promotable))
+	}
+	if p := file.Promotable[0]; p.Owner != "Maths" || p.Name != "double" || p.Returns != "int" {
+		t.Errorf("promotable = %+v, want Maths.double returning int", p)
+	}
+
+	withCtorArgs := []byte(`public final class Needs {
+    public Needs(int unit) { }
+
+    public int double(int n) { return n * 2; }
+
+    public static int twice(int n) { return n * 2; }
+}`)
+	file, err = ParseSource(withCtorArgs, Java, "Needs.java")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if file.InstancePromotable != 0 {
+		t.Errorf("InstancePromotable=%d, want 0: new Needs() does not compile", file.InstancePromotable)
+	}
+}
