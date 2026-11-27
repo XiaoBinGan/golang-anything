@@ -5,9 +5,12 @@
 两条规则由 `scripts/doccheck.sh` 守着：每节标题上的条数等于该节实际条数；每个标题都必须对应一个真实存在的提交。
 数字都在对应的文档里（[PERF.md](PERF.md)、[EVAL.md](EVAL.md)、[PARITY.md](PARITY.md)、[CONTRACT.md](CONTRACT.md)）。
 
-## 一、修掉的错误（41 条）
+## 一、修掉的错误（42 条）
 
 每一条都是**工具说了假话**或**产物不对**，被一次具体实验抓到：
+
+- **PARITY's count was echoed for rounds; the table is the claim now**
+  - doccheck rule 3 printed `commands: --help says 27, PARITY states 26/26` and compared nothing. Making it compare showed why it could never have worked: three commands were documented inside other rows (`scaffold` in bridge's, `shadow-report` in shadow's, `wasm` nowhere), so `scaffold`/`shadow-report`/`wasm` have rows of their own and the rule checks both coverage and count. Its first version matched the upstream cell — where every invented row has `—` — and passed for all six.
 
 - **promote wrote the Ruby shim into a PHP file and called it success**
   - The shim is a reopening of the class, and only Ruby allows that. `promote` never asked what language the unit was in, so it appended `class Timer … def self.double` to `timer.php` and printed `Timer.double now takes an instance through allocate (promoted).` — in PHP `class Timer` twice is a fatal error, so the file no longer parses. `promoteSupported` refuses everything but `.rb`, with the missing piece named (a generated proxy class plus a recorder that calls it); `--revert` still works on such a file, because the markers are what a revert looks for.
@@ -95,9 +98,11 @@
 - **the case generator was a cross product, and a green gate hid an untested export**
   - The comment said each argument position walks its own table; the code crossed every table against every other, which is 4,000 calls for two string parameters. Two runs replace it: a paired walk with a per-position stride, and a bounded cross product over the first six values of each position. Cheap values are tried first, because a table that opened with 1,000,000 filled the answer limit and left whole exports with nothing recorded.
 
-## 二、性能（14 条）
+## 二、性能（15 条）
 
 每条都有实测数字；赢的和没赢的都写着：
+- **the C bench 4x is the interface's shape, written down where the numbers live**
+  - ROADMAP said "either win it or write the reason down". The reason, measured: port body (assert, multiply, box) ~2.1 ns, seventeen separately allocated `[]any` ~1.8 ns, empty loop ~0.33 ns, the C side 1 ns. Beating it needs scaffold-generated typed call sites; two guesses (registry dispatch, slice locality) are recorded as excluded so nobody pays for them twice.
 - **the C bench handed clang constants, so it timed the loop instead of the call**
   - The harness wrote each call with literal arguments, and a pure function of a constant is a constant: clang folded it, hoisted it, and the row measured the loop — `int magic(int n){return 42;}` read 1 ns / 13.46x slower against 3 ns / 6.99x once each numeric argument went through a volatile of its own type.
 - **the C timing harness measured zero, then measured vectorised code**
@@ -208,9 +213,11 @@
 - **bench, map, clean, doctor, check, and the in-process bridge**
   - bench times both sides the same way; map writes PORT-MAP.md; clean and doctor round out the day-to-day commands. The fast bridge is a c-shared library plus a hand-written N-API addon: 0.73 us per call against rust-anything's ~1 us, and 16x faster than the stdio process.
 
-## 四、让检查本身可信（17 条）
+## 四、让检查本身可信（18 条）
 
 负向对照与冒烟测试——这些不增加功能，只增加「结论可信」：
+- **PARITY's header says the arithmetic that makes 31 rows add up**
+  - The previous header counted rows against commands: `setup` and `mcp` share a row (two commands), `app`'s five subcommands have five. Counted as commands the upstream side is 26 and the rows are 25, and nothing was missing — the parenthetical now says so.
 - **control 27 watches the guard that keeps Ruby out of a PHP file**
   - The guard shipped with a unit test of the function and no control; the failure it prevents is the *command* reporting success on a file it just broke. Rebuilt at `cecddad`, control 27 fails three ways, one of them quoting the old success message back.
 - **the instance-method counts have to survive the trip into the plan**
