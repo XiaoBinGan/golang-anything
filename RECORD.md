@@ -5,9 +5,12 @@
 两条规则由 `scripts/doccheck.sh` 守着：每节标题上的条数等于该节实际条数；每个标题都必须对应一个真实存在的提交。
 数字都在对应的文档里（[PERF.md](PERF.md)、[EVAL.md](EVAL.md)、[PARITY.md](PARITY.md)、[CONTRACT.md](CONTRACT.md)）。
 
-## 一、修掉的错误（42 条）
+## 一、修掉的错误（43 条）
 
 每一条都是**工具说了假话**或**产物不对**，被一次具体实验抓到：
+
+- **scaffold's summary names the step that makes cmd/godriver compile**
+  - A fresh scaffold writes `cmd/godriver/main.go`, which names `port.Undefined`; that type lives in `answer.go`, and `answer.go` is written by `bridge`. A `go build ./...` between the two answered `undefined: port.Undefined` with nothing pointing at the missing step. Declaring the type in the port template was tried first and is wrong — `answer.go` already declares it, so every crate said `Undefined redeclared`. The summary line is the fix that does not fight the generator.
 
 - **PARITY's count was echoed for rounds; the table is the claim now**
   - doccheck rule 3 printed `commands: --help says 27, PARITY states 26/26` and compared nothing. Making it compare showed why it could never have worked: three commands were documented inside other rows (`scaffold` in bridge's, `shadow-report` in shadow's, `wasm` nowhere), so `scaffold`/`shadow-report`/`wasm` have rows of their own and the rule checks both coverage and count. Its first version matched the upstream cell — where every invented row has `—` — and passed for all six.
@@ -213,9 +216,13 @@
 - **bench, map, clean, doctor, check, and the in-process bridge**
   - bench times both sides the same way; map writes PORT-MAP.md; clean and doctor round out the day-to-day commands. The fast bridge is a c-shared library plus a hand-written N-API addon: 0.73 us per call against rust-anything's ~1 us, and 16x faster than the stdio process.
 
-## 四、让检查本身可信（18 条）
+## 四、让检查本身可信（20 条）
 
 负向对照与冒烟测试——这些不增加功能，只增加「结论可信」：
+- **doctor --json has to name the checks the text output prints**
+  - The case parsed the output and stopped there, so a JSON carrying four of the eight checks passed while a JSON reader — `mcp`, a CI job — saw fewer checks than a person. The first version also assumed an object with a `checks` key; the command prints a bare array, and the failure said so in one line.
+- **smoke builds the generated driver, which nothing compiled**
+  - `build` writes `cmd/portctl` and `cmd/gobench`; `scaffold` writes `cmd/godriver`, and no case built it. So every fresh scaffold could fail to compile with the suite green — it did. 78 passed, 0 failed now.
 - **PARITY's header says the arithmetic that makes 31 rows add up**
   - The previous header counted rows against commands: `setup` and `mcp` share a row (two commands), `app`'s five subcommands have five. Counted as commands the upstream side is 26 and the rows are 25, and nothing was missing — the parenthetical now says so.
 - **control 27 watches the guard that keeps Ruby out of a PHP file**
