@@ -42,22 +42,23 @@ type Risk struct {
 
 // Unit is a file that ports as one piece.
 type Unit struct {
-	ID           string   `json:"id"`
-	Files        []string `json:"files"`
-	Loc          int      `json:"loc"`
-	Exports      []Export `json:"exports"`
-	Bridgeable   int      `json:"bridgeable"`
-	InstanceOnly int      `json:"instance_methods,omitempty"`
-	InstanceFree int      `json:"instance_free,omitempty"`
-	Readiness    int      `json:"readiness"`
-	Priority     int      `json:"priority"`
-	Density      float64  `json:"density"`
-	Risks        []Risk   `json:"risks"`
-	Wave         int      `json:"wave"`
-	InternalDeps []string `json:"internal_deps"`
-	ParseErrors  bool     `json:"parse_errors,omitempty"`
-	Status       string   `json:"status"` // ready, caution, blocked, keep
-	Notes        []string `json:"notes,omitempty"`
+	ID                 string   `json:"id"`
+	Files              []string `json:"files"`
+	Loc                int      `json:"loc"`
+	Exports            []Export `json:"exports"`
+	Bridgeable         int      `json:"bridgeable"`
+	InstanceOnly       int      `json:"instance_methods,omitempty"`
+	InstanceFree       int      `json:"instance_free,omitempty"`
+	InstancePromotable int      `json:"instance_promotable,omitempty"`
+	Readiness          int      `json:"readiness"`
+	Priority           int      `json:"priority"`
+	Density            float64  `json:"density"`
+	Risks              []Risk   `json:"risks"`
+	Wave               int      `json:"wave"`
+	InternalDeps       []string `json:"internal_deps"`
+	ParseErrors        bool     `json:"parse_errors,omitempty"`
+	Status             string   `json:"status"` // ready, caution, blocked, keep
+	Notes              []string `json:"notes,omitempty"`
 }
 
 // Report is the whole plan.
@@ -244,7 +245,7 @@ func isComponent(rel string, e Export) bool {
 // unitOf turns a parsed file into a unit: exports with their bridge blocks, risks with file:line.
 func unitOf(rel string, f *ts.File) Unit {
 	u := Unit{ID: rel, Files: []string{rel}, Loc: f.Loc, ParseErrors: !f.ParseOK, InstanceOnly: f.InstanceMethods,
-		InstanceFree: f.InstanceFree}
+		InstanceFree: f.InstanceFree, InstancePromotable: f.InstancePromotable}
 	for _, fn := range f.Fns {
 		e := Export{
 			Name:       fn.Name,
@@ -487,6 +488,10 @@ func notes(u Unit) []string {
 	if u.InstanceFree > 0 {
 		out = append(out, fmt.Sprintf("%d of them touch no state and could be promoted to `Owner.name(...)` "+
 			"once the crate has a shim that supplies the instance", u.InstanceFree))
+	}
+	if u.InstancePromotable > 0 {
+		out = append(out, fmt.Sprintf("%d of those live in a class, where `allocate` can supply the instance; "+
+			"the rest sit in a module, which cannot be instantiated", u.InstancePromotable))
 	}
 	if len(u.InternalDeps) > 0 {
 		out = append(out, fmt.Sprintf("imports %s: port %s first, or together",

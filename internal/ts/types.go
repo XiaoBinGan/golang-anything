@@ -60,11 +60,14 @@ type File struct {
 	InstanceMethods int `json:"instance_methods,omitempty"`
 	// InstanceFree counts the subset of those whose body touches no `@ivar`/`$this`: the only ones that could
 	// ever be promoted to `Owner.name(...)`, and the number ROADMAP's first item is about.
-	InstanceFree int      `json:"instance_free,omitempty"`
-	Fns          []Fn     `json:"fns"`
-	Imports      []Import `json:"imports"`
-	Risks        []Risk   `json:"risks"`
-	ParseOK      bool     `json:"parse_ok"`
+	InstanceFree int `json:"instance_free,omitempty"`
+	// InstancePromotable is the subset of InstanceFree that lives in a class: `allocate` can supply the instance
+	// for those, while a module cannot be instantiated at all.
+	InstancePromotable int      `json:"instance_promotable,omitempty"`
+	Fns                []Fn     `json:"fns"`
+	Imports            []Import `json:"imports"`
+	Risks              []Risk   `json:"risks"`
+	ParseOK            bool     `json:"parse_ok"`
 }
 
 // Lang picks the grammar.

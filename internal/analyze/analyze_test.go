@@ -221,11 +221,15 @@ func TestInstanceMethodCountsReachThePlan(t *testing.T) {
 	for _, u := range rep.Units {
 		got[u.ID] = u
 	}
-	if u := got["timer.rb"]; u.InstanceOnly != 1 || u.InstanceFree != 1 {
-		t.Errorf("timer.rb: instance_methods=%d instance_free=%d, want 1/1", u.InstanceOnly, u.InstanceFree)
+	// A module cannot be instantiated: `helper` is state-free and still not promotable.
+	if u := got["timer.rb"]; u.InstanceOnly != 1 || u.InstanceFree != 1 || u.InstancePromotable != 0 {
+		t.Errorf("timer.rb: instance_methods=%d instance_free=%d instance_promotable=%d, want 1/1/0",
+			u.InstanceOnly, u.InstanceFree, u.InstancePromotable)
 	}
-	if u := got["timer.php"]; u.InstanceOnly != 2 || u.InstanceFree != 1 {
-		t.Errorf("timer.php: instance_methods=%d instance_free=%d, want 2/1", u.InstanceOnly, u.InstanceFree)
+	// PHP has no modules: every method lives in a class, so `double` is promotable through `(new Timer)`.
+	if u := got["timer.php"]; u.InstanceOnly != 2 || u.InstanceFree != 1 || u.InstancePromotable != 1 {
+		t.Errorf("timer.php: instance_methods=%d instance_free=%d instance_promotable=%d, want 2/1/1",
+			u.InstanceOnly, u.InstanceFree, u.InstancePromotable)
 	}
 	// The note is what a reader acts on; a count without it is a number with no sentence.
 	joined := strings.Join(got["timer.php"].Notes, " | ")
