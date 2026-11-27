@@ -38,7 +38,7 @@
 | 25 | `doctor` | `doctor` | ✅ | 八项：go、node、python3、`clang`（`bench` 计时 C/C++ 单元要编译它）、Node 是否自带类型剥离、**能否真的编译一个程序**、**解析器在哪**（问 `ts.ParserPath` 而不是自己再搜一遍）、cgo；每项给修复命令 |
 | 26 | — | `check` | ✅ 额外 | 用真正被调用的那条桥（addon 或 stdio）回放全部用例，**每个用例跑两遍**：一遍传录制里的标记、一遍传解码后的值——只有第二遍会走到包装器的 `encode` |
 | 27 | — | `fast` | ✅ 额外 | 只构建进程内桥 |
-| 28 | — | `promote` | ✅ 额外 | 给**不碰状态**的实例方法写一条能拿到实例的入口，让它们进得了 plan：Ruby 就地重开类（`def self.x(*args)` → `allocate.x(*args)`，跳过 `initialize`）；PHP 不能重开类，写 `promoted.php` 代理类（带方法自己的类型、`require_once` 原文件），`analyze` 把它当独立单元读。`--revert` 按标记删除、文件**字节一致**，PHP 只剩代理时整文件删除。module 的方法不提供——module 不能实例化；读 `$this`/`@ivar` 的方法也不提供 |
+| 28 | — | `promote` | ✅ 额外 | 给**不碰状态**的实例方法写一条能拿到实例的入口，让它们进得了 plan：Ruby 就地重开类（`def self.x(*args)` → `allocate.x(*args)`，跳过 `initialize`）；PHP 不能重开类，写 `promoted.php` 代理类（带方法自己的类型、`require_once` 原文件），`analyze` 把它当独立单元读；Java `MathsPromoted.java`、Kotlin `object TimerPromoted`、C# `MathsPromoted.cs` 同为静态/单例代理（`new Owner().name(args)`，需类无字段、有无参构造），分别用 `javac`/`kotlinc`/`dotnet build` 校验。`--revert` 按标记删除、文件**字节一致**，PHP 只剩代理时整文件删除。module 的方法不提供——module 不能实例化；读 `$this`/`@ivar` 的方法也不提供 |
 | 29 | — | `scaffold` | ✅ 额外 | 生成 `port.go` 骨架、驱动与清单；`--force` 覆盖已填的实现 |
 | 30 | — | `shadow-report` | ✅ 额外 | 汇总 `shadow.jsonl`：调用数、按函数的不一致、第一次出现的位置 |
 | 31 | — | `wasm` | ✅ 额外 | 生成 wasm 包装（`index.wasm.mjs`）：类型化直调，比 JSON 桥快；不能承载时明确拒绝 |
