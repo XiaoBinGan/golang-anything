@@ -55,8 +55,12 @@ src = re.sub(r'\treturn nil, fmt\.Errorf\("not implemented: port [\w-]+"\)', fil
 # The typed entry point delegates until someone writes it, and a delegating stub is what bench would then time:
 # assertion plus box, on top of the call. Filling it makes the typed path the direct one, which is the whole
 # reason bench prefers it.
+# Java and Kotlin get the 32-bit width, so their typed entry point takes int32: filling only the `int` form left a
+# delegating stub, which bench then timed as if it were the port.
 typed = 'func Twice(n int) (int, error) {\n\treturn n * 2, nil\n}'
 src = re.sub(r'func Twice\(n int\) \(int, error\) \{\n(?:.*\n)*?\}', typed, src, count=1)
+typed32 = 'func Twice(n int32) (int32, error) {\n\treturn n * 2, nil\n}'
+src = re.sub(r'func Twice\(n int32\) \(int32, error\) \{\n(?:.*\n)*?\}', typed32, src, count=1)
 open(p, 'w').write(src)
 PYP
     $G build --fast go-ports/m-go >/dev/null 2>&1

@@ -74,7 +74,7 @@ func %s(args []any) (any, error) {
 }
 
 %s`, goName(e.Name), e.Name, opts.Unit.ID, e.Line, len(e.Params), signature(e), goName(e.Name), e.Name,
-			typedStub(e))
+			typedStub(e, opts.Unit.Files))
 	}
 	formatted, err := format.Source(buf.Bytes())
 	if err != nil {
@@ -403,15 +403,23 @@ func fileExists(path string) bool {
 //
 // The body delegates to the generic wrapper rather than panicking: `build`, `bench` and `check` prefer a typed
 // entry point the moment the port declares one, so a stub that panics turns every driver red.
-func typedStub(e analyze.Export) string {
+func typedStub(e analyze.Export, files []string) string {
 	// A C# method is already exported (`Twice`), so the wrapper next to it would be the same identifier.
 	if exported(e.Name) == goName(e.Name) {
 		return ""
 	}
+	// A JVM `int` is 32 bits and wraps; the gate found that on a promoted Java method, where the port overflowed.
+	javaLike := false
+	if len(files) > 0 {
+		switch strings.ToLower(filepath.Ext(files[0])) {
+		case ".java", ".kt":
+			javaLike = true
+		}
+	}
 	params := make([]string, len(e.Params))
 	args := make([]string, len(e.Params))
 	for i, p := range e.Params {
-		t := goType(p.Type)
+		t := goType(p.Type, javaLike)
 		if t == "" {
 			return ""
 		}
@@ -422,7 +430,7 @@ func typedStub(e analyze.Export) string {
 		params[i] = name + " " + t
 		args[i] = name
 	}
-	ret := goType(e.Returns)
+	ret := goType(e.Returns, javaLike)
 	if ret == "" {
 		return ""
 	}
@@ -468,8 +476,24 @@ func exported(name string) string {
 }
 
 // goType writes a recorded type as Go, or "" when it cannot be written down without guessing.
-func goType(t string) string {
-	switch strings.TrimSpace(t) {
+//
+// A JVM `int` is 32 bits and wraps: `int(-2147483648) * 2` in Java is 0, and the same expression on a Go `int` is
+// -4294967296. The gate found that on a promoted Java method, so Java and Kotlin map to the fixed widths.
+func goType(t string, javaLike bool) string {
+	typ := strings.TrimSpace(t)
+	if javaLike {
+		switch typ {
+		case "int":
+			return "int32"
+		case "long":
+			return "int64"
+		case "float":
+			return "float32"
+		case "double":
+			return "float64"
+		}
+	}
+	switch typ {
 	case "number", "float", "float64":
 		return "float64"
 	case "int", "int32", "int64", "integer", "long":

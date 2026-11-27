@@ -487,7 +487,7 @@ func Run(opts Options) (Result, error) {
 		return Result{}, err
 	}
 	src := strings.ReplaceAll(portDriver, cratePlaceholder, m.Crate)
-	src = strings.ReplaceAll(src, "%TYPED_CALL%", typedTable(m.Exports))
+	src = strings.ReplaceAll(src, "%TYPED_CALL%", typedTable(m.Exports, m.Unit))
 	if err := os.WriteFile(filepath.Join(benchDir, "main.go"), []byte(src), 0o644); err != nil {
 		return Result{}, err
 	}
@@ -572,7 +572,10 @@ func typedTable(exports []struct {
 	Name    string   `json:"name"`
 	Params  []string `json:"params"`
 	Returns string   `json:"returns"`
-}) string {
+}, unit string) string {
+	// A JVM `int` is 32 bits: the typed entry point takes int32, and passing a Go int is a compile error the first time
+	// a Kotlin or Java crate is benched.
+	javaLike := strings.HasSuffix(unit, ".java") || strings.HasSuffix(unit, ".kt")
 	var entries []string
 	for _, e := range exports {
 		// Only the exports `scaffold` wrote a typed entry point for: a name it skipped (an unmappable return
@@ -580,7 +583,7 @@ func typedTable(exports []struct {
 		if !typedStubWritten(e.Name, e.Returns) {
 			continue
 		}
-		if call := callOnArgs(e.Name, e.Params); call != "" {
+		if call := callOnArgs(e.Name, e.Params, javaLike); call != "" {
 			entries = append(entries, fmt.Sprintf("\t%q: func(args []any) error { %s },", e.Name, call))
 		}
 	}
@@ -606,7 +609,7 @@ func typedStubWritten(name, returns string) bool {
 // callOnArgs calls the typed entry point with each argument converted: an int arrives as a JSON number from most
 // recorders and as a string from Ruby. "" when a parameter type has no conversion, because a wrong assertion
 // panics inside the timing loop.
-func callOnArgs(name string, params []string) string {
+func callOnArgs(name string, params []string, javaLike bool) string {
 	goName := exportedBench(name)
 	if goName == "" {
 		return ""
@@ -621,6 +624,10 @@ func callOnArgs(name string, params []string) string {
 		case "bool", "boolean":
 			args[i] = fmt.Sprintf("args[%d].(bool)", i)
 		case "int", "int32", "int64", "integer", "long":
+			if javaLike {
+				args[i] = fmt.Sprintf("int32(toInt(args[%d]))", i)
+				continue
+			}
 			args[i] = fmt.Sprintf("toInt(args[%d])", i)
 		default:
 			return ""
