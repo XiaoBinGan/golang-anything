@@ -1172,7 +1172,10 @@ func runPromote(args []string) error {
 		// the second, and the numbers are right there in the parse.
 		switch {
 		case file.InstanceMethods == 0:
-			return fmt.Errorf("nothing to promote in %s: it declares no instance methods", m.Unit)
+			// A Kotlin `object` lands here too: its members are already callable as `Owner.name(...)`, so the sentence
+			// says so instead of leaving the reader to wonder why nothing was found.
+			return fmt.Errorf("nothing to promote in %s: it declares no instance methods (a Kotlin object's members "+
+				"are already callable as Owner.name(...), and a module's cannot be reached at all)", m.Unit)
 		case file.InstanceFree == 0:
 			return fmt.Errorf("nothing to promote in %s: all %d instance method(s) read state, and a shim that "+
 				"skips the constructor would answer differently wherever that state mattered", m.Unit, file.InstanceMethods)
