@@ -275,9 +275,11 @@
 - **bench, map, clean, doctor, check, and the in-process bridge**
   - bench times both sides the same way; map writes PORT-MAP.md; clean and doctor round out the day-to-day commands. The fast bridge is a c-shared library plus a hand-written N-API addon: 0.73 us per call against rust-anything's ~1 us, and 16x faster than the stdio process.
 
-## 四、让检查本身可信（31 条）
+## 四、让检查本身可信（32 条）
 
 负向对照与冒烟测试——这些不增加功能，只增加「结论可信」：
+- **control 33 holds the state rule on the JVM route too**
+  - Control 30 asserted it for PHP; a Java proxy instantiates the class without its constructor state, and `gate` cannot see the difference. `Needs.java` (a field) must be refused with no proxy written; with the field check removed the control fails three ways. Its first version read `$?` after an assignment and accused the shipped binary of a break it did not have.
 - **smoke runs the Java promote chain through record and gate**
   - Four named steps with a port that multiplies in int32, because that is what the Java int does. The gate case is the one that found the width difference, so the chain now holds the thing that caught it. 98 passed, 0 failed.
 - **smoke runs the Java promote route and compiles the proxy**
