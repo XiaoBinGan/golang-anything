@@ -82,6 +82,10 @@ echo "== the port: stubs, driver, wrappers =="
 try "gate (stubs fail, as they must)" bash -c "! $GO gate '$CRATE'"
 try "bridge"                    "$GO" bridge "$CRATE"
 try "refresh keeps port.go"     bash -c "cp '$CRATE/port.go' $WORK/port.before && $GO refresh '$CRATE' && cmp -s '$CRATE/port.go' $WORK/port.before"
+# The generated driver is compiled by nobody: `build` writes portctl and gobench, and `go build ./...` is what a
+# user runs. cmd/godriver named port.Undefined from answer.go, so a scaffold without a bridge did not compile —
+# and nothing in the suite could have noticed.
+try "the generated driver builds" bash -c "cd '$CRATE' && go build ./..."
 try "build"                     "$GO" build "$CRATE"
 try "build --fast"              "$GO" build --fast "$CRATE"
 try "wasm"                      "$GO" wasm "$CRATE"
