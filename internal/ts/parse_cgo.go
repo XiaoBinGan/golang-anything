@@ -563,34 +563,9 @@ func javaExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int, 
 				if name == "" || name == "main" {
 					continue
 				}
-				returns := ""
-				for j := 0; j < int(child.NamedChildCount()); j++ {
-					c := child.NamedChild(j)
-					if t := c.Type(); t == "modifiers" || t == "identifier" || t == "formal_parameters" || t == "block" {
-						continue
-					} else if c.ChildCount() == 0 {
-						returns = javaDialect(text(c))
-						break
-					}
-				}
-				fn := Fn{Name: name, Returns: returns, Method: true, Receiver: className,
-					Line: int(child.StartPoint().Row) + 1, EndLine: int(child.EndPoint().Row) + 1, Params: []Param{}}
-				if params := child.ChildByFieldName("parameters"); params != nil {
-					for k := 0; k < int(params.NamedChildCount()); k++ {
-						param := params.NamedChild(k)
-						if param.Type() != "formal_parameter" {
-							continue
-						}
-						typ, name := "any", ""
-						if t := param.ChildByFieldName("type"); t != nil {
-							typ = text(t)
-						}
-						if nm := param.ChildByFieldName("name"); nm != nil {
-							name = text(nm)
-						}
-						fn.Params = append(fn.Params, Param{Name: name, Type: javaDialect(typ)})
-					}
-				}
+				fn := Fn{Name: name, Returns: javaReturns(child, text), Method: true, Receiver: className,
+					Line: int(child.StartPoint().Row) + 1, EndLine: int(child.EndPoint().Row) + 1,
+					Params: javaParams(child, text)}
 				walkRaises(child, func(line int) { fn.ThrowLines = append(fn.ThrowLines, line) })
 				out = append(out, fn)
 			}
@@ -620,6 +595,45 @@ func classHasInstanceFields(body *sitter.Node, text func(*sitter.Node) string) b
 		}
 	}
 	return false
+}
+
+// javaReturns reads a Java method's return type: the first child that is neither a modifier, the name, the parameter
+// list nor the body, and that has no children of its own (a qualified name would).
+func javaReturns(n *sitter.Node, text func(*sitter.Node) string) string {
+	for j := 0; j < int(n.NamedChildCount()); j++ {
+		c := n.NamedChild(j)
+		if t := c.Type(); t == "modifiers" || t == "identifier" || t == "formal_parameters" || t == "block" {
+			continue
+		} else if c.ChildCount() == 0 {
+			return javaDialect(text(c))
+		}
+	}
+	return ""
+}
+
+// javaParams reads a Java method's parameters. Shared by the export path and the promotion path, which needs the same
+// names and types to write a proxy that forwards them.
+func javaParams(n *sitter.Node, text func(*sitter.Node) string) []Param {
+	params := []Param{}
+	list := n.ChildByFieldName("parameters")
+	if list == nil {
+		return params
+	}
+	for k := 0; k < int(list.NamedChildCount()); k++ {
+		param := list.NamedChild(k)
+		if param.Type() != "formal_parameter" {
+			continue
+		}
+		typ, name := "any", ""
+		if t := param.ChildByFieldName("type"); t != nil {
+			typ = text(t)
+		}
+		if nm := param.ChildByFieldName("name"); nm != nil {
+			name = text(nm)
+		}
+		params = append(params, Param{Name: name, Type: javaDialect(typ)})
+	}
+	return params
 }
 
 // javaDialect narrows a Java type to one of the generator's tables, the way dialectType does for TypeScript.
