@@ -199,3 +199,37 @@ func TestTheReasonsTallyCountsEveryBlockedExport(t *testing.T) {
 		t.Errorf("tally: %+v", got)
 	}
 }
+
+// The instance-method counts have to survive the trip from the parser into the plan: the parser test proves
+// the parse counts them, and a plan that drops the number is a plan that says "0 exports" about a library.
+func TestInstanceMethodCountsReachThePlan(t *testing.T) {
+	dir := t.TempDir()
+	write := func(name, src string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("timer.rb", "module Util\n  def helper(n)\n    n * 2\n  end\n\n  def self.double(n)\n    n * 2\n  end\nend\n")
+	write("timer.php", "<?php\nclass Timer {\n    public function elapsed(int $now): int { return $now + $this->offset; }\n    public function double(int $n): int { return $n * 2; }\n    public static function twice(int $n): int { return $n * 2; }\n}\n")
+
+	rep, err := Run(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]Unit{}
+	for _, u := range rep.Units {
+		got[u.ID] = u
+	}
+	if u := got["timer.rb"]; u.InstanceOnly != 1 || u.InstanceFree != 1 {
+		t.Errorf("timer.rb: instance_methods=%d instance_free=%d, want 1/1", u.InstanceOnly, u.InstanceFree)
+	}
+	if u := got["timer.php"]; u.InstanceOnly != 2 || u.InstanceFree != 1 {
+		t.Errorf("timer.php: instance_methods=%d instance_free=%d, want 2/1", u.InstanceOnly, u.InstanceFree)
+	}
+	// The note is what a reader acts on; a count without it is a number with no sentence.
+	joined := strings.Join(got["timer.php"].Notes, " | ")
+	if !strings.Contains(joined, "need an object") || !strings.Contains(joined, "touch no state") {
+		t.Errorf("timer.php notes do not explain the counts: %q", joined)
+	}
+}
