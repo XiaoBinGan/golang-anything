@@ -66,7 +66,20 @@ printf '<?php\nclass Timer {\n    public function double(int $n): int { return $
 try "promote writes a PHP proxy" bash -c "$GO promote --unit timer.php '$WORK/phpprom' && grep -q 'class TimerPromoted' '$WORK/phpprom/promoted.php'"
 try "the PHP proxy parses"       bash -c "php -l '$WORK/phpprom/promoted.php'"
 try "analyze sees the proxy"     bash -c "$GO analyze '$WORK/phpprom' | grep -q 'TimerPromoted.double'"
-try "promote --revert drops the file" bash -c "$GO promote --revert --unit timer.php '$WORK/phpprom' && [ ! -f '$WORK/phpprom/promoted.php' ]"
+# And the chain the proxy exists for: record, port, gate. It failed for two rounds — a variadic proxy has no
+# export and a proxy that does not require its class records the class error as the case.
+printf 'module smoke-phpprom\n\ngo 1.24\n' > "$WORK/phpprom/go.mod"
+"$GO" promote --unit timer.php "$WORK/phpprom" >/dev/null 2>&1
+"$GO" scaffold --unit promoted.php "$WORK/phpprom/go-ports/p-go" >/dev/null 2>&1
+sed -i '' "s|example.com/p-go|smoke-phpprom/go-ports/p-go|g" "$WORK/phpprom/go-ports/p-go"/*.go \
+  "$WORK/phpprom/go-ports/p-go/golang-anything.json" "$WORK/phpprom/go-ports/p-go/cmd"/*/main.go 2>/dev/null
+python3 -c 'import sys;p=sys.argv[1];s=open(p).read();s=s.replace("return nil, fmt.Errorf(\"not implemented: port double\")","n, ok := args[0].(float64)\n\tif !ok {\n\t\treturn nil, fmt.Errorf(\"TypeError: double() expects int, got %T\", args[0])\n\t}\n\treturn int(n) * 2, nil");open(p,"w").write(s)' \
+  "$WORK/phpprom/go-ports/p-go/port.go"
+try "PHP record"                bash -c "cd '$WORK/phpprom' && $GO record --unit promoted.php go-ports/p-go"
+try "PHP bridge"                bash -c "cd '$WORK/phpprom' && $GO bridge go-ports/p-go"
+try "PHP build"                 bash -c "cd '$WORK/phpprom' && $GO build --fast go-ports/p-go"
+try "PHP gate"                  bash -c "cd '$WORK/phpprom' && $GO gate go-ports/p-go"
+try "PHP promote --revert"      bash -c "$GO promote --revert --unit timer.php '$WORK/phpprom' && [ ! -f '$WORK/phpprom/promoted.php' ]"
 try "map"                       "$GO" map "$REPO"
 mkdir -p "$REPO/go-ports"
 try "scaffold --unit"           "$GO" scaffold --unit "$UNIT" "$REPO/go-ports/one-go"
