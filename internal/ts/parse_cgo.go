@@ -980,7 +980,17 @@ func typedExports(root *sitter.Node, text func(*sitter.Node) string) []Fn {
 				walkRaises(child, func(line int) { fn.ThrowLines = append(fn.ThrowLines, line) })
 				out = append(out, fn)
 			case "class_declaration":
+				// Kotlin puts the class name in a `type_identifier` child, not in a `name` field: reading the field
+				// answered "", so every member function came out with no owner and no way to say whose method it is.
 				name := text(child.ChildByFieldName("name"))
+				if name == "" {
+					for j := 0; j < int(child.NamedChildCount()); j++ {
+						if c := child.NamedChild(j); c.Type() == "type_identifier" {
+							name = text(c)
+							break
+						}
+					}
+				}
 				for j := 0; j < int(child.NamedChildCount()); j++ {
 					if body := child.NamedChild(j); body.Type() == "class_body" || body.Type() == "declaration_list" {
 						walk(body, name)

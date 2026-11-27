@@ -163,3 +163,23 @@ func TestJavaFreeMethodsNeedAFieldlessClass(t *testing.T) {
 		t.Errorf("InstanceMethods=%d InstanceFree=%d, want 2/2", file.InstanceMethods, file.InstanceFree)
 	}
 }
+
+// Kotlin keeps the class name in a `type_identifier` child, not in a `name` field, so reading the field answered ""
+// and every member function came out without an owner: `double` looked like a free function called on nobody.
+func TestKotlinClassMembersKeepTheirOwner(t *testing.T) {
+	src := []byte("class Timer(val offset: Int) {\n    fun double(n: Int): Int = n * 2\n}\n")
+	file, err := ParseSource(src, Kotlin, "M.kt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, fn := range file.Fns {
+		if fn.Name != "double" {
+			continue
+		}
+		if !fn.Method || fn.Receiver != "Timer" {
+			t.Errorf("double: method=%v receiver=%q, want true/\"Timer\"", fn.Method, fn.Receiver)
+		}
+		return
+	}
+	t.Fatal("double was not read at all")
+}
