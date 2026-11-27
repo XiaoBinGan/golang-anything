@@ -102,7 +102,9 @@ try "fuzz --count --seed"       "$GO" fuzz --count 20 --seed 7 "$CRATE"
 try "fuzz --keep"               "$GO" fuzz --count 20 --seed 8 --keep "$CRATE"
 # diff has no --json: --json belongs to analyze and doctor, and writing a test for a flag that does not
 # exist says nothing about either. The report is what carries diff's numbers.
-try "doctor --json"             bash -c "$GO doctor --json | python3 -c 'import json,sys; json.load(sys.stdin)'"
+# Parsing is not enough: the JSON has to carry the checks the text output prints, or a caller that reads JSON
+# sees fewer checks than a person does and cannot tell.
+try "doctor --json names every check" bash -c "$GO doctor --json | python3 -c 'import json,sys; names={c[\"name\"] for c in json.load(sys.stdin)}; sys.exit(0 if {\"go\", \"node\", \"clang (bench)\", \"cgo\"} <= names else 1)'"
 
 echo
 echo "== takeover: enable, disable, shadow =="
