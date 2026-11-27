@@ -112,7 +112,9 @@ func ParseSource(src []byte, lang Lang, path string) (*File, error) {
 		return out, nil
 	}
 	if lang == Kotlin || lang == CSharp {
-		out.Fns = append(out.Fns, typedExports(root, text)...)
+		fns, instances, free := typedExports(root, text)
+		out.Fns = append(out.Fns, fns...)
+		out.InstanceMethods, out.InstanceFree = instances, free
 		return out, nil
 	}
 	if lang == C || lang == Cpp {
@@ -901,10 +903,13 @@ func phpExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int, i
 }
 
 // typedExports reads Kotlin and C# functions: top-level `fun` for Kotlin, public static methods for C#.
-func typedExports(root *sitter.Node, text func(*sitter.Node) string) []Fn {
+func typedExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int, int) {
 	var out []Fn
-	var walk func(n *sitter.Node, className string)
-	walk = func(n *sitter.Node, className string) {
+	// Kotlin's libraries are classes full of member functions, and the plan said nothing about them. Counted, not
+	// promoted: a Kotlin proxy is a separate piece of work.
+	instances, free := 0, 0
+	var walk func(n *sitter.Node, className string, hasProps bool)
+	walk = func(n *sitter.Node, className string, hasProps bool) {
 		for i := 0; i < int(n.NamedChildCount()); i++ {
 			child := n.NamedChild(i)
 			switch child.Type() {
@@ -945,6 +950,14 @@ func typedExports(root *sitter.Node, text func(*sitter.Node) string) []Fn {
 				}
 				walkRaises(child, func(line int) { fn.ThrowLines = append(fn.ThrowLines, line) })
 				out = append(out, fn)
+				if className != "" {
+					instances++
+					// A member function is only state-free when the class declares no property: `n + offset` reads
+					// the same state `this.offset` reads, so looking for `this.` alone is not enough.
+					if !hasProps && !strings.Contains(text(child), "this.") {
+						free++
+					}
+				}
 			case "method_declaration":
 				name := text(child.ChildByFieldName("name"))
 				if name == "" || className == "" || name == "Main" {
@@ -993,14 +1006,46 @@ func typedExports(root *sitter.Node, text func(*sitter.Node) string) []Fn {
 				}
 				for j := 0; j < int(child.NamedChildCount()); j++ {
 					if body := child.NamedChild(j); body.Type() == "class_body" || body.Type() == "declaration_list" {
-						walk(body, name)
+						walk(body, name, kotlinClassHasProps(child))
 					}
 				}
 			}
 		}
 	}
-	walk(root, "")
-	return out
+	walk(root, "", false)
+	return out, instances, free
+}
+
+// kotlinClassHasProps reports whether a Kotlin class body declares a property: a `val`/`var` inside the body, or a
+// constructor parameter marked `val`/`var` (which the parse reports as `class_parameter`).
+func kotlinClassHasProps(class *sitter.Node) bool {
+	// Two places hold state: `val x = …` in the body, and a constructor parameter marked `val`/`var`, which lives in
+	// the primary constructor beside the body. Checking only the body said a class with `(private val offset: Int)`
+	// had no state.
+	var found bool
+	var scan func(n *sitter.Node, depth int)
+	scan = func(n *sitter.Node, depth int) {
+		if found || depth > 3 {
+			return
+		}
+		switch n.Type() {
+		case "property_declaration":
+			found = true
+			return
+		case "class_parameter":
+			for i := 0; i < int(n.NamedChildCount()); i++ {
+				if c := n.NamedChild(i); c.Type() == "binding_pattern_kind" {
+					found = true
+					return
+				}
+			}
+		}
+		for i := 0; i < int(n.NamedChildCount()); i++ {
+			scan(n.NamedChild(i), depth+1)
+		}
+	}
+	scan(class, 0)
+	return found
 }
 
 // ktDialect narrows a Kotlin type.

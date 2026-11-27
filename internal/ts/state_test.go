@@ -183,3 +183,26 @@ func TestKotlinClassMembersKeepTheirOwner(t *testing.T) {
 	}
 	t.Fatal("double was not read at all")
 }
+
+// Kotlin state lives in two places: `val x` in the body, and a constructor parameter marked `val`/`var`. Checking only
+// the body said a class with `(private val offset: Int)` had none.
+func TestKotlinInstanceMethodsAreCounted(t *testing.T) {
+	src := []byte(`class Timer(private val offset: Int) {
+    fun shifted(n: Int): Int = n + offset
+
+    fun double(n: Int): Int = n * 2
+}
+
+class Maths {
+    fun triple(n: Int): Int = n * 3
+}
+`)
+	file, err := ParseSource(src, Kotlin, "M.kt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Timer holds state, so neither of its members is free; Maths holds none, so its member is.
+	if file.InstanceMethods != 3 || file.InstanceFree != 1 {
+		t.Errorf("InstanceMethods=%d InstanceFree=%d, want 3/1", file.InstanceMethods, file.InstanceFree)
+	}
+}
