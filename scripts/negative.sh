@@ -437,7 +437,18 @@ grep -q 'read state' /tmp/negative-jvmstate/promote.err ||
   { printf 'FAIL  promote refused for some other reason: %s\n' "$(head -1 /tmp/negative-jvmstate/promote.err)"; failures=$((failures + 1)); }
 [ ! -f NeedsPromoted.java ] ||
   { printf 'FAIL  a proxy file was written for a stateful class\n'; failures=$((failures + 1)); }
-[ "$failures" -eq "$before" ] && printf 'ok    promote leaves a stateful Java class alone\n'
+# The same rule on the two other proxy languages that can hold state in a constructor.
+# A body property, not a constructor parameter: the constructor rule would refuse a parameter anyway, and a control
+# that cannot fail is decoration.
+printf 'class Needs {\n    private val offset = 5\n\n    fun doubled(n: Int): Int = n * 2\n}\n' > Needs.kt
+"$GO" promote --unit Needs.kt . >/tmp/negative-jvmstate/kt.err 2>&1
+expect_fail "promote refuses a Kotlin class that holds a property" $?
+[ ! -f NeedsPromoted.kt ] || { printf 'FAIL  a Kotlin proxy was written for a stateful class\n'; failures=$((failures + 1)); }
+printf 'public class Needs {\n    private int offset = 5;\n\n    public int doubled(int n) { return n * 2; }\n}\n' > Needs.cs
+"$GO" promote --unit Needs.cs . >/tmp/negative-jvmstate/cs.err 2>&1
+expect_fail "promote refuses a C# class that holds a field" $?
+[ ! -f NeedsPromoted.cs ] || { printf 'FAIL  a C# proxy was written for a stateful class\n'; failures=$((failures + 1)); }
+[ "$failures" -eq "$before" ] && printf 'ok    promote leaves a stateful class alone in Java, Kotlin and C#\n'
 cd "$ROOT"
 rm -rf /tmp/negative-jvmstate
 
