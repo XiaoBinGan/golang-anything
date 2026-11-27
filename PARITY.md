@@ -2,7 +2,7 @@
 
 目标：**全部 26 条命令对齐**，并在性能上超过它（桥接单次调用、diff/record 吞吐、工具启动）。
 
-**当前：31 行——25 行点名上游命令（rust-anything 的 26 条里有一条没有对应行）、6 条自创（`check` `fast` `promote` `scaffold` `shadow-report` `wasm`）。**
+**当前：31 行——25 行对应上游命令（26 个上游命令：`setup` 与 `mcp` 共用一行），6 行自创（`check` `fast` `promote` `scaffold` `shadow-report` `wasm`）。**
 
 这个数字由 `scripts/doccheck.sh` 算出来并核对，不是记着的：它取 `--help` 的命令集合减去 PARITY 左列的集合。
 性能五项里四项赢、一项（`--help` 冷启动）慢 0.1 ms，原因与实测见 [PERF.md](PERF.md) 的「启动的下限」一节。
