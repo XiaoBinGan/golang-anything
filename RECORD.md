@@ -257,9 +257,11 @@
 - **bench, map, clean, doctor, check, and the in-process bridge**
   - bench times both sides the same way; map writes PORT-MAP.md; clean and doctor round out the day-to-day commands. The fast bridge is a c-shared library plus a hand-written N-API addon: 0.73 us per call against rust-anything's ~1 us, and 16x faster than the stdio process.
 
-## 四、让检查本身可信（28 条）
+## 四、让检查本身可信（29 条）
 
 负向对照与冒烟测试——这些不增加功能，只增加「结论可信」：
+- **smoke reads the instance-method counts for Kotlin and Java**
+  - The counts exist and unit tests cover them; nothing checked the number a person sees from `analyze --json`. Two fixtures, one case: `M.kt` (2, 1) and `T.java` (1, 1). The first expectation was wrong in a useful way — `Timer(private val offset)` holds state so its method is not free, and a Java unit whose only method is an instance method has no exports, so `analyze` drops it.
 - **smoke requires promote to be idempotent on a PHP unit**
   - The marker is what makes the command repeatable, and a second `class TimerPromoted` is a fatal error in PHP — a mistake that only appears the second time someone runs the documented command. 89 passed, 0 failed.
 - **control 32 keeps the Ruby shim on allocate**
