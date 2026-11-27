@@ -36,14 +36,17 @@ function plan_calls(array $plan, array $only): array {
     $calls = [];
     foreach ($plan as $name => $entry) {
         if ($only && !in_array($name, $only, true)) { continue; }
+        // The plan keeps both names: the export name is what a case is filed under, the path is what can be called.
+        // Using the first for both called a function that does not exist, and every call was skipped.
+        $target = $entry['path'] ?? $name;
         $types = $entry['types'] ?? [];
-        if (!$types) { $calls[] = [$name, []]; continue; }
+        if (!$types) { $calls[] = [$name, $target, []]; continue; }
         $tables = array_map('values_for', $types);
         $longest = max(array_map('count', $tables));
         for ($i = 0; $i < $longest; $i++) {
             $args = [];
             foreach ($tables as $j => $t) { $args[] = $t[$i % count($t)]; }
-            $calls[] = [$name, $args];
+            $calls[] = [$name, $target, $args];
         }
         $head = array_map(fn($t) => array_slice($t, 0, PAIRWISE_HEAD), $tables);
         if (count($head) <= 3) {
@@ -55,7 +58,7 @@ function plan_calls(array $plan, array $only): array {
                 }
                 $stack = $next;
             }
-            foreach ($stack as $args) { $calls[] = [$name, $args]; }
+            foreach ($stack as $args) { $calls[] = [$name, $target, $args]; }
         }
     }
     return $calls;
@@ -86,11 +89,14 @@ if ($extra_path) {
 
 $out = fopen($out_path, 'w');
 $written = 0;
-foreach ($calls as [$name, $args]) {
-    if (!function_exists($name)) { continue; }
+foreach ($calls as [$name, $target, $args]) {
+    // Class.method is not a callable name; Class::method is. function_exists was false for every method, so the
+    // recorder wrote zero cases and said nothing else.
+    if (strpos($target, '.') !== false) { $target = str_replace('.', '::', $target); }
+    if (!is_callable($target)) { continue; }
     $case = ['fn' => $name, 'args' => array_map('mark', $args)];
     try {
-        $answer = mark($name(...$args));
+        $answer = mark(call_user_func_array($target, $args));
         if (strlen(json_encode($answer)) > MAX_BYTES) { continue; }
         $case['ok'] = $answer;
     } catch (Throwable $e) {
