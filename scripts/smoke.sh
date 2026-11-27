@@ -191,6 +191,13 @@ def divide(a, b):
         raise ValueError("division by zero")
     return a / b
 PYEOF
+# The instance-method counts are what decide whether `promote` has anything to do; Kotlin and Java report them now.
+# Kotlin's state sits in a constructor property, Java's in a field — the free member in each fixture is in the class
+# that holds neither.
+mkdir -p "$WORK/instcount"
+printf 'class Timer(private val offset: Int) {\n    fun shifted(n: Int): Int = n + offset\n}\n\nclass Maths {\n    fun triple(n: Int): Int = n * 3\n}\n' > "$WORK/instcount/M.kt"
+printf 'public final class T {\n    public int double(int n) { return n * 2; }\n\n    public static int twice(int n) { return n * 2; }\n}\n' > "$WORK/instcount/T.java"
+try "analyze counts instance methods" bash -c "$GO analyze --json '$WORK/instcount' | python3 -c 'import json,sys; d=json.load(sys.stdin); want={\"M.kt\":(2,1),\"T.java\":(1,1)}; got={u[\"id\"]:(u.get(\"instance_methods\",0),u.get(\"instance_free\",0)) for u in d[\"units\"]}; sys.exit(0 if got==want else 1)'"
 try "analyze names python"      bash -c "$GO analyze '$WORK/pyroot' | head -1 | grep -q python"
 try "scaffold a .py unit"       "$GO" scaffold --unit mathx.py "$WORK/pyroot/go-ports/mathx-go"
 sed -i '' "s|example.com/mathx-go|pyroot/go-ports/mathx-go|g" "$WORK/pyroot/go-ports/mathx-go"/*.go \
