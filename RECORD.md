@@ -5,9 +5,12 @@
 两条规则由 `scripts/doccheck.sh` 守着：每节标题上的条数等于该节实际条数；每个标题都必须对应一个真实存在的提交。
 数字都在对应的文档里（[PERF.md](PERF.md)、[EVAL.md](EVAL.md)、[PARITY.md](PARITY.md)、[CONTRACT.md](CONTRACT.md)）。
 
-## 一、修掉的错误（39 条）
+## 一、修掉的错误（40 条）
 
 每一条都是**工具说了假话**或**产物不对**，被一次具体实验抓到：
+
+- **the README's 32x C bench number can no longer be reproduced, and says so**
+  - The paragraph kept `bench → 32.76x 慢：原式 0 ns`, which was honest when clang folded the call and is impossible now: numeric arguments go through a volatile and both sides take a median. The same shape measures 1 ns against 4 ns (4.25x) today, and the paragraph now says why the old number cannot be reproduced instead of leaving a reader to quote it.
 
 - **two scripts scraped the bench table for a number that now has a JSON field**
   - `bench-all-languages.sh` read `Geometric mean: …` out of markdown and `matrix.sh` did the same for its speed column; both break silently the day the sentence is reworded, and matrix would print `-` for every crate while `make check` stayed green. Both read `bench --json` now, and the first attempt — merging stderr into the capture — turned five of nine languages into `JSONDecodeError`, because `bench` writes `sink=…` there.
@@ -122,9 +125,16 @@
 - **measure both bridges head to head and report where we lose**
   - Built rust-anything 4.0.0 here, bridged the same unit with both tools, filled both ports and timed one call alternately in blocks so a load spike hits both sides. rust-anything's napi bridge answers in 0.073 us, ours in 0.294 us after the one-string fast path (no JSON, no malloc, quote written straight into the caller's buffer). The gap is structural: cgo costs 40-60 ns per call.
 
-## 三、能力（31 条）
+## 三、能力（34 条）
 
 功能与语言支持，每条都在提交里说明了如何验证：
+
+- **an instance method is counted, not silently dropped**
+  - Ruby's plain `def` inside a module and PHP's non-static public method are not exports — the bridge has no instance — and both parsers `continue`d past them, so a library of six instance methods and a library of one module function both read `0 exports`. The count is in the plan now, with a sentence.
+- **of the instance methods, say how many touch no state**
+  - The count alone cannot tell Carbon (every method reads `$this`) from a class of functions wearing a class. `InstanceFree` splits it using the same body check the state rule uses, and the note says the promotion needs a shim that supplies the instance — deliberately not offering a name the bridge cannot call.
+- **analyze prints its notes, which only --json could see**
+  - `Unit.Notes` was computed and rendered nowhere; the table said `0 exports` for a Ruby module and the sentence behind it lived in JSON. The plan has a `## Notes` section now, and only when some unit has one.
 - **bench --json, so a measurement can be read instead of scraped**
   - The table was for a person and the numbers lived in `work/bench-*.json`, intermediates with no promise about their shape. `--json` prints the Result: `rows[].name/cases/original_ns/port_ns/speedup`, the geometric mean and `min_ms`. `ns` got `omitempty` on the way out — it is only set while a measurement file is being read back, and a zero in a finished result is a lie about a row that cost something.
 - **doctor knows what bench needs, so a missing clang is not a surprise**
@@ -189,9 +199,11 @@
 - **bench, map, clean, doctor, check, and the in-process bridge**
   - bench times both sides the same way; map writes PORT-MAP.md; clean and doctor round out the day-to-day commands. The fast bridge is a c-shared library plus a hand-written N-API addon: 0.73 us per call against rust-anything's ~1 us, and 16x faster than the stdio process.
 
-## 四、让检查本身可信（12 条）
+## 四、让检查本身可信（13 条）
 
 负向对照与冒烟测试——这些不增加功能，只增加「结论可信」：
+- **smoke watches the notes section it took a round to notice was missing**
+  - The notes existed and printed nowhere for as long as they did because no case asserted a sentence appears. The new case runs analyze on a Ruby module whose surface is one instance method plus one module function and requires the heading and the promotion sentence: 73 passed, 0 failed.
 - **bench --json's shape is a promise, so it gets a golden string**
   - The smoke case parsed the output and checked one number: that catches "no output", not a renamed field — `port_ns` becoming `go_ns` keeps every value and moves every reader. The test compares exact text, because a field-by-field check is what called `ns: 0` fine.
 - **control 26 watches the scaffold count it took two tries to get right**
