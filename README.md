@@ -416,6 +416,37 @@ fuzz    20/20（seed 4）
 check   2/2 经进程内 addon
 ```
 
+## 实例方法也能进端口：promote
+
+类库的出口常常是实例方法（Carbon 全是 `$this->`，sinatra 的辅助方法都在 module 里），而桥只搬函数。
+`promote` 在**原文件一侧**补一个能拿到实例的入口，所以这些方法才进得了 plan：
+
+```sh
+golang-anything promote --unit timer.php .        # PHP：不能重开类，写 promoted.php 代理
+golang-anything promote --unit util.rb  .         # Ruby：能重开类，就地加 `def self.x`
+golang-anything promote --revert --unit timer.php .   # 按标记撤回；PHP 只剩代理时整文件删除
+```
+
+```
+# Ruby（就地重开，allocate 跳过 initialize —— 安全的前提是方法不读状态）
+module Util
+  def self.double(*args)
+    allocate.double(*args)
+  end
+end
+
+# PHP（代理类，独立文件，带方法自己的类型并加载原文件）
+require_once __DIR__ . '/timer.php';
+class TimerPromoted { public static function double(int $n): int { return (new Timer)->double($n); } }
+```
+
+**什么时候不做**：方法体读 `$this`/`@ivar` 时不提供——代理拿到的是没有构造状态的新实例，录下来的答案只在
+「状态正好相同」时才对，而 `gate` 看不见这种错。`analyze` 把数报出来（`instance_methods` / `instance_free` /
+`instance_promotable`），module 与 class 分开：module 不能实例化，所以它那一份是 0。
+
+实测（本机，`timer.php` 一个 `double(int): int`）：`promote` → `record` **0 → 15 例**（此前录制器按导出名调用，
+方法不是函数，全部跳过）→ 补一行 Go 端口 → `gate: every case matches`。
+
 ## shadow / enable 在真实 crate 上（不是 fixture）
 
 `shadow` 和 `enable` 之前只在 fixture 上验证过。拿 `uleb-go`（有 `import './leb128.js'`、229 条用例）
