@@ -124,6 +124,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -142,7 +143,7 @@ type row struct {
 	Unported int     ` + "`json:\"unported,omitempty\"`" + `
 }
 
-func main() {
+%TYPED_CALL%func main() {
 	in, err := os.Open(os.Args[1])
 	if err != nil {
 		fail(err)
@@ -177,9 +178,16 @@ func main() {
 		if !ok {
 			continue
 		}
+		// The typed entry point, when the port declares one: the same function without the []any round trip.
+		typed, typedOK := typedCall[fn]
+		_ = typed
 		args := byFn[fn]
 		unported := 0
 		for _, a := range args { // warm up; counting here keeps the timed loop free of a string check
+			if typedOK {
+				_ = typed(a)
+				continue
+			}
 			if _, err := f(a); err != nil && strings.Contains(err.Error(), "not implemented: port ") {
 				unported++
 			}
@@ -199,6 +207,10 @@ func main() {
 			for k := 0; k < chunk; k++ {
 				for i := 0; i < repeat; i++ {
 					for _, a := range args {
+						if typedOK {
+							_ = typed(a)
+							continue
+						}
 						_, _ = f(a)
 					}
 				}
@@ -257,6 +269,13 @@ func Run(opts Options) (Result, error) {
 	var m struct {
 		Unit  string `json:"unit"`
 		Crate string `json:"crate"`
+		// The typed entry point takes the parameter types the recorder wrote; the cases carry []any, and the
+		// assertion is most of what a row would otherwise be timing.
+		Exports []struct {
+			Name    string   `json:"name"`
+			Params  []string `json:"params"`
+			Returns string   `json:"returns"`
+		} `json:"exports"`
 	}
 	if err := json.Unmarshal(raw, &m); err != nil {
 		return Result{}, err
@@ -459,6 +478,7 @@ func Run(opts Options) (Result, error) {
 		return Result{}, err
 	}
 	src := strings.ReplaceAll(portDriver, cratePlaceholder, m.Crate)
+	src = strings.ReplaceAll(src, "%TYPED_CALL%", typedTable(m.Exports))
 	if err := os.WriteFile(filepath.Join(benchDir, "main.go"), []byte(src), 0o644); err != nil {
 		return Result{}, err
 	}
@@ -531,6 +551,85 @@ func readRows(path string) ([]Row, error) {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 	return rows, nil
+}
+
+// typedTable renders the map the driver prefers: one entry per export whose typed entry point `scaffold` wrote
+// and whose parameter types convert from the cases' []any. Empty when nothing converts — the driver then measures
+// the registry, which is what every crate did before.
+//
+// `toInt` and `strconv` are always emitted, even when no entry needs them: the driver's imports are a fixed
+// string, and a conditional import is an unused-import error in every crate that does not use it.
+func typedTable(exports []struct {
+	Name    string   `json:"name"`
+	Params  []string `json:"params"`
+	Returns string   `json:"returns"`
+}) string {
+	var entries []string
+	for _, e := range exports {
+		// Only the exports `scaffold` wrote a typed entry point for: a name it skipped (an unmappable return
+		// type, or a C# method already exported) has no port.Twice to call, and the driver would not compile.
+		if !typedStubWritten(e.Name, e.Returns) {
+			continue
+		}
+		if call := callOnArgs(e.Name, e.Params); call != "" {
+			entries = append(entries, fmt.Sprintf("\t%q: func(args []any) error { %s },", e.Name, call))
+		}
+	}
+	helper := "func toInt(v any) int {\n\tswitch x := v.(type) {\n\tcase float64:\n\t\treturn int(x)\n" +
+		"\tcase int:\n\t\treturn x\n\tcase string:\n\t\tn, _ := strconv.Atoi(x)\n\t\treturn n\n\t}\n\treturn 0\n}\n\n"
+	return helper + "var typedCall = map[string]func([]any) error{\n" + strings.Join(entries, "\n") + "\n}\n\n"
+}
+
+// typedStubWritten mirrors scaffold's decision: a typed entry point exists when the return type converts and the
+// name is not already exported.
+func typedStubWritten(name, returns string) bool {
+	if exportedBench(name) == name {
+		return false
+	}
+	switch strings.TrimSpace(returns) {
+	case "number", "float", "float64", "int", "int32", "int64", "integer", "long",
+		"string", "char", "bool", "boolean":
+		return true
+	}
+	return false
+}
+
+// callOnArgs calls the typed entry point with each argument converted: an int arrives as a JSON number from most
+// recorders and as a string from Ruby. "" when a parameter type has no conversion, because a wrong assertion
+// panics inside the timing loop.
+func callOnArgs(name string, params []string) string {
+	goName := exportedBench(name)
+	if goName == "" {
+		return ""
+	}
+	args := make([]string, len(params))
+	for i, p := range params {
+		switch strings.TrimSpace(p) {
+		case "string", "char":
+			args[i] = fmt.Sprintf("args[%d].(string)", i)
+		case "number", "float", "float64":
+			args[i] = fmt.Sprintf("args[%d].(float64)", i)
+		case "bool", "boolean":
+			args[i] = fmt.Sprintf("args[%d].(bool)", i)
+		case "int", "int32", "int64", "integer", "long":
+			args[i] = fmt.Sprintf("toInt(args[%d])", i)
+		default:
+			return ""
+		}
+	}
+	return fmt.Sprintf("_, err := port.%s(%s); return err", goName, strings.Join(args, ", "))
+}
+
+// exportedBench is the typed entry point's spelling: the export name with its first rune capitalised.
+func exportedBench(name string) string {
+	if name == "" {
+		return ""
+	}
+	r := []rune(name)
+	if r[0] >= 'a' && r[0] <= 'z' {
+		r[0] -= 'a' - 'A'
+	}
+	return string(r)
 }
 
 // isStub reports whether every call in a row answered the scaffold's `not implemented: port …`. Those

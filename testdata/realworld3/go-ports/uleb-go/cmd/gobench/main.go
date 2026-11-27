@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -22,6 +23,23 @@ type row struct {
 	Cases    int     `json:"cases"`
 	NS       float64 `json:"ns"`
 	Unported int     `json:"unported,omitempty"`
+}
+
+func toInt(v any) int {
+	switch x := v.(type) {
+	case float64:
+		return int(x)
+	case int:
+		return x
+	case string:
+		n, _ := strconv.Atoi(x)
+		return n
+	}
+	return 0
+}
+
+var typedCall = map[string]func([]any) error{
+
 }
 
 func main() {
@@ -59,9 +77,16 @@ func main() {
 		if !ok {
 			continue
 		}
+		// The typed entry point, when the port declares one: the same function without the []any round trip.
+		typed, typedOK := typedCall[fn]
+		_ = typed
 		args := byFn[fn]
 		unported := 0
 		for _, a := range args { // warm up; counting here keeps the timed loop free of a string check
+			if typedOK {
+				_ = typed(a)
+				continue
+			}
 			if _, err := f(a); err != nil && strings.Contains(err.Error(), "not implemented: port ") {
 				unported++
 			}
@@ -81,6 +106,10 @@ func main() {
 			for k := 0; k < chunk; k++ {
 				for i := 0; i < repeat; i++ {
 					for _, a := range args {
+						if typedOK {
+							_ = typed(a)
+							continue
+						}
 						_, _ = f(a)
 					}
 				}
