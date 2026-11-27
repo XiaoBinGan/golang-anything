@@ -406,6 +406,24 @@ grep -q "require_once __DIR__ . '/timer.php';" promoted.php ||
 cd "$ROOT"
 rm -rf /tmp/negative-proxy
 
+# 32. the Ruby shim has to reach the instance through allocate, not new: new runs initialize, which takes arguments
+#     the shim does not have and which the promoted method does not need. A `new` shim raises ArgumentError on the
+#     first call and the recorder files that as the answer.
+mkdir -p /tmp/negative-allocate && cd /tmp/negative-allocate
+printf 'class Timer\n  def initialize(unit)\n    @unit = unit\n  end\n\n  def double(n)\n    n * 2\n  end\nend\n' > timer.rb
+printf 'module negallocate\n\ngo 1.24\n' > go.mod
+"$GO" promote --unit timer.rb . >/dev/null 2>&1
+before=$failures
+grep -q 'allocate.double(\*args)' timer.rb ||
+  { printf 'FAIL  the shim does not go through allocate\n'; failures=$((failures + 1)); }
+if grep -q 'new.double' timer.rb; then
+  printf 'FAIL  the shim calls new, which runs a constructor the method does not need\n'
+  failures=$((failures + 1))
+fi
+[ "$failures" -eq "$before" ] && printf 'ok    the Ruby shim reaches the instance through allocate\n'
+cd "$ROOT"
+rm -rf /tmp/negative-allocate
+
 # 14. perf: no rig, no numbers.
 RUST_ANYTHING=/nonexistent ./scripts/perf.sh >/dev/null 2>&1
 expect_fail "perf refuses a missing rig" $?
