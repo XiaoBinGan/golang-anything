@@ -5,9 +5,12 @@
 两条规则由 `scripts/doccheck.sh` 守着：每节标题上的条数等于该节实际条数；每个标题都必须对应一个真实存在的提交。
 数字都在对应的文档里（[PERF.md](PERF.md)、[EVAL.md](EVAL.md)、[PARITY.md](PARITY.md)、[CONTRACT.md](CONTRACT.md)）。
 
-## 一、修掉的错误（40 条）
+## 一、修掉的错误（41 条）
 
 每一条都是**工具说了假话**或**产物不对**，被一次具体实验抓到：
+
+- **promote wrote the Ruby shim into a PHP file and called it success**
+  - The shim is a reopening of the class, and only Ruby allows that. `promote` never asked what language the unit was in, so it appended `class Timer … def self.double` to `timer.php` and printed `Timer.double now takes an instance through allocate (promoted).` — in PHP `class Timer` twice is a fatal error, so the file no longer parses. `promoteSupported` refuses everything but `.rb`, with the missing piece named (a generated proxy class plus a recorder that calls it); `--revert` still works on such a file, because the markers are what a revert looks for.
 
 - **the README's 32x C bench number can no longer be reproduced, and says so**
   - The paragraph kept `bench → 32.76x 慢：原式 0 ns`, which was honest when clang folded the call and is impossible now: numeric arguments go through a volatile and both sides take a median. The same shape measures 1 ns against 4 ns (4.25x) today, and the paragraph now says why the old number cannot be reproduced instead of leaving a reader to quote it.
@@ -205,9 +208,11 @@
 - **bench, map, clean, doctor, check, and the in-process bridge**
   - bench times both sides the same way; map writes PORT-MAP.md; clean and doctor round out the day-to-day commands. The fast bridge is a c-shared library plus a hand-written N-API addon: 0.73 us per call against rust-anything's ~1 us, and 16x faster than the stdio process.
 
-## 四、让检查本身可信（16 条）
+## 四、让检查本身可信（17 条）
 
 负向对照与冒烟测试——这些不增加功能，只增加「结论可信」：
+- **control 27 watches the guard that keeps Ruby out of a PHP file**
+  - The guard shipped with a unit test of the function and no control; the failure it prevents is the *command* reporting success on a file it just broke. Rebuilt at `cecddad`, control 27 fails three ways, one of them quoting the old success message back.
 - **the instance-method counts have to survive the trip into the plan**
   - The parser tests assert what a file reports; nothing asserted `analyze` carries it. Deleting `InstanceFree: f.InstanceFree` out of `unitOf` failed the new test on both the counts and the note, and nothing else noticed.
 - **smoke runs promote → scaffold → revert on a library that is all instance methods**
