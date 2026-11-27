@@ -373,6 +373,22 @@ cmp -s text.ts original.ts ||
 cd "$ROOT"
 rm -rf /tmp/negative-promote
 
+# 30. promote must not offer a method that reads state. A proxy for `return $this->offset + $n` would produce a
+#     second instance with a default offset, and every recorded answer would be wrong in a way the gate cannot see.
+before=$failures
+mkdir -p /tmp/negative-stateful && cd /tmp/negative-stateful
+printf '<?php\nclass Timer {\n    private int $offset = 5;\n    public function shifted(int $n): int { return $n + $this->offset; }\n}\n' > timer.php
+printf 'module negstateful\n\ngo 1.24\n' > go.mod
+"$GO" promote --unit timer.php . >/tmp/negative-stateful/promote.err 2>&1
+expect_fail "promote refuses a class whose only method reads state" $?
+grep -q 'no class has a state-free instance method' /tmp/negative-stateful/promote.err ||
+  { printf 'FAIL  promote refused for some other reason: %s\n' "$(head -1 /tmp/negative-stateful/promote.err)"; failures=$((failures + 1)); }
+[ ! -f promoted.php ] ||
+  { printf 'FAIL  a proxy was written for a stateful method\n'; failures=$((failures + 1)); }
+[ "$failures" -eq "$before" ] && printf 'ok    promote leaves a stateful method alone\n'
+cd "$ROOT"
+rm -rf /tmp/negative-stateful
+
 # 14. perf: no rig, no numbers.
 RUST_ANYTHING=/nonexistent ./scripts/perf.sh >/dev/null 2>&1
 expect_fail "perf refuses a missing rig" $?
