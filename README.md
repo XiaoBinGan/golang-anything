@@ -438,14 +438,27 @@ end
 # PHP（代理类，独立文件，带方法自己的类型并加载原文件）
 require_once __DIR__ . '/timer.php';
 class TimerPromoted { public static function double(int $n): int { return (new Timer)->double($n); } }
+
+// Java（每个类一个文件，类名即文件名）
+public final class MathsPromoted { public static int doubled(int n) { return new Maths().doubled(n); } }
+
+// Kotlin（单例 object，成员可作 TimerPromoted.doubled(…) 调用）
+object TimerPromoted { fun doubled(n: Int): Int = Timer().doubled(n) }
+
+// C#（静态类）
+public static class MathsPromoted { public static int Doubled(int n) { return new Maths().Doubled(n); } }
 ```
+
+三条代理路线都要求「类无实例字段 + 有无参构造」（`new Owner()` 编得过）；生成物分别用 `javac`、`kotlinc`、
+`dotnet build` 实测通过，并各有 `record → gate` 的 smoke 链。
 
 **什么时候不做**：方法体读 `$this`/`@ivar` 时不提供——代理拿到的是没有构造状态的新实例，录下来的答案只在
 「状态正好相同」时才对，而 `gate` 看不见这种错。`analyze` 把数报出来（`instance_methods` / `instance_free` /
 `instance_promotable`），module 与 class 分开：module 不能实例化，所以它那一份是 0。
 
-实测（本机，`timer.php` 一个 `double(int): int`）：`promote` → `record` **0 → 15 例**（此前录制器按导出名调用，
-方法不是函数，全部跳过）→ 补一行 Go 端口 → `gate: every case matches`。
+实测（本机）：PHP `timer.php` 一个 `double(int): int` → `record` **0 → 15 例**（此前录制器按导出名调用，方法不是
+函数，全部跳过）→ 补一行 Go 端口 → `gate: every case matches`；Java/Kotlin/C# 同类 fixture 各 `record` **17 例**、
+`gate` 绿，且端口要按 JVM/C# 的 **32 位 int** 写（否则 `-2147483648` 这类边界会与"回绕"的原式不一致）。
 
 ## shadow / enable 在真实 crate 上（不是 fixture）
 
