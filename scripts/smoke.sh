@@ -39,6 +39,14 @@ try "analyze --json"            bash -c "$GO analyze --json '$REPO' | python3 -c
 mkdir -p "$WORK/instances"
 printf 'module Util\n  def helper(n)\n    n * 2\n  end\n  def self.double(n)\n    n * 2\n  end\nend\n' > "$WORK/instances/util.rb"
 try "analyze prints its notes"  bash -c "$GO analyze '$WORK/instances' | grep -q '## Notes' && $GO analyze '$WORK/instances' | grep -q 'could be promoted'"
+# A library whose whole surface is instance methods has nothing for scaffold to see. The shim is what gives it
+# an export — so the three steps are checked in order, and reverting has to leave the file alone.
+mkdir -p "$WORK/promoted"
+printf 'class Timer\n  def double(n)\n    n * 2\n  end\nend\n' > "$WORK/promoted/timer.rb"
+try "promote writes a shim"     bash -c "$GO promote --unit timer.rb '$WORK/promoted' && grep -q 'allocate.double' '$WORK/promoted/timer.rb'"
+mkdir -p "$WORK/promoted/go-ports"
+try "the shim is a real export" bash -c "$GO scaffold --unit timer.rb '$WORK/promoted/go-ports/timer-go' >/dev/null"
+try "promote --revert"          bash -c "$GO promote --revert --unit timer.rb '$WORK/promoted' && ! grep -q 'allocate.double' '$WORK/promoted/timer.rb'"
 try "map"                       "$GO" map "$REPO"
 mkdir -p "$REPO/go-ports"
 try "scaffold --unit"           "$GO" scaffold --unit "$UNIT" "$REPO/go-ports/one-go"
