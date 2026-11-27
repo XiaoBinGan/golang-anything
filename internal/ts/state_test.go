@@ -340,3 +340,46 @@ func TestKotlinSecondaryConstructorBlocksPromotion(t *testing.T) {
 		t.Errorf("InstancePromotable=%d, want 1: `Maths()` compiles", file.InstancePromotable)
 	}
 }
+
+// The Kotlin bug (a constructor the parse did not see) is worth checking in the other two proxy languages: a class whose
+// only constructor takes arguments must not be offered, and C# declares constructors directly in the class body.
+func TestCSharpConstructorWithArgumentsBlocksPromotion(t *testing.T) {
+	src := []byte(`public class Needs
+{
+    public Needs(int unit)
+    {
+        this.unit = unit;
+    }
+
+    private int unit;
+
+    public int Doubled(int n) { return n * 2; }
+}
+`)
+	file, err := ParseSource(src, CSharp, "Needs.cs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if file.InstancePromotable != 0 {
+		t.Errorf("InstancePromotable=%d, want 0: `new Needs()` does not compile", file.InstancePromotable)
+	}
+
+	// Without the field, the only thing standing in the way is the constructor — and with a no-arg one, nothing is.
+	withNoArg := []byte(`public class Maths
+{
+    public Maths()
+    {
+        System.Console.WriteLine(1);
+    }
+
+    public int Tripled(int n) { return n * 3; }
+}
+`)
+	file, err = ParseSource(withNoArg, CSharp, "Maths.cs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if file.InstancePromotable != 1 {
+		t.Errorf("InstancePromotable=%d, want 1: `new Maths()` compiles", file.InstancePromotable)
+	}
+}
