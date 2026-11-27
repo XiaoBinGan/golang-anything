@@ -5,10 +5,12 @@
 两条规则由 `scripts/doccheck.sh` 守着：每节标题上的条数等于该节实际条数；每个标题都必须对应一个真实存在的提交。
 数字都在对应的文档里（[PERF.md](PERF.md)、[EVAL.md](EVAL.md)、[PARITY.md](PARITY.md)、[CONTRACT.md](CONTRACT.md)）。
 
-## 一、修掉的错误（52 条）
+## 一、修掉的错误（53 条）
 
 每一条都是**工具说了假话**或**产物不对**，被一次具体实验抓到：
 
+- **the Kotlin recorder could record neither a proxy nor its sibling class**
+  - Two reasons a promoted Kotlin unit recorded nothing: `kotlinc` got the unit alone, so `unresolved reference: Timer` (the proxy instantiates a class in a sibling file, as PHP's shim needs `require_once`); and the call used the export name, `doubled(0)`, for a member of `TimerPromoted` — the plan carries the path and the recorder ignored it. After both: 17 cases, gate green with a port that multiplies in int32.
 - **a JVM int is 32 bits, and the typed entry point has to say so**
   - Promoting a Java method and gating it answered `doubled(-2147483648): expected 0, got -4294967296`: Java's int wraps, Go's does not, and the stub said `func Doubled(n int) (int32, error)`. Java and Kotlin map int→int32, long→int64, float→float32, double→float64 now; bench passes int32 at the typed call site, and the sweep fills the int32 stub body (without that it timed a delegating stub and reported kt 1.13x slower).
 - **a Kotlin member function knows its class again**
@@ -161,9 +163,13 @@
 - **measure both bridges head to head and report where we lose**
   - Built rust-anything 4.0.0 here, bridged the same unit with both tools, filled both ports and timed one call alternately in blocks so a load spike hits both sides. rust-anything's napi bridge answers in 0.073 us, ours in 0.294 us after the one-string fast path (no JSON, no malloc, quote written straight into the caller's buffer). The gap is structural: cgo costs 40-60 ns per call.
 
-## 三、能力（47 条）
+## 三、能力（49 条）
 
 功能与语言支持，每条都在提交里说明了如何验证：
+- **Kotlin `object` members are read, so a proxy can be a singleton**
+  - `typedExports` walked `class_declaration` bodies and ignored `object_declaration`, which is exactly the shape a promotion proxy wants: a singleton whose members are reachable as `Object.name(...)`. `object TimerPromoted { fun doubled(…) }` went from "no unit at all" to `TimerPromoted.kt [('doubled','TimerPromoted')]`, and `kotlinc` compiles it.
+- **promote has a Kotlin route — a singleton object, checked with kotlinc**
+  - Kotlin cannot reopen a class and cannot add a companion to one, so the route is `object TimerPromoted { fun doubled(n: Int): Int = Timer().doubled(n) }` in its own file, with `InstancePromotable` holding Kotlin's entries under the same rule Java got: no properties, and a primary constructor that takes no parameter.
 - **promote has a Java route — a proxy class per owner, checked with javac**
   - Java cannot reopen a class either, so the route is a proxy file per class, with the two differences from PHP that only compiling found: the markers are `//` (a `#` file does not compile) and the file name has to match the public class. `javac Maths.java MathsPromoted.java` ok; `MathsPromoted.doubled(3)` prints 6; `--revert` deletes the file when it held nothing else.
 - **Kotlin instance methods are counted, from both places state lives**
