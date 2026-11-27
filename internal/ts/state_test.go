@@ -241,3 +241,19 @@ func TestJavaPromotableNeedsAFieldlessClassAndANoArgConstructor(t *testing.T) {
 		t.Errorf("InstancePromotable=%d, want 0: new Needs() does not compile", file.InstancePromotable)
 	}
 }
+
+// A Kotlin `object` is a singleton, and its members are reachable as `Object.name(...)` — which is the shape a proxy
+// wants. The parser ignored the body, so a proxy written that way was invisible to `analyze`.
+func TestKotlinObjectMembersKeepTheirOwner(t *testing.T) {
+	src := []byte("object TimerPromoted {\n    fun doubled(n: Int): Int = n * 2\n}\n")
+	file, err := ParseSource(src, Kotlin, "TimerPromoted.kt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(file.Fns) != 1 {
+		t.Fatalf("read %d functions, want 1", len(file.Fns))
+	}
+	if fn := file.Fns[0]; fn.Name != "doubled" || fn.Receiver != "TimerPromoted" {
+		t.Errorf("%s receiver=%q, want doubled/TimerPromoted", fn.Name, fn.Receiver)
+	}
+}

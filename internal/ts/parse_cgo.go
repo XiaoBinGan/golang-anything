@@ -1039,6 +1039,23 @@ func typedExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int,
 				}
 				walkRaises(child, func(line int) { fn.ThrowLines = append(fn.ThrowLines, line) })
 				out = append(out, fn)
+			case "object_declaration":
+				// A Kotlin `object` is a singleton whose members are reachable as `Object.name(...)`: the same shape a
+				// generated proxy needs, and the parser used to ignore the body entirely.
+				name := text(child.ChildByFieldName("name"))
+				if name == "" {
+					for j := 0; j < int(child.NamedChildCount()); j++ {
+						if c := child.NamedChild(j); c.Type() == "type_identifier" {
+							name = text(c)
+							break
+						}
+					}
+				}
+				for j := 0; j < int(child.NamedChildCount()); j++ {
+					if body := child.NamedChild(j); body.Type() == "class_body" {
+						walk(body, name, kotlinClassHasProps(body))
+					}
+				}
 			case "class_declaration":
 				// Kotlin puts the class name in a `type_identifier` child, not in a `name` field: reading the field
 				// answered "", so every member function came out with no owner and no way to say whose method it is.
