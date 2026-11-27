@@ -1143,6 +1143,19 @@ func runPromote(args []string) error {
 		byOwner[p.Owner] = append(byOwner[p.Owner], promote.Method{Name: p.Name, Params: params, Returns: p.Returns})
 	}
 	if len(byOwner) == 0 {
+		// Say which of the two reasons it is: a method that reads state cannot be promoted, and a module's method
+		// cannot be reached at all. "No class has a state-free instance method" reads as the first even when it is
+		// the second, and the numbers are right there in the parse.
+		switch {
+		case file.InstanceMethods == 0:
+			return fmt.Errorf("nothing to promote in %s: it declares no instance methods", m.Unit)
+		case file.InstanceFree == 0:
+			return fmt.Errorf("nothing to promote in %s: all %d instance method(s) read state, and a shim that "+
+				"skips the constructor would answer differently wherever that state mattered", m.Unit, file.InstanceMethods)
+		case file.InstancePromotable == 0:
+			return fmt.Errorf("nothing to promote in %s: %d instance method(s) touch no state, but they live in a "+
+				"module, which cannot be instantiated", m.Unit, file.InstanceFree)
+		}
 		return fmt.Errorf("nothing to promote in %s: no class has a state-free instance method", m.Unit)
 	}
 	owners := make([]string, 0, len(byOwner))

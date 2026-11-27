@@ -381,7 +381,7 @@ printf '<?php\nclass Timer {\n    private int $offset = 5;\n    public function 
 printf 'module negstateful\n\ngo 1.24\n' > go.mod
 "$GO" promote --unit timer.php . >/tmp/negative-stateful/promote.err 2>&1
 expect_fail "promote refuses a class whose only method reads state" $?
-grep -q 'no class has a state-free instance method' /tmp/negative-stateful/promote.err ||
+grep -q 'read state' /tmp/negative-stateful/promote.err ||
   { printf 'FAIL  promote refused for some other reason: %s\n' "$(head -1 /tmp/negative-stateful/promote.err)"; failures=$((failures + 1)); }
 [ ! -f promoted.php ] ||
   { printf 'FAIL  a proxy was written for a stateful method\n'; failures=$((failures + 1)); }
