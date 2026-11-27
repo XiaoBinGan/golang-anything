@@ -42,10 +42,22 @@ try "analyze prints its notes"  bash -c "$GO analyze '$WORK/instances' | grep -q
 # A library whose whole surface is instance methods has nothing for scaffold to see. The shim is what gives it
 # an export — so the three steps are checked in order, and reverting has to leave the file alone.
 mkdir -p "$WORK/promoted"
+printf 'module smoke-promoted\n\ngo 1.24\n' > "$WORK/promoted/go.mod"
 printf 'class Timer\n  def double(n)\n    n * 2\n  end\nend\n' > "$WORK/promoted/timer.rb"
 try "promote writes a shim"     bash -c "$GO promote --unit timer.rb '$WORK/promoted' && grep -q 'allocate.double' '$WORK/promoted/timer.rb'"
 mkdir -p "$WORK/promoted/go-ports"
 try "the shim is a real export" bash -c "$GO scaffold --unit timer.rb '$WORK/promoted/go-ports/timer-go' >/dev/null"
+# And the whole point: a promoted method records, ports and gates like any other unit. The port answers the
+# arity error as well, because the recorder kept the zero-argument call as a case.
+if (
+  cd "$WORK/promoted" || exit 1
+  sed -i '' "s|example.com/timer-go|smoke-promoted/go-ports/timer-go|g" go-ports/timer-go/*.go go-ports/timer-go/golang-anything.json go-ports/timer-go/cmd/*/main.go 2>/dev/null
+  python3 -c 'import sys;p=sys.argv[1];s=open(p).read();s=s.replace("return nil, fmt.Errorf(\"not implemented: port double\")","if len(args) != 1 {\n\t\treturn nil, fmt.Errorf(\"ArgumentError: wrong number of arguments (given %d, expected 1)\", len(args))\n\t}\n\treturn int(args[0].(float64)) * 2, nil");open(p,"w").write(s)' go-ports/timer-go/port.go
+  "$GO" record --unit timer.rb go-ports/timer-go &&
+    "$GO" bridge go-ports/timer-go &&
+    "$GO" build --fast go-ports/timer-go &&
+    "$GO" gate go-ports/timer-go
+) >"$WORK/promote.log" 2>&1; then ok "promote → record → gate"; else bad "promote → record → gate" "$(tail -1 "$WORK/promote.log" | cut -c1-70)"; fi
 try "promote --revert"          bash -c "$GO promote --revert --unit timer.rb '$WORK/promoted' && ! grep -q 'allocate.double' '$WORK/promoted/timer.rb'"
 try "map"                       "$GO" map "$REPO"
 mkdir -p "$REPO/go-ports"
