@@ -125,9 +125,15 @@
 - **measure both bridges head to head and report where we lose**
   - Built rust-anything 4.0.0 here, bridged the same unit with both tools, filled both ports and timed one call alternately in blocks so a load spike hits both sides. rust-anything's napi bridge answers in 0.073 us, ours in 0.294 us after the one-string fast path (no JSON, no malloc, quote written straight into the caller's buffer). The gap is structural: cgo costs 40-60 ns per call.
 
-## 三、能力（34 条）
+## 三、能力（37 条）
 
 功能与语言支持，每条都在提交里说明了如何验证：
+- **a state-free method in a module is not promotable, and the plan says so**
+  - "Touch no state" is necessary and not sufficient: a Ruby module cannot be instantiated, so a shim would answer `NoMethodError` on the first call. The count splits again — `instance_promotable` — and the plan says which methods live in a class (`allocate` supplies the instance) and which sit in a module.
+- **the plan names the promotable methods, not just how many there are**
+  - A count answers "is this library worth a shim"; the generator needs names. Both come out of one walk (`ts.Promotable{Owner, Name}` is appended where the count is incremented), so a name cannot appear without the count that justifies it.
+- **`promote` writes the Ruby shim that makes a state-free method callable**
+  - `promote <crate>` appends a marked block of `def self.double(*args) = allocate.double(*args)`; `--revert` puts the file back byte for byte (asserted). `--unit` exists because of the chicken and egg: a library that is all instance methods has no bridgeable export, so `scaffold` refuses to write a manifest — and promotion is what would give it one.
 
 - **an instance method is counted, not silently dropped**
   - Ruby's plain `def` inside a module and PHP's non-static public method are not exports — the bridge has no instance — and both parsers `continue`d past them, so a library of six instance methods and a library of one module function both read `0 exports`. The count is in the plan now, with a sentence.
@@ -199,9 +205,15 @@
 - **bench, map, clean, doctor, check, and the in-process bridge**
   - bench times both sides the same way; map writes PORT-MAP.md; clean and doctor round out the day-to-day commands. The fast bridge is a c-shared library plus a hand-written N-API addon: 0.73 us per call against rust-anything's ~1 us, and 16x faster than the stdio process.
 
-## 四、让检查本身可信（13 条）
+## 四、让检查本身可信（16 条）
 
 负向对照与冒烟测试——这些不增加功能，只增加「结论可信」：
+- **the instance-method counts have to survive the trip into the plan**
+  - The parser tests assert what a file reports; nothing asserted `analyze` carries it. Deleting `InstanceFree: f.InstanceFree` out of `unitOf` failed the new test on both the counts and the note, and nothing else noticed.
+- **smoke runs promote → scaffold → revert on a library that is all instance methods**
+  - The claim that matters is the chain: a file with no exports gets one, `scaffold` can then see it, `--revert` takes it away. The middle case fails if `def self.double(*args)` stops being read as a module function, which is the only reason the shim works.
+- **smoke proves a promoted method records, ports and gates**
+  - It worked by hand and not in smoke for two fixture reasons, both of which failed after everything else had passed: no `go.mod` (`go: go.mod file not found`) and scaffold's placeholder import path (`no required module provides package example.com/timer-go`). 77 passed, 0 failed now; the port also answers the arity error, because the recorder keeps the zero-argument call as a case.
 - **smoke watches the notes section it took a round to notice was missing**
   - The notes existed and printed nowhere for as long as they did because no case asserted a sentence appears. The new case runs analyze on a Ruby module whose surface is one instance method plus one module function and requires the heading and the promotion sentence: 73 passed, 0 failed.
 - **bench --json's shape is a promise, so it gets a golden string**
