@@ -83,6 +83,62 @@ type Param struct {
 	Type string
 }
 
+// ShimJava renders the Java proxy for one class: `new Owner()` needs no arguments, which is the condition `analyze`
+// already required before offering the method.
+func ShimJava(owner string, methods []Method) string {
+	var b strings.Builder
+	// Java comments start with `//`: the `#` markers Ruby and PHP share would not compile.
+	b.WriteString(javaOpen(owner) + "\n")
+	b.WriteString("public final class " + owner + "Promoted\n{\n")
+	for _, m := range methods {
+		params := make([]string, len(m.Params))
+		args := make([]string, len(m.Params))
+		for i, p := range m.Params {
+			name := p.Name
+			if name == "" {
+				name = fmt.Sprintf("arg%d", i)
+			}
+			typ := p.Type
+			if typ == "" || typ == "any" {
+				typ = "Object"
+			}
+			params[i] = typ + " " + name
+			args[i] = name
+		}
+		ret := m.Returns
+		if ret == "" {
+			ret = "void"
+		}
+		fmt.Fprintf(&b, "    public static %s %s(%s)\n    {\n        return new %s().%s(%s);\n    }\n\n",
+			ret, m.Name, strings.Join(params, ", "), owner, m.Name, strings.Join(args, ", "))
+	}
+	b.WriteString("}\n")
+	b.WriteString(javaClose(owner) + "\n")
+	return b.String()
+}
+
+// javaOpen and javaClose are the same markers with Java's comment: `#` is not a comment there, and a file that does
+// not compile is not a shim.
+func javaOpen(owner string) string  { return "// >>> go-anything promote: " + owner }
+func javaClose(owner string) string { return "// <<< go-anything promote: " + owner }
+
+// InsertJava writes the proxy into its own file. It refuses to overwrite a file it did not write: a user's
+// `MathsPromoted.java` is theirs.
+func InsertJava(path, owner string, methods []Method) (bool, error) {
+	block := ShimJava(owner, methods)
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return false, err
+		}
+		return true, os.WriteFile(path, []byte(block), 0o644)
+	}
+	if strings.Contains(string(raw), javaOpen(owner)) {
+		return false, nil
+	}
+	return false, fmt.Errorf("%s already exists and this tool did not write it", path)
+}
+
 // Insert appends the block to the file and reports whether anything was written.
 func Insert(path, owner string, methods []string) (bool, error) {
 	raw, err := os.ReadFile(path)
@@ -124,6 +180,29 @@ func InsertPHP(path, owner string, methods []Method, original string) (bool, err
 		}
 	}
 	return true, os.WriteFile(path, []byte(text+"\n"+block), 0o644)
+}
+
+// RevertJava removes a Java proxy block. The caller deletes the file when nothing but the block was in it.
+func RevertJava(path, owner string) (bool, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return false, err
+	}
+	text := string(raw)
+	i := strings.Index(text, javaOpen(owner))
+	if i < 0 {
+		return false, nil
+	}
+	j := strings.Index(text[i:], javaClose(owner)+"\n")
+	if j < 0 {
+		return false, fmt.Errorf("%s has the opening marker for %s but not the closing one: the block was edited "+
+			"by hand, so nothing was removed", path, owner)
+	}
+	end := i + j + len(javaClose(owner)) + 1
+	if err := os.WriteFile(path, []byte(text[:i]+text[end:]), 0o644); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // Revert removes the block again, and refuses a half-removed one: a shim that leaves the file changed is a

@@ -102,3 +102,41 @@ func TestThePHPSentinelIsAProxynItsOwnFile(t *testing.T) {
 		t.Errorf("the revert left more than the header:\n%s", back)
 	}
 }
+
+// Java proxies are one file per class, named after it, with Java comments — and `new Owner()` is what the method
+// call needs, which is why analyze only offers a class with a no-arg constructor.
+func TestTheJavaProxyCompilesAsJava(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "MathsPromoted.java")
+	added, err := InsertJava(path, "Maths", []Method{{
+		Name:    "doubled",
+		Params:  []Param{{Name: "n", Type: "int"}},
+		Returns: "int",
+	}})
+	if err != nil || !added {
+		t.Fatalf("InsertJava = %v, %v", added, err)
+	}
+	src, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(src)
+	if strings.Contains(text, "#") {
+		t.Errorf("the file uses # where Java wants //:\n%s", text)
+	}
+	if !strings.Contains(text, "public static int doubled(int n)") ||
+		!strings.Contains(text, "return new Maths().doubled(n);") {
+		t.Errorf("the proxy does not forward with a no-arg constructor:\n%s", text)
+	}
+	removed, err := RevertJava(path, "Maths")
+	if err != nil || !removed {
+		t.Fatalf("RevertJava = %v, %v", removed, err)
+	}
+	back, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(string(back)) != "" {
+		t.Errorf("the revert left content behind:\n%s", back)
+	}
+}

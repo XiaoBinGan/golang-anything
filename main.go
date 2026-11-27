@@ -1110,16 +1110,40 @@ func runPromote(args []string) error {
 				}
 			}
 		}
-		if removed == 0 {
-			fmt.Printf("%s has no shim: nothing to remove.\n", filepath.ToSlash(path))
-		}
 		// A proxy file that held nothing but its header is not part of the original: leaving it behind makes the
 		// revert visibly incomplete.
+		// Java proxies are one file per class, named after it, so a revert looks for them beside the unit.
+		if strings.EqualFold(filepath.Ext(path), ".java") {
+			matches, _ := filepath.Glob(filepath.Join(filepath.Dir(path), "*Promoted.java"))
+			for _, file := range matches {
+				raw, err := os.ReadFile(file)
+				if err != nil {
+					continue
+				}
+				for _, m := range javaPromoteMarker.FindAllStringSubmatch(string(raw), -1) {
+					ok, err := promote.RevertJava(file, m[1])
+					if err != nil {
+						return err
+					}
+					if ok {
+						removed++
+						fmt.Printf("Removed the %s shim from %s.\n", m[1], filepath.ToSlash(file))
+						if raw, err := os.ReadFile(file); err == nil && strings.TrimSpace(string(raw)) == "" {
+							_ = os.Remove(file)
+							fmt.Printf("Removed %s: it held only the proxy.\n", filepath.ToSlash(file))
+						}
+					}
+				}
+			}
+		}
 		if target := shimTarget(path); target != path {
 			if raw, err := os.ReadFile(target); err == nil && strings.TrimSpace(string(raw)) == "<?php" {
 				_ = os.Remove(target)
 				fmt.Printf("Removed %s: it held only the proxy.\n", filepath.ToSlash(target))
 			}
+		}
+		if removed == 0 {
+			fmt.Printf("%s has no shim: nothing to remove.\n", filepath.ToSlash(path))
 		}
 		return nil
 	}
@@ -1163,7 +1187,6 @@ func runPromote(args []string) error {
 		owners = append(owners, owner)
 	}
 	sort.Strings(owners)
-	target := shimTarget(path)
 	for _, owner := range owners {
 		methods := byOwner[owner]
 		sort.Slice(methods, func(i, j int) bool { return methods[i].Name < methods[j].Name })
@@ -1173,9 +1196,15 @@ func runPromote(args []string) error {
 		}
 		var added bool
 		var err error
-		if strings.EqualFold(filepath.Ext(target), ".php") {
+		target := shimTarget(path)
+		switch {
+		case strings.EqualFold(filepath.Ext(target), ".php"):
 			added, err = promote.InsertPHP(target, owner, methods, filepath.Base(path))
-		} else {
+		case strings.EqualFold(filepath.Ext(path), ".java"):
+			// One file per class: Java requires the public class to match the file name.
+			target = filepath.Join(filepath.Dir(path), owner+"Promoted.java")
+			added, err = promote.InsertJava(target, owner, methods)
+		default:
 			added, err = promote.Insert(target, owner, names)
 		}
 		if err != nil {
@@ -1185,7 +1214,7 @@ func runPromote(args []string) error {
 			fmt.Printf("%s already has a shim in %s.\n", owner, filepath.ToSlash(target))
 			continue
 		}
-		if strings.EqualFold(filepath.Ext(target), ".php") {
+		if strings.EqualFold(filepath.Ext(target), ".php") || strings.EqualFold(filepath.Ext(target), ".java") {
 			fmt.Printf("%sPromoted::%s now reaches the instance method through a proxy class (%s).\n",
 				owner, strings.Join(names, ", "), filepath.ToSlash(target))
 			continue
@@ -1200,7 +1229,7 @@ func runPromote(args []string) error {
 // proxy class plus a recorder that calls it, and that does not exist yet.
 func promoteSupported(path, unit string) error {
 	switch strings.ToLower(filepath.Ext(path)) {
-	case ".rb", ".php":
+	case ".rb", ".php", ".java":
 		return nil
 	}
 	return fmt.Errorf("promote has no shim for %s: Ruby reopens the class and PHP gets a proxy class, and no other "+
@@ -1219,6 +1248,9 @@ func shimTarget(unitPath string) string {
 // promoteMarker finds the owners a revert can undo, in the file itself: the shim is already there, and the
 // manifest does not record it.
 var promoteMarker = regexp.MustCompile(`(?m)^# >>> go-anything promote: (.+)$`)
+
+// javaPromoteMarker is the same marker with Java's comment prefix.
+var javaPromoteMarker = regexp.MustCompile(`(?m)^// >>> go-anything promote: (.+)$`)
 
 // unitRoot walks up from the crate folder until the unit file resolves, the way every other command finds it.
 func unitRoot(crateDir, unit string) (string, error) {
