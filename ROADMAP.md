@@ -2,16 +2,25 @@
 
 按「值不值」排序，每条都写清楚**现状**、**要做什么**、**怎么算做完**。
 
-## 一、功能：让类库也能移植（最高价值）
+## 一、功能：让类库也能移植（已完成，四路）
 
-**现状**：`analyze` 只认自由函数。真实项目里 Kotlin/Java 的 `object`/静态方法、Ruby 的 `def self.`、
-PHP 的 `public static function`、C# 的静态方法**已经能读**（本轮补的），但 Carbon 这类**实例方法库**仍然读不到。
-survey 的结果：php-carbon 37 单元/506 导出、ruby-sinatra 47/454（本轮从 1/3 和 0/0 涨上来的）。
+**现状**：实例方法**已经能进 plan**——`analyze` 数出 `instance_methods` / `instance_free` / `instance_promotable`，
+`promote` 在**原文件一侧**补一个能拿到实例的入口，于是这些方法像自由函数一样进入 scaffold → record → gate。
+四条路，都有端到端 smoke 用例：
 
-**要做什么**：识别**不碰实例状态**的实例方法（方法体里没有 `self.`/`this.`/`$this->`），把它提升为
-`Class.method(instance-free args)`，并在 `analyze` 里标注「无状态方法，可移植」。
-**怎么算做完**：Carbon 的 `isLeapYear()` 这类方法能进 plan；不对任何有状态方法误判（用一个反例测试：
-方法体里出现 `$this->` 就必须拒绝）。
+| 语言 | 入口怎么写 | 前置条件 | 实测 |
+| --- | --- | --- | --- |
+| Ruby | 就地重开类，`def self.x(*args)` → `allocate.x(*args)` | 方法不碰 `@ivar`/`self.` | `promote → record → gate` 绿 |
+| PHP | `promoted.php` 里的代理类，带方法自己的类型 + `require_once` | 方法不碰 `$this` | record **0 → 15 例**，gate 绿 |
+| Java | `MathsPromoted.java`，`new Maths().doubled(n)` | 无实例字段 + 有无参构造 | `javac` 通过，gate 绿 |
+| Kotlin | `object TimerPromoted { fun doubled(...) }` | 无属性（类体/主构造器）+ 主构造器无参 | `kotlinc` 通过，record 17 例，gate 绿 |
+
+**拒绝的理由分三种，逐条说清**（对照 30/31 盯着）：没有实例方法；方法全部读状态；不碰状态但住在 module 里
+（module 不能实例化）。
+
+**怎么加一门新语言**（下一门照这个做）：① 解析器把 `Fn.Receiver` 填对、并给出 `Promotable{Owner,Name,Params,Returns}`；
+② `promote` 新增渲染器（标记用该语言的注释符）与 `Insert*`；③ 录制器能按 plan 的 `path` 调 `Owner.name(...)`，
+并把同类兄弟文件一起编译；④ smoke 加四步：写出代理 → 编译 → record → gate。
 
 ## 二、功能：`enable` 覆盖更多语言
 
