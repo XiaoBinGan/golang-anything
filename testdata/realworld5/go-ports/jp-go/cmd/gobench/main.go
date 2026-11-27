@@ -23,6 +23,7 @@ type row struct {
 	Cases    int     `json:"cases"`
 	NS       float64 `json:"ns"`
 	Unported int     `json:"unported,omitempty"`
+	Typed    bool    `json:"typed,omitempty"`
 }
 
 func toInt(v any) int {
@@ -127,7 +128,7 @@ func main() {
 		}
 		sort.Float64s(samples)
 		per := samples[len(samples)/2]
-		rows = append(rows, row{Name: fn, Cases: len(args), NS: per, Unported: unported})
+		rows = append(rows, row{Name: fn, Cases: len(args), NS: per, Unported: unported, Typed: typedOK})
 	}
 	b, _ := json.Marshal(rows)
 	if err := os.WriteFile(out, b, 0o644); err != nil {

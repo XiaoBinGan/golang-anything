@@ -44,6 +44,9 @@ type Row struct {
 	// every call said that is not a port: it is a timing of fmt.Errorf, which read 17 ns / 8.83x "slower"
 	// for a C function whose real port answers in 5 ns / 3.10x.
 	Unported int `json:"unported,omitempty"`
+	// Typed says the row was timed through the typed entry point. It is the difference between 1.72x and 3.28x on
+	// the C row, and a number without it does not say which one was measured.
+	Typed bool `json:"typed,omitempty"`
 }
 
 // Result is the whole measurement.
@@ -141,6 +144,7 @@ type row struct {
 	Cases    int     ` + "`json:\"cases\"`" + `
 	NS       float64 ` + "`json:\"ns\"`" + `
 	Unported int     ` + "`json:\"unported,omitempty\"`" + `
+	Typed    bool    ` + "`json:\"typed,omitempty\"`" + `
 }
 
 %TYPED_CALL%func main() {
@@ -227,7 +231,7 @@ type row struct {
 		}
 		sort.Float64s(samples)
 		per := samples[len(samples)/2]
-		rows = append(rows, row{Name: fn, Cases: len(args), NS: per, Unported: unported})
+		rows = append(rows, row{Name: fn, Cases: len(args), NS: per, Unported: unported, Typed: typedOK})
 	}
 	b, _ := json.Marshal(rows)
 	if err := os.WriteFile(out, b, 0o644); err != nil {
@@ -515,7 +519,7 @@ func Run(opts Options) (Result, error) {
 			res.Unported = append(res.Unported, p.Name)
 			continue
 		}
-		row := Row{Name: p.Name, Cases: p.Cases, OriginalNS: o.NS, PortNS: p.NS, Speedup: o.NS / p.NS}
+		row := Row{Name: p.Name, Cases: p.Cases, OriginalNS: o.NS, PortNS: p.NS, Speedup: o.NS / p.NS, Typed: p.Typed}
 		res.Rows = append(res.Rows, row)
 		if row.Speedup > 0 {
 			ratios = append(ratios, row.Speedup)
