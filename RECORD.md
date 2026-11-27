@@ -159,9 +159,11 @@
 - **measure both bridges head to head and report where we lose**
   - Built rust-anything 4.0.0 here, bridged the same unit with both tools, filled both ports and timed one call alternately in blocks so a load spike hits both sides. rust-anything's napi bridge answers in 0.073 us, ours in 0.294 us after the one-string fast path (no JSON, no malloc, quote written straight into the caller's buffer). The gap is structural: cgo costs 40-60 ns per call.
 
-## 三、能力（46 条）
+## 三、能力（47 条）
 
 功能与语言支持，每条都在提交里说明了如何验证：
+- **promote has a Java route — a proxy class per owner, checked with javac**
+  - Java cannot reopen a class either, so the route is a proxy file per class, with the two differences from PHP that only compiling found: the markers are `//` (a `#` file does not compile) and the file name has to match the public class. `javac Maths.java MathsPromoted.java` ok; `MathsPromoted.doubled(3)` prints 6; `--revert` deletes the file when it held nothing else.
 - **Kotlin instance methods are counted, from both places state lives**
   - A member is state-free only when the class holds no property, and the first version checked only the body: `class Timer(private val offset: Int)` reported `free: 3` because that state lives in the primary constructor, beside the body. Scanning both gives `InstanceMethods=3, InstanceFree=1` on the fixture.
 - **Java instance methods are counted, and the note stops promising a route**
@@ -257,9 +259,11 @@
 - **bench, map, clean, doctor, check, and the in-process bridge**
   - bench times both sides the same way; map writes PORT-MAP.md; clean and doctor round out the day-to-day commands. The fast bridge is a c-shared library plus a hand-written N-API addon: 0.73 us per call against rust-anything's ~1 us, and 16x faster than the stdio process.
 
-## 四、让检查本身可信（29 条）
+## 四、让检查本身可信（30 条）
 
 负向对照与冒烟测试——这些不增加功能，只增加「结论可信」：
+- **smoke runs the Java promote route and compiles the proxy**
+  - Four cases: the proxy is written, `javac` accepts it, `analyze` reads `MathsPromoted.doubled`, and `--revert` deletes it. The compile case is the one that would have caught both Java surprises without anyone reading the generated file. 94 passed, 0 failed.
 - **smoke reads the instance-method counts for Kotlin and Java**
   - The counts exist and unit tests cover them; nothing checked the number a person sees from `analyze --json`. Two fixtures, one case: `M.kt` (2, 1) and `T.java` (1, 1). The first expectation was wrong in a useful way — `Timer(private val offset)` holds state so its method is not free, and a Java unit whose only method is an instance method has no exports, so `analyze` drops it.
 - **smoke requires promote to be idempotent on a PHP unit**
