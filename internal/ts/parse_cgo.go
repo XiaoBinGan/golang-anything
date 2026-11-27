@@ -1026,6 +1026,20 @@ func typedExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int,
 					}
 				}
 				if !strings.Contains(mods, "static") || !strings.Contains(mods, "public") {
+					// A C# library is classes full of instance methods too, and the plan said nothing about them.
+					if strings.Contains(mods, "public") && !strings.Contains(mods, "static") &&
+						!strings.Contains(mods, "abstract") && className != "" {
+						instances++
+						if body := csMethodBody(child); body != nil && !hasProps && !strings.Contains(text(body), "this.") {
+							free++
+							if noArgCtor {
+								promotable = append(promotable, Promotable{
+									Owner: className, Name: name, Params: fnParams(child, text, csDialect),
+									Returns: csReturns(child, text),
+								})
+							}
+						}
+					}
 					continue
 				}
 				fn := Fn{Name: name, Method: true, Receiver: className,
@@ -1079,7 +1093,13 @@ func typedExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int,
 				}
 				for j := 0; j < int(child.NamedChildCount()); j++ {
 					if body := child.NamedChild(j); body.Type() == "class_body" || body.Type() == "declaration_list" {
-						walk(body, name, kotlinClassHasProps(child), kotlinHasNoArgCtor(child))
+						// C# reports `declaration_list`, Kotlin `class_body`: the shape helper follows the syntax.
+						if body.Type() == "declaration_list" {
+							fields, noArg := csClassShape(body, text)
+							walk(body, name, fields, noArg)
+						} else {
+							walk(body, name, kotlinClassHasProps(child), kotlinHasNoArgCtor(child))
+						}
 					}
 				}
 			}
@@ -1087,6 +1107,71 @@ func typedExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int,
 	}
 	walk(root, "", false, false)
 	return out, instances, free, promotable
+}
+
+// csClassShape reports what a C# proxy needs: whether the class declares instance fields, and whether `new Owner()`
+// compiles (no constructor, or one without parameters).
+func csClassShape(body *sitter.Node, text func(*sitter.Node) string) (hasFields, noArgCtor bool) {
+	noArgCtor, declared := true, false
+	for i := 0; i < int(body.NamedChildCount()); i++ {
+		child := body.NamedChild(i)
+		switch child.Type() {
+		case "field_declaration":
+			mods := ""
+			for j := 0; j < int(child.NamedChildCount()); j++ {
+				if c := child.NamedChild(j); c.Type() == "modifier" || c.Type() == "modifiers" {
+					mods += text(c) + " "
+				}
+			}
+			if !strings.Contains(mods, "static") && !strings.Contains(mods, "const") {
+				hasFields = true
+			}
+		case "constructor_declaration":
+			declared = true
+			params := child.ChildByFieldName("parameters")
+			noArgCtor = params != nil && int(params.NamedChildCount()) == 0
+		}
+	}
+	return hasFields, noArgCtor && (!declared || noArgCtor)
+}
+
+// csMethodBody finds the block of a C# method, whose body is a `block` child rather than a field.
+func csMethodBody(n *sitter.Node) *sitter.Node {
+	for i := 0; i < int(n.NamedChildCount()); i++ {
+		if c := n.NamedChild(i); c.Type() == "block" {
+			return c
+		}
+	}
+	return nil
+}
+
+// fnParams reads a parameter list with the language's own dialect, shared by the languages whose nodes agree.
+func fnParams(n *sitter.Node, text func(*sitter.Node) string, dialect func(string) string) []Param {
+	params := []Param{}
+	list := n.ChildByFieldName("parameters")
+	if list == nil {
+		return params
+	}
+	for k := 0; k < int(list.NamedChildCount()); k++ {
+		p := list.NamedChild(k)
+		if p.Type() != "parameter" {
+			continue
+		}
+		typ := "any"
+		if t := p.ChildByFieldName("type"); t != nil {
+			typ = dialect(text(t))
+		}
+		params = append(params, Param{Name: text(p.ChildByFieldName("name")), Type: typ})
+	}
+	return params
+}
+
+// csReturns reads a C# method's return type.
+func csReturns(n *sitter.Node, text func(*sitter.Node) string) string {
+	if t := n.ChildByFieldName("returns"); t != nil {
+		return csDialect(text(t))
+	}
+	return ""
 }
 
 // kotlinHasNoArgCtor reports whether `Owner()` compiles: no primary constructor at all, or one that declares no

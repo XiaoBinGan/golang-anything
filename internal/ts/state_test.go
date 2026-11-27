@@ -257,3 +257,42 @@ func TestKotlinObjectMembersKeepTheirOwner(t *testing.T) {
 		t.Errorf("%s receiver=%q, want doubled/TimerPromoted", fn.Name, fn.Receiver)
 	}
 }
+
+// C# is the same shape as Java: a class full of instance methods, and a proxy is only possible when the class holds no
+// state and `new Owner()` compiles.
+func TestCSharpInstanceMethodsAreCounted(t *testing.T) {
+	src := []byte(`public class Maths
+{
+    public int Doubled(int n) { return n * 2; }
+
+    public static int Twice(int n) { return n * 2; }
+}
+`)
+	file, err := ParseSource(src, CSharp, "Maths.cs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if file.InstanceMethods != 1 || file.InstanceFree != 1 || file.InstancePromotable != 1 {
+		t.Fatalf("instances=%d free=%d promotable=%d, want 1/1/1",
+			file.InstanceMethods, file.InstanceFree, file.InstancePromotable)
+	}
+	if p := file.Promotable[0]; p.Owner != "Maths" || p.Name != "Doubled" || p.Returns != "int" {
+		t.Errorf("promotable = %+v, want Maths.Doubled returning int", p)
+	}
+
+	stateful := []byte(`public class Needs
+{
+    private int offset = 5;
+
+    public int Doubled(int n) { return n * 2; }
+}
+`)
+	file, err = ParseSource(stateful, CSharp, "Needs.cs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if file.InstanceFree != 0 || file.InstancePromotable != 0 {
+		t.Errorf("free=%d promotable=%d, want 0/0 for a class with a field",
+			file.InstanceFree, file.InstancePromotable)
+	}
+}
