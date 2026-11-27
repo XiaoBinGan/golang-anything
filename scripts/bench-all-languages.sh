@@ -52,6 +52,11 @@ filled = '''
 	}
 	return nil, fmt.Errorf("twice: %T", args[0])'''
 src = re.sub(r'\treturn nil, fmt\.Errorf\("not implemented: port [\w-]+"\)', filled, src)
+# The typed entry point delegates until someone writes it, and a delegating stub is what bench would then time:
+# assertion plus box, on top of the call. Filling it makes the typed path the direct one, which is the whole
+# reason bench prefers it.
+typed = 'func Twice(n int) (int, error) {\n\treturn n * 2, nil\n}'
+src = re.sub(r'func Twice\(n int\) \(int, error\) \{\n(?:.*\n)*?\}', typed, src, count=1)
 open(p, 'w').write(src)
 PYP
     $G build --fast go-ports/m-go >/dev/null 2>&1
