@@ -166,3 +166,30 @@ func TestTheKotlinProxyIsASingletonObject(t *testing.T) {
 		t.Errorf("the file uses # where Kotlin wants //:\n%s", text)
 	}
 }
+
+// A C# proxy is a static class forwarding to `new Owner()` — C# cannot add a static member to a class from outside
+// either. `dotnet build` on the same shape reports 0 errors.
+func TestTheCSharpProxyIsAStaticClass(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "MathsPromoted.cs")
+	added, err := InsertCSharp(path, "Maths", []Method{{
+		Name:    "Doubled",
+		Params:  []Param{{Name: "n", Type: "int"}},
+		Returns: "int",
+	}})
+	if err != nil || !added {
+		t.Fatalf("InsertCSharp = %v, %v", added, err)
+	}
+	src, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(src)
+	if !strings.Contains(text, "public static class MathsPromoted") ||
+		!strings.Contains(text, "return new Maths().Doubled(n);") {
+		t.Errorf("the proxy does not forward with a no-arg constructor:\n%s", text)
+	}
+	if strings.Contains(text, "#") {
+		t.Errorf("the file uses # where C# wants //:\n%s", text)
+	}
+}

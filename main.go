@@ -1113,7 +1113,7 @@ func runPromote(args []string) error {
 		// A proxy file that held nothing but its header is not part of the original: leaving it behind makes the
 		// revert visibly incomplete.
 		// Java proxies are one file per class, named after it, so a revert looks for them beside the unit.
-		if ext := strings.ToLower(filepath.Ext(path)); ext == ".java" || ext == ".kt" {
+		if ext := strings.ToLower(filepath.Ext(path)); ext == ".java" || ext == ".kt" || ext == ".cs" {
 			matches, _ := filepath.Glob(filepath.Join(filepath.Dir(path), "*Promoted"+ext))
 			for _, file := range matches {
 				raw, err := os.ReadFile(file)
@@ -1200,6 +1200,9 @@ func runPromote(args []string) error {
 		switch {
 		case strings.EqualFold(filepath.Ext(target), ".php"):
 			added, err = promote.InsertPHP(target, owner, methods, filepath.Base(path))
+		case strings.EqualFold(filepath.Ext(path), ".cs"):
+			target = filepath.Join(filepath.Dir(path), owner+"Promoted.cs")
+			added, err = promote.InsertCSharp(target, owner, methods)
 		case strings.EqualFold(filepath.Ext(path), ".kt"):
 			target = filepath.Join(filepath.Dir(path), owner+"Promoted.kt")
 			added, err = promote.InsertKotlin(target, owner, methods)
@@ -1218,7 +1221,7 @@ func runPromote(args []string) error {
 			continue
 		}
 		switch strings.ToLower(filepath.Ext(target)) {
-		case ".php", ".java", ".kt":
+		case ".php", ".java", ".kt", ".cs":
 			fmt.Printf("%sPromoted::%s now reaches the instance method through a proxy class (%s).\n",
 				owner, strings.Join(names, ", "), filepath.ToSlash(target))
 			continue
@@ -1233,7 +1236,7 @@ func runPromote(args []string) error {
 // proxy class plus a recorder that calls it, and that does not exist yet.
 func promoteSupported(path, unit string) error {
 	switch strings.ToLower(filepath.Ext(path)) {
-	case ".rb", ".php", ".java", ".kt":
+	case ".rb", ".php", ".java", ".kt", ".cs":
 		return nil
 	}
 	return fmt.Errorf("promote has no shim for %s: Ruby reopens the class and PHP gets a proxy class, and no other "+

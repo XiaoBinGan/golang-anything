@@ -191,6 +191,55 @@ func InsertKotlin(path, owner string, methods []Method) (bool, error) {
 	return false, fmt.Errorf("%s already exists and this tool did not write it", path)
 }
 
+// ShimCSharp renders a C# proxy: a static class whose methods forward to `new Owner()`. C# has no way to add a static
+// member to a class from outside either, and the class it instantiates is a sibling file in the same project.
+func ShimCSharp(owner string, methods []Method) string {
+	var b strings.Builder
+	b.WriteString(javaOpen(owner) + "\n")
+	b.WriteString("public static class " + owner + "Promoted\n{\n")
+	for _, m := range methods {
+		params := make([]string, len(m.Params))
+		args := make([]string, len(m.Params))
+		for i, p := range m.Params {
+			name := p.Name
+			if name == "" {
+				name = fmt.Sprintf("arg%d", i)
+			}
+			typ := p.Type
+			if typ == "" || typ == "any" {
+				typ = "object"
+			}
+			params[i] = typ + " " + name
+			args[i] = name
+		}
+		ret := m.Returns
+		if ret == "" {
+			ret = "void"
+		}
+		fmt.Fprintf(&b, "    public static %s %s(%s)\n    {\n        return new %s().%s(%s);\n    }\n\n",
+			ret, m.Name, strings.Join(params, ", "), owner, m.Name, strings.Join(args, ", "))
+	}
+	b.WriteString("}\n")
+	b.WriteString(javaClose(owner) + "\n")
+	return b.String()
+}
+
+// InsertCSharp writes the proxy into its own file, refusing to overwrite one this tool did not write.
+func InsertCSharp(path, owner string, methods []Method) (bool, error) {
+	block := ShimCSharp(owner, methods)
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return false, err
+		}
+		return true, os.WriteFile(path, []byte(block), 0o644)
+	}
+	if strings.Contains(string(raw), javaOpen(owner)) {
+		return false, nil
+	}
+	return false, fmt.Errorf("%s already exists and this tool did not write it", path)
+}
+
 // InsertJava writes the proxy into its own file. It refuses to overwrite a file it did not write: a user's
 // `MathsPromoted.java` is theirs.
 func InsertJava(path, owner string, methods []Method) (bool, error) {
