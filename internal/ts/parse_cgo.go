@@ -524,8 +524,8 @@ func javaExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int, 
 	// said nothing about them: no count, no sentence. Counted here, not promoted — a Java proxy class is a separate
 	// piece of work.
 	instances, free := 0, 0
-	var walkClass func(n *sitter.Node, className string)
-	walkClass = func(n *sitter.Node, className string) {
+	var walkClass func(n *sitter.Node, className string, hasFields bool)
+	walkClass = func(n *sitter.Node, className string, hasFields bool) {
 		for i := 0; i < int(n.NamedChildCount()); i++ {
 			child := n.NamedChild(i)
 			switch child.Type() {
@@ -533,7 +533,7 @@ func javaExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int, 
 				name := text(child.ChildByFieldName("name"))
 				for j := 0; j < int(child.NamedChildCount()); j++ {
 					if body := child.NamedChild(j); body.Type() == "class_body" {
-						walkClass(body, name)
+						walkClass(body, name, classHasInstanceFields(body, text))
 					}
 				}
 			case "method_declaration":
@@ -548,7 +548,10 @@ func javaExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int, 
 					if strings.Contains(mods, "public") && !strings.Contains(mods, "static") &&
 						!strings.Contains(mods, "abstract") && !strings.Contains(mods, "native") {
 						instances++
-						if body := child.ChildByFieldName("body"); body != nil && !strings.Contains(text(body), "this.") {
+						// A method is only state-free if the class declares no instance fields: `return n + offset;`
+						// reads the same state as `this.offset`, and looking for "this." alone called that free.
+						if body := child.ChildByFieldName("body"); body != nil && !hasFields &&
+							!strings.Contains(text(body), "this.") {
 							free++
 						}
 					}
@@ -591,8 +594,30 @@ func javaExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int, 
 			}
 		}
 	}
-	walkClass(root, "")
+	walkClass(root, "", false)
 	return out, instances, free
+}
+
+// classHasInstanceFields reports whether a Java class body declares a non-static field: the only stateless methods a
+// proxy could reach are in a class that has no instance state to miss.
+func classHasInstanceFields(body *sitter.Node, text func(*sitter.Node) string) bool {
+	for i := 0; i < int(body.NamedChildCount()); i++ {
+		child := body.NamedChild(i)
+		if child.Type() != "field_declaration" {
+			continue
+		}
+		mods := ""
+		for j := 0; j < int(child.NamedChildCount()); j++ {
+			if c := child.NamedChild(j); c.Type() == "modifiers" {
+				mods = text(c)
+				break
+			}
+		}
+		if !strings.Contains(mods, "static") {
+			return true
+		}
+	}
+	return false
 }
 
 // javaDialect narrows a Java type to one of the generator's tables, the way dialectType does for TypeScript.

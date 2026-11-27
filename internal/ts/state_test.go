@@ -136,12 +136,30 @@ func TestJavaInstanceMethodsAreCounted(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if file.InstanceMethods != 2 || file.InstanceFree != 1 {
-		t.Errorf("InstanceMethods=%d InstanceFree=%d, want 2/1", file.InstanceMethods, file.InstanceFree)
+	// The class declares `private int offset`, so no method can be called state-free: `return n + offset;` reads the
+	// same state as `this.offset`, and looking for "this." alone called that free.
+	if file.InstanceMethods != 2 || file.InstanceFree != 0 {
+		t.Errorf("InstanceMethods=%d InstanceFree=%d, want 2/0", file.InstanceMethods, file.InstanceFree)
 	}
 	for _, fn := range file.Fns {
 		if fn.Name != "twice" {
 			t.Errorf("%s was offered as an export; only the static method needs no object", fn.Name)
 		}
+	}
+}
+
+// A class with no instance fields is the one case a proxy could reach safely, and it has to be counted.
+func TestJavaFreeMethodsNeedAFieldlessClass(t *testing.T) {
+	src := []byte(`public final class Maths {
+    public int double(int n) { return n * 2; }
+
+    public int shifted(int n) { return n + 1; }
+}`)
+	file, err := ParseSource(src, Java, "Maths.java")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if file.InstanceMethods != 2 || file.InstanceFree != 2 {
+		t.Errorf("InstanceMethods=%d InstanceFree=%d, want 2/2", file.InstanceMethods, file.InstanceFree)
 	}
 }
