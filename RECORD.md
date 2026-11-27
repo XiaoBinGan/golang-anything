@@ -109,9 +109,11 @@
 - **the case generator was a cross product, and a green gate hid an untested export**
   - The comment said each argument position walks its own table; the code crossed every table against every other, which is 4,000 calls for two string parameters. Two runs replace it: a paired walk with a per-position stride, and a bounded cross product over the first six values of each position. Cheap values are tried first, because a table that opened with 1,000,000 filled the answer limit and left whole exports with nothing recorded.
 
-## 二、性能（16 条）
+## 二、性能（17 条）
 
 每条都有实测数字；赢的和没赢的都写着：
+- **bench --json says whether a row was timed through the typed entry point**
+  - The same crate is 1.72x through the typed entry point and 3.28x through the registry; the number alone does not say which. `typed` rides along in the JSON, `omitempty`, so a row that went through the registry reads exactly as before. On `testdata/sample/port-rs` the split is what the manifest implies: `count` and `ratio` typed, `rangeOf` and `words` not.
 - **bench calls the typed entry point, and the C row drops from 3.3x to 1.7x**
   - Every row paid the assertion and the box of `func(args []any) (any, error)`. The driver now prefers a generated `map[string]func([]any) error` when `scaffold` wrote the typed entry point: c 3.28x → **1.72x** slower, cpp 3.31x → **1.72x**, kt 9.56x → 18.43x faster. Three defects on the way, each by a failing sweep: the table injected inside `main`, an int asserted as float64 (panics on Ruby's string recorder), `strconv` imported but unused.
 - **the C bench 4x is the interface's shape, written down where the numbers live**
@@ -146,9 +148,11 @@
 - **measure both bridges head to head and report where we lose**
   - Built rust-anything 4.0.0 here, bridged the same unit with both tools, filled both ports and timed one call alternately in blocks so a load spike hits both sides. rust-anything's napi bridge answers in 0.073 us, ours in 0.294 us after the one-string fast path (no JSON, no malloc, quote written straight into the caller's buffer). The gap is structural: cgo costs 40-60 ns per call.
 
-## 三、能力（40 条）
+## 三、能力（41 条）
 
 功能与语言支持，每条都在提交里说明了如何验证：
+- **the bench table marks the rows it timed through the typed entry point**
+  - `--json` had the flag and the table — the thing a person reads — did not: `| twice † | 17 | 1 ns | 2 ns | 1.69x slower |` with one footnote, present only when a row used it.
 - **the sweep fills the typed entry point as well as the generic one**
   - A delegating stub is assertion plus box, which is what bench would then time once it prefers the typed path; filling both bodies makes the typed call the direct one. The prerequisite that let the bench change land.
 - **fuzz runs a Ruby unit through its own runtime**
@@ -232,9 +236,11 @@
 - **bench, map, clean, doctor, check, and the in-process bridge**
   - bench times both sides the same way; map writes PORT-MAP.md; clean and doctor round out the day-to-day commands. The fast bridge is a c-shared library plus a hand-written N-API addon: 0.73 us per call against rust-anything's ~1 us, and 16x faster than the stdio process.
 
-## 四、让检查本身可信（21 条）
+## 四、让检查本身可信（22 条）
 
 负向对照与冒烟测试——这些不增加功能，只增加「结论可信」：
+- **smoke requires bench --json to say which path it timed**
+  - The flag existed and nothing checked it survived; the case benches the smoke crate and requires a row with `typed: true`. 80 passed, 0 failed.
 - **control 28 keeps the typed entry point delegating**
   - The shape was found the hard way — a panic stub turns nine drivers red, a one-value stub breaks `wasm_support.go` — so the control reads the generated port and requires the `(T, error)` shape, the delegation, and no panic.
 - **doctor --json has to name the checks the text output prints**
