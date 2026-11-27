@@ -450,13 +450,26 @@ startup no arguments (cpu)  1.57 ms   rust 1.67 ms   -0.11 ms [-0.15, -0.01]  fa
 
 复现：`./scripts/bench-all-languages.sh`（九语言，c/cpp 两行就是这两个数）。
 
-**怎么赢（设计已定，未实施）**：`scaffold` 现在会生成 `func Count(text string) (float64, error)` 这样的类型化入口，
-`wasmbridge` 已经在用它（`return Count(bytesAt(ptr, n))`）。`bench` 还差一步：
+**已经赢了这一半（第 68 轮）**：`bench` 现在走类型化入口——`bench.Run` 读清单的 `exports[].params/returns`，
+在驱动里生成 `map[string]func([]any) error`（`"twice": func(args []any) error { _, err := port.Twice(toInt(args[0])); return err }`），
+计时循环优先用它、取不到退回 `port.Registry`。
 
-1. `bench.Run` 解析清单里的 `exports[].params`（现在只读 `unit`/`crate`）；
-2. 生成一张 `map[string]func([]any) error`，每项形如
-   `"count": func(a []any) error { _, err := port.Count(a[0].(string)); return err }`；
-3. 驱动里优先用它，取不到再退回 `port.Registry`。
+同一台机器、同一批 crate，改前 → 改后：
 
-那时 C 行量到的就是「一次 Go 调用 + 一次类型化转换」，去掉的是断言与装箱（~2.1 ns）——剩下的是 Go 调用本身的
-成本，与 C 的内联调用比较才有意义。**没有这一步，任何「c/cpp 4x」的数字都不该被引用。**
+| 语言 | 改前 | 改后 |
+| --- | ---: | ---: |
+| c | 3.28x slower | **1.72x slower** |
+| cpp | 3.31x slower | **1.72x slower** |
+| kt | 9.56x faster | 18.43x faster |
+| cs | 7.72x | 9.84x |
+| php | 5.33x | 3.25x |
+| rb | 9.92x | 9.18x |
+| py | 5.50x | 4.75x |
+| java | 4.05x | 3.87x |
+
+剩下的 1.7x 就是「一次 Go 调用 + 一次参数转换」对「17 个内联的 C 调用」：`twice` 的原式 1 ns、端口 2 ns。这是该签名
+的下界，不再是测量问题；再往下要动的是端口的签名本身，而不是 bench。
+
+途中抓到的三个 bug（都由九语言 sweep 报红）：表被注入到 `main()` 内部（语法错误）；`int` 参数直接断言 `float64`
+（Ruby 的录制器传的是字符串，运行期 panic）；没有条目时 `strconv` 未被使用（五个语言不编译）——所以 `toInt` 与它
+的 import 现在无条件生成。
