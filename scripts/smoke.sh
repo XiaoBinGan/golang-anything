@@ -119,6 +119,23 @@ try "Kotlin bridge"              bash -c "cd '$WORK/ktprom' && $GO bridge go-por
 try "Kotlin build"               bash -c "cd '$WORK/ktprom' && $GO build --fast go-ports/k-go"
 try "Kotlin gate"                bash -c "cd '$WORK/ktprom' && $GO gate go-ports/k-go"
 try "Kotlin promote --revert"    bash -c "$GO promote --revert --unit Timer.kt '$WORK/ktprom' && [ ! -f '$WORK/ktprom/TimerPromoted.kt' ]"
+# C#: a static class, and `dotnet build` has to accept it — the unit alone does not compile, the class beside it does.
+mkdir -p "$WORK/csprom"
+printf 'public class Maths\n{\n    public int Doubled(int n) { return n * 2; }\n\n    public static int Twice(int n) { return n * 2; }\n}\n' > "$WORK/csprom/Maths.cs"
+printf 'module smoke-csprom\n\ngo 1.24\n' > "$WORK/csprom/go.mod"
+try "promote writes a C# proxy"  bash -c "$GO promote --unit Maths.cs '$WORK/csprom' && grep -q 'class MathsPromoted' '$WORK/csprom/MathsPromoted.cs'"
+printf '<Project Sdk="Microsoft.NET.Sdk">\n  <PropertyGroup>\n    <TargetFramework>net8.0</TargetFramework>\n    <OutputType>Library</OutputType>\n  </PropertyGroup>\n</Project>\n' > "$WORK/csprom/proxy.csproj"
+try "the C# proxy compiles"      bash -c "cd '$WORK/csprom' && dotnet build proxy.csproj -v q --nologo >/dev/null && echo built"
+"$GO" scaffold --unit MathsPromoted.cs "$WORK/csprom/go-ports/c-go" >/dev/null 2>&1
+sed -i '' "s|example.com/c-go|smoke-csprom/go-ports/c-go|g" "$WORK/csprom/go-ports/c-go"/*.go \
+  "$WORK/csprom/go-ports/c-go/golang-anything.json" "$WORK/csprom/go-ports/c-go/cmd"/*/main.go 2>/dev/null
+python3 -c 'import sys;p=sys.argv[1];s=open(p).read();s=s.replace("return nil, fmt.Errorf(\"not implemented: port Doubled\")","n, ok := args[0].(float64)\n\tif !ok {\n\t\treturn nil, fmt.Errorf(\"InvalidCastException: Doubled expects int, got %T\", args[0])\n\t}\n\treturn int32(n) * 2, nil");open(p,"w").write(s)' \
+  "$WORK/csprom/go-ports/c-go/port.go"
+try "C# record"                  bash -c "cd '$WORK/csprom' && $GO record --unit MathsPromoted.cs go-ports/c-go"
+try "C# bridge"                  bash -c "cd '$WORK/csprom' && $GO bridge go-ports/c-go"
+try "C# build"                   bash -c "cd '$WORK/csprom' && $GO build --fast go-ports/c-go"
+try "C# gate"                    bash -c "cd '$WORK/csprom' && $GO gate go-ports/c-go"
+try "C# promote --revert"        bash -c "$GO promote --revert --unit Maths.cs '$WORK/csprom' && [ ! -f '$WORK/csprom/MathsPromoted.cs' ]"
 try "map"                       "$GO" map "$REPO"
 mkdir -p "$REPO/go-ports"
 try "scaffold --unit"           "$GO" scaffold --unit "$UNIT" "$REPO/go-ports/one-go"
