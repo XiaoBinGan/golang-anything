@@ -389,6 +389,23 @@ grep -q 'no class has a state-free instance method' /tmp/negative-stateful/promo
 cd "$ROOT"
 rm -rf /tmp/negative-stateful
 
+# 31. the PHP proxy has to be typed and has to load its class. Both were missing once: a variadic proxy has no
+#     bridgeable export, and a proxy without `require_once` records the class error as the case.
+mkdir -p /tmp/negative-proxy && cd /tmp/negative-proxy
+printf '<?php\nclass Timer {\n    public function double(int $n): int { return $n * 2; }\n}\n' > timer.php
+printf 'module negproxy\n\ngo 1.24\n' > go.mod
+"$GO" promote --unit timer.php . >/dev/null 2>&1
+before=$failures
+grep -q 'public static function double(int $n): int' promoted.php ||
+  { printf 'FAIL  the proxy does not declare the method types\n'; failures=$((failures + 1)); }
+grep -q "require_once __DIR__ . '/timer.php';" promoted.php ||
+  { printf 'FAIL  the proxy does not load the class it instantiates\n'; failures=$((failures + 1)); }
+"$GO" analyze . 2>/dev/null | grep -q 'TimerPromoted.double' ||
+  { printf 'FAIL  analyze does not read the proxy as an export\n'; failures=$((failures + 1)); }
+[ "$failures" -eq "$before" ] && printf 'ok    the PHP proxy is typed, loaded and readable\n'
+cd "$ROOT"
+rm -rf /tmp/negative-proxy
+
 # 14. perf: no rig, no numbers.
 RUST_ANYTHING=/nonexistent ./scripts/perf.sh >/dev/null 2>&1
 expect_fail "perf refuses a missing rig" $?
