@@ -249,9 +249,11 @@
 - **bench, map, clean, doctor, check, and the in-process bridge**
   - bench times both sides the same way; map writes PORT-MAP.md; clean and doctor round out the day-to-day commands. The fast bridge is a c-shared library plus a hand-written N-API addon: 0.73 us per call against rust-anything's ~1 us, and 16x faster than the stdio process.
 
-## 四、让检查本身可信（27 条）
+## 四、让检查本身可信（28 条）
 
 负向对照与冒烟测试——这些不增加功能，只增加「结论可信」：
+- **smoke requires promote to be idempotent on a PHP unit**
+  - The marker is what makes the command repeatable, and a second `class TimerPromoted` is a fatal error in PHP — a mistake that only appears the second time someone runs the documented command. 89 passed, 0 failed.
 - **control 32 keeps the Ruby shim on allocate**
   - `new` runs `initialize`, which takes arguments the shim does not have and which a state-free method does not need: a `new`-based shim raises `ArgumentError` on the first call, and the recorder files that as the answer. Rebuilt with `allocate.` → `new.`, the control fails twice.
 - **smoke runs the PHP promote route end to end**
