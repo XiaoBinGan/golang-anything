@@ -449,3 +449,14 @@ startup no arguments (cpu)  1.57 ms   rust 1.67 ms   -0.11 ms [-0.15, -0.01]  fa
 - 参数切片局部性：把驱动改成「每函数一个连续底层数组、子切片取用」之后仍是 4 ns（5 次跑，5/5/5/5/5），已回退。
 
 复现：`./scripts/bench-all-languages.sh`（九语言，c/cpp 两行就是这两个数）。
+
+**怎么赢（设计已定，未实施）**：`scaffold` 现在会生成 `func Count(text string) (float64, error)` 这样的类型化入口，
+`wasmbridge` 已经在用它（`return Count(bytesAt(ptr, n))`）。`bench` 还差一步：
+
+1. `bench.Run` 解析清单里的 `exports[].params`（现在只读 `unit`/`crate`）；
+2. 生成一张 `map[string]func([]any) error`，每项形如
+   `"count": func(a []any) error { _, err := port.Count(a[0].(string)); return err }`；
+3. 驱动里优先用它，取不到再退回 `port.Registry`。
+
+那时 C 行量到的就是「一次 Go 调用 + 一次类型化转换」，去掉的是断言与装箱（~2.1 ns）——剩下的是 Go 调用本身的
+成本，与 C 的内联调用比较才有意义。**没有这一步，任何「c/cpp 4x」的数字都不该被引用。**
