@@ -5,10 +5,12 @@
 两条规则由 `scripts/doccheck.sh` 守着：每节标题上的条数等于该节实际条数；每个标题都必须对应一个真实存在的提交。
 数字都在对应的文档里（[PERF.md](PERF.md)、[EVAL.md](EVAL.md)、[PARITY.md](PARITY.md)、[CONTRACT.md](CONTRACT.md)）。
 
-## 一、修掉的错误（49 条）
+## 一、修掉的错误（50 条）
 
 每一条都是**工具说了假话**或**产物不对**，被一次具体实验抓到：
 
+- **a Java method is only state-free if its class has no instance fields**
+  - The first version looked for the text `this.` in the body, so `double(int n) { return n + offset; }` counted as state-free while reading exactly the state `this.offset` reads. A class body is scanned for a non-static field now: `Timer.java` (has one) reads `InstanceFree=0`, `Maths.java` (none) reads 2. Conservative on purpose — proving a method does not touch a field needs dataflow the parse does not have, and a false "free" is the one error that reaches a recorded answer.
 - **shadow carried a copy of canon again, and the contract caught it**
   - The template kept its own `const canon = ` in front of the placeholder that already held the declaration, so every generated `shadow.cjs` read `const canon = const canon = v => {` — a SyntaxError, and `require('./shadow.cjs')` threw before comparing anything. `smoke` stayed at 71 passed through all of it; the two shadow controls in `make negative` went red and said which check had stopped working.
 - **the port side of bench timed the whole loop once, so a hiccup moved the answer 40%**
