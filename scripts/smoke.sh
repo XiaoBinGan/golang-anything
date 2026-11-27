@@ -59,6 +59,14 @@ if (
     "$GO" gate go-ports/timer-go
 ) >"$WORK/promote.log" 2>&1; then ok "promote → record → gate"; else bad "promote → record → gate" "$(tail -1 "$WORK/promote.log" | cut -c1-70)"; fi
 try "promote --revert"          bash -c "$GO promote --revert --unit timer.rb '$WORK/promoted' && ! grep -q 'allocate.double' '$WORK/promoted/timer.rb'"
+# PHP cannot reopen a class, so its route is a proxy class in its own file — and the point of the file is that
+# `analyze` then finds the method as an export of its own.
+mkdir -p "$WORK/phpprom"
+printf '<?php\nclass Timer {\n    public function double(int $n): int { return $n * 2; }\n}\n' > "$WORK/phpprom/timer.php"
+try "promote writes a PHP proxy" bash -c "$GO promote --unit timer.php '$WORK/phpprom' && grep -q 'class TimerPromoted' '$WORK/phpprom/promoted.php'"
+try "the PHP proxy parses"       bash -c "php -l '$WORK/phpprom/promoted.php'"
+try "analyze sees the proxy"     bash -c "$GO analyze '$WORK/phpprom' | grep -q 'TimerPromoted.double'"
+try "promote --revert drops the file" bash -c "$GO promote --revert --unit timer.php '$WORK/phpprom' && [ ! -f '$WORK/phpprom/promoted.php' ]"
 try "map"                       "$GO" map "$REPO"
 mkdir -p "$REPO/go-ports"
 try "scaffold --unit"           "$GO" scaffold --unit "$UNIT" "$REPO/go-ports/one-go"
