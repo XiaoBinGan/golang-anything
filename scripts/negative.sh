@@ -392,6 +392,24 @@ printf 'ok    the typed entry point delegates instead of panicking\n'
 cd "$ROOT"
 rm -rf /tmp/negative-typed
 
+# 29. bench has to call the typed entry point. It was worth 3.28x → 1.72x on the C row, and nothing would notice if
+#     the table stopped being generated — the numbers would just quietly go back.
+mkdir -p /tmp/negative-typedbench && cd /tmp/negative-typedbench
+printf 'int twice(int n) { return n * 2; }\n' > m.c
+printf 'module negtypedbench\n\ngo 1.24\n' > go.mod
+"$GO" scaffold --unit m.c go-ports/m-go >/dev/null 2>&1
+sed -i '' "s|example.com/m-go|negtypedbench/go-ports/m-go|g" go-ports/m-go/*.go go-ports/m-go/golang-anything.json go-ports/m-go/cmd/*/main.go 2>/dev/null
+"$GO" record --unit m.c go-ports/m-go >/dev/null 2>&1
+"$GO" bench go-ports/m-go >/dev/null 2>&1
+if grep -q 'port.Twice(toInt(args\[0\]))' go-ports/m-go/cmd/gobench/main.go; then
+  printf 'ok    the bench driver calls the typed entry point\n'
+else
+  printf 'FAIL  the bench driver does not call the typed entry point\n'
+  failures=$((failures + 1))
+fi
+cd "$ROOT"
+rm -rf /tmp/negative-typedbench
+
 # 14. perf: no rig, no numbers.
 RUST_ANYTHING=/nonexistent ./scripts/perf.sh >/dev/null 2>&1
 expect_fail "perf refuses a missing rig" $?

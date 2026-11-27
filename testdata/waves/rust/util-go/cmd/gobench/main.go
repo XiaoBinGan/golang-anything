@@ -85,7 +85,12 @@ func main() {
 		unported := 0
 		for _, a := range args { // warm up; counting here keeps the timed loop free of a string check
 			if typedOK {
-				_ = typed(a)
+				// The typed entry point delegates to the generic wrapper until someone writes it, so the
+				// scaffold's refusal arrives here too — and a stub that is no longer recognised is a stub that
+				// gets a ratio printed for it.
+				if err := typed(a); err != nil && strings.Contains(err.Error(), "not implemented: port ") {
+					unported++
+				}
 				continue
 			}
 			if _, err := f(a); err != nil && strings.Contains(err.Error(), "not implemented: port ") {
