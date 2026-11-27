@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -32,6 +33,7 @@ import (
 	"github.com/XiaoBinGan/golang-anything/internal/parsehelper"
 	"github.com/XiaoBinGan/golang-anything/internal/pkg"
 	"github.com/XiaoBinGan/golang-anything/internal/profile"
+	"github.com/XiaoBinGan/golang-anything/internal/promote"
 	"github.com/XiaoBinGan/golang-anything/internal/record"
 	"github.com/XiaoBinGan/golang-anything/internal/report"
 	"github.com/XiaoBinGan/golang-anything/internal/scaffold"
@@ -101,6 +103,8 @@ func realMain() {
 		err = runWasm(os.Args[2:])
 	case "check":
 		err = runCheck(os.Args[2:])
+	case "promote":
+		err = runPromote(os.Args[2:])
 	case "enable":
 		err = runEnable(os.Args[2:])
 	case "disable":
@@ -1050,6 +1054,112 @@ func runCheck(args []string) error {
 		return fmt.Errorf("check: %d case(s) differ through the bridge", res.Total-res.Matched)
 	}
 	return nil
+}
+
+// runPromote writes the Ruby shim that makes a state-free instance method callable as Owner.name(...).
+//
+// Nothing is invented: the methods come from the same parse `analyze` reports, and only the ones it calls
+// promotable — a class, and a body that reads no state. A module's methods are never offered because a module
+// cannot be instantiated, and the shim would answer NoMethodError on the first call.
+func runPromote(args []string) error {
+	fs := flag.NewFlagSet("promote", flag.ExitOnError)
+	revert := fs.Bool("revert", false, "remove the shim block instead of writing it")
+	unit := fs.String("unit", "", "the unit to promote; read from the manifest when it exists")
+	fs.Parse(args)
+	if fs.NArg() != 1 {
+		return fmt.Errorf("promote takes one crate folder")
+	}
+	dir := fs.Arg(0)
+	// A library that is all instance methods has no bridgeable export, so `scaffold` refuses to write a
+	// manifest — and promotion is exactly what would give it one. `--unit` is the way in before that exists.
+	m, err := readManifest(dir)
+	if err != nil {
+		if *unit == "" {
+			return fmt.Errorf("%w; pass --unit to promote before a manifest exists", err)
+		}
+		m = manifest{Unit: *unit}
+	}
+	if *unit != "" {
+		m.Unit = *unit
+	}
+	root, err := unitRoot(dir, m.Unit)
+	if err != nil {
+		return err
+	}
+	path := filepath.Join(root, filepath.FromSlash(m.Unit))
+	if *revert {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		removed := 0
+		for _, match := range promoteMarker.FindAllStringSubmatch(string(raw), -1) {
+			ok, err := promote.Revert(path, match[1])
+			if err != nil {
+				return err
+			}
+			if ok {
+				removed++
+				fmt.Printf("Removed the %s shim from %s.\n", match[1], filepath.ToSlash(path))
+			}
+		}
+		if removed == 0 {
+			fmt.Printf("%s has no shim: nothing to remove.\n", filepath.ToSlash(path))
+		}
+		return nil
+	}
+	file, err := ts.Parse(path)
+	if err != nil {
+		return err
+	}
+	byOwner := map[string][]string{}
+	for _, p := range file.Promotable {
+		byOwner[p.Owner] = append(byOwner[p.Owner], p.Name)
+	}
+	if len(byOwner) == 0 {
+		return fmt.Errorf("nothing to promote in %s: no class has a state-free instance method", m.Unit)
+	}
+	owners := make([]string, 0, len(byOwner))
+	for owner := range byOwner {
+		owners = append(owners, owner)
+	}
+	sort.Strings(owners)
+	for _, owner := range owners {
+		names := byOwner[owner]
+		sort.Strings(names)
+		added, err := promote.Insert(path, owner, names)
+		if err != nil {
+			return err
+		}
+		if added {
+			fmt.Printf("%s.%s now takes an instance through allocate (promoted).\n", owner, strings.Join(names, ", "))
+		} else {
+			fmt.Printf("%s already has a shim in %s.\n", owner, filepath.ToSlash(path))
+		}
+	}
+	return nil
+}
+
+// promoteMarker finds the owners a revert can undo, in the file itself: the shim is already there, and the
+// manifest does not record it.
+var promoteMarker = regexp.MustCompile(`(?m)^# >>> go-anything promote: (.+)$`)
+
+// unitRoot walks up from the crate folder until the unit file resolves, the way every other command finds it.
+func unitRoot(crateDir, unit string) (string, error) {
+	dir, err := filepath.Abs(crateDir)
+	if err != nil {
+		return "", err
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash(unit))); err == nil {
+			return dir, nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", fmt.Errorf("no folder above %s holds %s", crateDir, unit)
+		}
+		dir = parent
+	}
 }
 
 // runEnable inserts the block that rebinds the unit's exports to the Go port.

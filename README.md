@@ -182,7 +182,7 @@ $ ./frontdoor --version
 
 ## 与 rust-anything 的能力对齐
 
-见 [PARITY.md](PARITY.md)：26 条命令的逐项状态。**26 条全部对齐**（`analyze` `scaffold/bridge` `record` `build` `diff` `bench` `clean` `gate` `map` `doctor` `enable` `disable` `shadow` `fuzz` `refresh` `report` `package` `app record` `app replay` `app front-door` `app wire` `app lift` `profile` `go` `setup` `mcp`），外加三条自创的 `check` `fast` `shadow-report`。
+见 [PARITY.md](PARITY.md)：26 条命令的逐项状态。**26 条全部对齐**（`analyze` `scaffold/bridge` `record` `build` `diff` `bench` `clean` `gate` `map` `doctor` `enable` `disable` `shadow` `fuzz` `refresh` `report` `package` `app record` `app replay` `app front-door` `app wire` `app lift` `profile` `go` `setup` `mcp`），外加四条自创的 `check` `fast` `shadow-report` `promote`（给不碰状态的实例方法写 Ruby shim，`--revert` 字节一致）。
 
 ## 性能：实测对照（详见 [PERF.md](PERF.md)）
 

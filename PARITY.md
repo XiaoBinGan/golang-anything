@@ -38,6 +38,7 @@
 | 25 | `doctor` | `doctor` | ✅ | 八项：go、node、python3、`clang`（`bench` 计时 C/C++ 单元要编译它）、Node 是否自带类型剥离、**能否真的编译一个程序**、**解析器在哪**（问 `ts.ParserPath` 而不是自己再搜一遍）、cgo；每项给修复命令 |
 | 26 | — | `check` | ✅ 额外 | 用真正被调用的那条桥（addon 或 stdio）回放全部用例，**每个用例跑两遍**：一遍传录制里的标记、一遍传解码后的值——只有第二遍会走到包装器的 `encode` |
 | 27 | — | `fast` | ✅ 额外 | 只构建进程内桥 |
+| 28 | — | `promote` | ✅ 额外 | 给**不碰状态**的实例方法写 Ruby shim（`def self.x(*args) = allocate.x(*args)`），让 `Owner.name(...)` 可调用；`--revert` 按标记删除，文件**字节一致**。module 的方法不提供——module 不能实例化 |
 
 **当前：26 条里 26 条已实现（含 3 条自创：`check` `fast` `shadow-report`）。**
 
