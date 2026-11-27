@@ -5,10 +5,14 @@
 两条规则由 `scripts/doccheck.sh` 守着：每节标题上的条数等于该节实际条数；每个标题都必须对应一个真实存在的提交。
 数字都在对应的文档里（[PERF.md](PERF.md)、[EVAL.md](EVAL.md)、[PARITY.md](PARITY.md)、[CONTRACT.md](CONTRACT.md)）。
 
-## 一、修掉的错误（53 条）
+## 一、修掉的错误（55 条）
 
 每一条都是**工具说了假话**或**产物不对**，被一次具体实验抓到：
 
+- **the C# recorder and C# widths, so a promoted C# method records and gates**
+  - The same two lessons Java taught, in C#: `dotnet` built the unit alone, and the proxy instantiates a sibling class (`Sibling_*.cs` is copied into the project the way `require_once` carries PHP's shim); and a C# `int` is 32 bits, so `Doubled(-2147483648)` answered 0 in C# and -4294967296 in a port that used Go's int. After both: 17 cases, gate green.
+- **two tests that need a transforming node now skip where the node cannot transform**
+  - Node 26 dropped `--experimental-transform-types` and strips types only, which cannot load a parameter property: with `/opt/homebrew/bin/node` (26) two tests failed, with `~/.local/bin/node` (22.22.3) they passed. A runtime difference reported as a code failure; both now guard on the flag and skip with the reason.
 - **the Kotlin recorder could record neither a proxy nor its sibling class**
   - Two reasons a promoted Kotlin unit recorded nothing: `kotlinc` got the unit alone, so `unresolved reference: Timer` (the proxy instantiates a class in a sibling file, as PHP's shim needs `require_once`); and the call used the export name, `doubled(0)`, for a member of `TimerPromoted` — the plan carries the path and the recorder ignored it. After both: 17 cases, gate green with a port that multiplies in int32.
 - **a JVM int is 32 bits, and the typed entry point has to say so**
@@ -163,9 +167,13 @@
 - **measure both bridges head to head and report where we lose**
   - Built rust-anything 4.0.0 here, bridged the same unit with both tools, filled both ports and timed one call alternately in blocks so a load spike hits both sides. rust-anything's napi bridge answers in 0.073 us, ours in 0.294 us after the one-string fast path (no JSON, no malloc, quote written straight into the caller's buffer). The gap is structural: cgo costs 40-60 ns per call.
 
-## 三、能力（49 条）
+## 三、能力（51 条）
 
 功能与语言支持，每条都在提交里说明了如何验证：
+- **C# instance methods are counted, with the same rules as Java**
+  - A public non-static C# method is counted, and offered for promotion only when the class holds no instance field and `new Owner()` compiles. C# reports its body as `declaration_list` and a method's block as `block`, so the shape helper follows the syntax instead of assuming Java's node names.
+- **promote has a C# route — a static class, checked with dotnet**
+  - `public static class MathsPromoted { public static int Doubled(int n) { return new Maths().Doubled(n); } }` in its own file, `dotnet build` on net8.0 reporting 0 warnings and 0 errors, `--revert` removing the block and deleting the file.
 - **Kotlin `object` members are read, so a proxy can be a singleton**
   - `typedExports` walked `class_declaration` bodies and ignored `object_declaration`, which is exactly the shape a promotion proxy wants: a singleton whose members are reachable as `Object.name(...)`. `object TimerPromoted { fun doubled(…) }` went from "no unit at all" to `TimerPromoted.kt [('doubled','TimerPromoted')]`, and `kotlinc` compiles it.
 - **promote has a Kotlin route — a singleton object, checked with kotlinc**
