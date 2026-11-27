@@ -504,13 +504,13 @@ func directMap(exports []Export) string {
 // fast path calls, or only the registry entry every scaffold produces. It was declared and never filled
 // for a while: every wrapper went through the registry, and the typed path that measured 53 ns a call was
 // dead code, which is why the wasm bridge measured 0.23 µs instead of 0.05.
-var portStyle = map[string]bool{}
+var portStyle = map[string]string{}
 
 // detectPortStyle reads port.go and records which exports are declared with a typed signature. A port
 // written by hand as `func f(a, b float64) float64` gets the direct call; the scaffold's `func f(args
 // []any)` does not.
 func detectPortStyle(dir string) {
-	portStyle = map[string]bool{}
+	portStyle = map[string]string{}
 	file, err := gofile(dir, "port.go")
 	if err != nil {
 		return
@@ -522,16 +522,11 @@ func detectPortStyle(dir string) {
 	}
 	for _, decl := range parsed.Decls {
 		fn, ok := decl.(*ast.FuncDecl)
-		if !ok || fn.Recv != nil || !fn.Name.IsExported() {
+		if !ok || fn.Recv != nil {
 			continue
 		}
-		// The port's own name is lower case (rangeOf) and the typed wrapper is exported (RangeOf); the
-		// generated wrapper calls the lower-case one, so record both spellings.
-		if len(fn.Name.Name) > 0 {
-			lower := strings.ToLower(fn.Name.Name[:1]) + fn.Name.Name[1:]
-			portStyle[lower] = true
-		}
-		// The scaffold's shape is one parameter of type []any: anything else is a typed function.
+		// The scaffold's shape is one parameter of type []any: that is the bridge's calling convention, not a
+		// typed function, and calling it with plain arguments does not compile.
 		if fn.Type.Params != nil && len(fn.Type.Params.List) == 1 {
 			if arr, ok := fn.Type.Params.List[0].Type.(*ast.ArrayType); ok && arr.Len == nil {
 				if id, ok := arr.Elt.(*ast.Ident); ok && id.Name == "any" {
@@ -539,7 +534,15 @@ func detectPortStyle(dir string) {
 				}
 			}
 		}
-		portStyle[fn.Name.Name] = true
+		// Record the name the file actually declares (`twice` or `Twice`), keyed by the export name the
+		// manifest uses. Requiring an exported name skipped every scaffolded port and left the typed path dead
+		// for nine rounds; keying the call by the export name then emitted `twice(...)` for a `Twice`
+		// declaration, which is a compile error the moment a port grows one.
+		key := fn.Name.Name
+		if len(key) > 0 {
+			key = strings.ToLower(key[:1]) + key[1:]
+		}
+		portStyle[key] = fn.Name.Name
 	}
 }
 
@@ -556,8 +559,11 @@ func gofile(dir, name string) (string, error) {
 // registry otherwise. The registry always exists, so the generated file compiles for every crate; a
 // crate that types its port gets the version that measured 53 ns a call.
 func typedCall(export, args, shape, first string) string {
-	if portStyle[export] {
-		return fmt.Sprintf("v, err := %s(%s)\n\tif err != nil {\n\t\treturn math.NaN()\n\t}\n\treturn v", export, args)
+	if name, ok := portStyle[export]; ok {
+		// A typed function returns the value and no error, so the wrapper returns it directly: `v, err :=` here
+		// is `assignment mismatch: 2 variables but Count returns 1 value`, which is how this branch was found —
+		// it had never been taken.
+		return fmt.Sprintf("return %s(%s)", name, args)
 	}
 	return fmt.Sprintf("v, err := portCall(%q, []any{%s})\n\tif err != nil {\n\t\treturn math.NaN()\n\t}\n\tf, ok := v.(float64)\n"+
 		"\tif !ok {\n\t\treturn math.NaN()\n\t}\n\treturn f", export, args)
