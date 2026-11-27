@@ -256,6 +256,9 @@ GO
   )
 }
 try "ruby: enable, call through the port, disable" takeover_ruby
+# fuzz runs the original through its own runtime: Ruby has a runner now, and a fresh call has to reach a
+# module function through its owner.
+try "ruby: fuzz fresh inputs"     bash -c "cd '$WORK/rbt' && '$GO' fuzz --count 10 --seed 3 go-ports/u-go 2>&1 | grep -q 'fresh calls match'"
 
 echo
 echo "== agents =="

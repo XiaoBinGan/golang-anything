@@ -132,7 +132,15 @@ func Run(opts Options) (Result, error) {
 			for j, t := range types {
 				args[j] = valueOf(gen, t)
 			}
-			calls = append(calls, cases.Case{Fn: e.Name, Args: args})
+			// The path is how the runner reaches the function; it is the export name for a free function
+			// and Owner.name for a module or class method.
+			path := e.Name
+			if e.Receiver != "" {
+				path = e.Receiver + "." + e.Name
+			}
+			c := cases.Case{Fn: e.Name, Args: args}
+			c.Path = path
+			calls = append(calls, c)
 		}
 	}
 	if len(calls) == 0 {
@@ -155,19 +163,29 @@ func Run(opts Options) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	// Python units are not fuzzed yet: the fresh-input runner is a node module and a Python one would be
-	// a separate driver. Saying so is better than the node error it produces today.
-	if strings.HasSuffix(m.Unit, ".py") || strings.HasSuffix(m.Unit, ".pyi") {
-		return Result{}, fmt.Errorf("fuzz does not have a Python runner yet: it runs the original through node. " +
-			"Recording and diffing work for Python; use `record` with `--inputs` to add cases by hand meanwhile")
-	}
-	script := filepath.Join(work, "fuzz-original.mjs")
-	if err := os.WriteFile(script, []byte(originalScript), 0o644); err != nil {
-		return Result{}, err
-	}
+	// The runner is per language, because the original has to be run by its own runtime: node for
+	// TypeScript and JavaScript, ruby for Ruby. Python still has none, and says so rather than failing with
+	// node's error.
 	origOut := filepath.Join(work, "fuzz-original.jsonl")
-	args := append(nodeflags.Args(), "--import", hooksPath, script, filepath.Join(root, m.Unit), callsPath, origOut)
-	cmd := exec.Command("node", args...)
+	var cmd *exec.Cmd
+	switch {
+	case strings.HasSuffix(m.Unit, ".rb"), strings.HasSuffix(m.Unit, ".rake"):
+		script := filepath.Join(work, "fuzz-original.rb")
+		if err := os.WriteFile(script, []byte(rubyOriginal), 0o644); err != nil {
+			return Result{}, err
+		}
+		cmd = exec.Command("ruby", script, filepath.Join(root, m.Unit), callsPath, origOut)
+	case strings.HasSuffix(m.Unit, ".py"), strings.HasSuffix(m.Unit, ".pyi"):
+		return Result{}, fmt.Errorf("fuzz does not have a Python runner yet: Python units record and diff, " +
+			"but fresh inputs need a python3 runner. Use `record` with `--inputs` to add cases by hand meanwhile")
+	default:
+		script := filepath.Join(work, "fuzz-original.mjs")
+		if err := os.WriteFile(script, []byte(originalScript), 0o644); err != nil {
+			return Result{}, err
+		}
+		args := append(nodeflags.Args(), "--import", hooksPath, script, filepath.Join(root, m.Unit), callsPath, origOut)
+		cmd = exec.Command("node", args...)
+	}
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return Result{}, fmt.Errorf("answering on the original: %w", err)
@@ -267,6 +285,9 @@ type manifest struct {
 		Name    string   `json:"name"`
 		Params  []string `json:"params"`
 		Blocked string   `json:"blocked"`
+		// Receiver is the module or class a method belongs to: a Ruby module function is reached through
+		// it, and a fresh call has to say so or the runner looks for a method on Object.
+		Receiver string `json:"receiver,omitempty"`
 	} `json:"exports"`
 }
 

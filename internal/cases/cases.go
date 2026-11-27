@@ -20,8 +20,11 @@ type Case struct {
 	Args   []any          `json:"args"`
 	Kwargs map[string]any `json:"kwargs,omitempty"`
 	Ok     any            `json:"ok,omitempty"`
-	Err    string         `json:"error,omitempty"`
-	Panic  string         `json:"panic,omitempty"`
+	// Path is where the function lives when it is not a free function: `Util.double` for a Ruby module
+	// function. It is written by the fuzz runner and ignored by gate, which matches on Fn.
+	Path  string `json:"path,omitempty"`
+	Err   string `json:"error,omitempty"`
+	Panic string `json:"panic,omitempty"`
 	// Skip marks a call neither side should be compared on: the original could not answer it within the
 	// recording's limits (its answer was gigabytes, or the run ran out of time).
 	Skip string `json:"skip,omitempty"`

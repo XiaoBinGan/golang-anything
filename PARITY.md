@@ -111,7 +111,7 @@ Go 程序启动 1.93 ms，比 rust-anything 还快——所以差距不在语言
 | record / diff / gate / check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | bench | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | report / package | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| fuzz | ✅ | — | — | — | — | — | — | — | — | — |
+| fuzz | ✅ | — | ✅ | — | — | — | — | — | — | — |
 | shadow / shadow-report | ✅ | — | — | — | — | — | — | — | — | — |
 | enable / disable | ✅ | ✅ | ✅ | — | — | — | — | — | — | — |
 
