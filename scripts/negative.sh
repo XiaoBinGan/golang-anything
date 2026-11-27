@@ -373,6 +373,25 @@ cmp -s timer.php original.php ||
 cd "$ROOT"
 rm -rf /tmp/negative-promote
 
+# 28. the typed entry point must delegate. `build`, `bench` and `check` prefer it the moment the port declares
+#     one, so a stub that panics turns every driver red the moment it is generated — nine smoke cases, four rounds
+#     ago. The control reads the generated port and requires the delegation, not a panic.
+mkdir -p /tmp/negative-typed && cd /tmp/negative-typed
+printf 'export const count = (text: string): number => text.length\n' > text.ts
+printf 'module negtyped\n\ngo 1.24\n' > go.mod
+"$GO" scaffold --unit text.ts go-ports/t-go >/dev/null 2>&1
+grep -q 'func Count(text string) (float64, error)' go-ports/t-go/port.go ||
+  { printf 'FAIL  the typed entry point is not the (T, error) shape\n'; failures=$((failures + 1)); }
+grep -q 'count(\[\]any{text})' go-ports/t-go/port.go ||
+  { printf 'FAIL  the typed entry point does not delegate to the generic wrapper\n'; failures=$((failures + 1)); }
+if grep -q 'panic("not implemented: port' go-ports/t-go/port.go; then
+  printf 'FAIL  a generated entry point panics; every driver that prefers it goes red\n'
+  failures=$((failures + 1))
+fi
+printf 'ok    the typed entry point delegates instead of panicking\n'
+cd "$ROOT"
+rm -rf /tmp/negative-typed
+
 # 14. perf: no rig, no numbers.
 RUST_ANYTHING=/nonexistent ./scripts/perf.sh >/dev/null 2>&1
 expect_fail "perf refuses a missing rig" $?
