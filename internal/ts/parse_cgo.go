@@ -105,9 +105,10 @@ func ParseSource(src []byte, lang Lang, path string) (*File, error) {
 		return scanned, nil
 	}
 	if lang == Php {
-		fns, instanceMethods, free, promotable := phpExports(root, text)
+		fns, instanceMethods, free, promotable, names := phpExports(root, text)
 		out.Fns = append(out.Fns, fns...)
 		out.InstanceMethods, out.InstanceFree, out.InstancePromotable = instanceMethods, free, promotable
+		out.Promotable = names
 		return out, nil
 	}
 	if lang == Kotlin || lang == CSharp {
@@ -123,9 +124,10 @@ func ParseSource(src []byte, lang Lang, path string) (*File, error) {
 		return out, nil
 	}
 	if lang == Ruby {
-		fns, instanceMethods, free, promotable := rbExports(root, text)
+		fns, instanceMethods, free, promotable, names := rbExports(root, text)
 		out.Fns = append(out.Fns, fns...)
 		out.InstanceMethods, out.InstanceFree, out.InstancePromotable = instanceMethods, free, promotable
+		out.Promotable = names
 		return out, nil
 	}
 	if lang == Python {
@@ -390,12 +392,13 @@ func walkRaises(n *sitter.Node, report func(int)) {
 
 // rbExports reads the top-level methods of a Ruby file. A name starting with an underscore is private by
 // convention here too, and a method defined inside a class belongs to that class.
-func rbExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int, int, int) {
+func rbExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int, int, int, []Promotable) {
 	var out []Fn
 	// Instance methods are still not exports — the bridge has no instance to call them on — but they are
 	// counted, because "0 exports" and "0 exports, 6 instance methods" are different answers for a library
 	// like Carbon where every method needs an object.
 	instances, free, promotable := 0, 0, 0
+	var promotableNames []Promotable
 	// A Ruby library keeps its callable units in three shapes: a top-level def, a module function
 	// (`def self.x` or `module_function`), and a class method. The last two are what a real gem is made of —
 	// sinatra has ten `def self.` and Carbon is all class methods — and only the first was read before.
@@ -456,6 +459,7 @@ func rbExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int, in
 						// reach without changing what the module means.
 						if ownerKind == "class" {
 							promotable++
+							promotableNames = append(promotableNames, Promotable{Owner: owner, Name: name})
 						}
 					}
 					instances++
@@ -474,7 +478,7 @@ func rbExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int, in
 		}
 	}
 	walk(root, "", "")
-	return out, instances, free, promotable
+	return out, instances, free, promotable, promotableNames
 }
 
 // singletonName is the identifier after `self.` in `def self.name`.
@@ -745,9 +749,10 @@ func hasPointer(n *sitter.Node) bool {
 // phpExports reads the free functions of a PHP file: those are the ones a bridge can call.
 // Every PHP method lives in a class, so every state-free one is promotable: `(new Owner)->name(...)` needs no
 // constructor arguments to exist.
-func phpExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int, int, int) {
+func phpExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int, int, int, []Promotable) {
 	var out []Fn
 	instances, free := 0, 0
+	var promotableNames []Promotable
 	var walk func(n *sitter.Node, inside string)
 	walk = func(n *sitter.Node, owner string) {
 		for i := 0; i < int(n.NamedChildCount()); i++ {
@@ -761,6 +766,7 @@ func phpExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int, i
 					if strings.Contains(head, "public") && !strings.Contains(head, "static") {
 						if !phpTouchesState(rbBody(child, text)) {
 							free++
+							promotableNames = append(promotableNames, Promotable{Owner: owner, Name: text(child.ChildByFieldName("name"))})
 						}
 						instances++
 					}
@@ -832,7 +838,7 @@ func phpExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int, i
 		}
 	}
 	walk(root, "")
-	return out, instances, free, free
+	return out, instances, free, free, promotableNames
 }
 
 // typedExports reads Kotlin and C# functions: top-level `fun` for Kotlin, public static methods for C#.

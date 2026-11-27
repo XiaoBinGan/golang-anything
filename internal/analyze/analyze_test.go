@@ -231,6 +231,14 @@ func TestInstanceMethodCountsReachThePlan(t *testing.T) {
 		t.Errorf("timer.php: instance_methods=%d instance_free=%d instance_promotable=%d, want 2/1/1",
 			u.InstanceOnly, u.InstanceFree, u.InstancePromotable)
 	}
+	// The names come from the same walk as the count: a shim generator that invents one is the failure this
+	// field exists to prevent.
+	if p := got["timer.php"].Promotable; len(p) != 1 || p[0].Owner != "Timer" || p[0].Name != "double" {
+		t.Errorf("timer.php promotable = %+v, want [{Timer double}]", p)
+	}
+	if p := got["timer.rb"].Promotable; len(p) != 0 {
+		t.Errorf("timer.rb promotable = %+v, want none: a module cannot be instantiated", p)
+	}
 	// The note is what a reader acts on; a count without it is a number with no sentence.
 	joined := strings.Join(got["timer.php"].Notes, " | ")
 	if !strings.Contains(joined, "need an object") || !strings.Contains(joined, "touch no state") {

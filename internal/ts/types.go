@@ -63,11 +63,20 @@ type File struct {
 	InstanceFree int `json:"instance_free,omitempty"`
 	// InstancePromotable is the subset of InstanceFree that lives in a class: `allocate` can supply the instance
 	// for those, while a module cannot be instantiated at all.
-	InstancePromotable int      `json:"instance_promotable,omitempty"`
-	Fns                []Fn     `json:"fns"`
-	Imports            []Import `json:"imports"`
-	Risks              []Risk   `json:"risks"`
-	ParseOK            bool     `json:"parse_ok"`
+	InstancePromotable int `json:"instance_promotable,omitempty"`
+	// Promotable names those methods, from the same walk as the count: a count is what a plan prints, a name is
+	// what a shim generator needs, and one must not be able to drift from the other.
+	Promotable []Promotable `json:"promotable,omitempty"`
+	Fns        []Fn         `json:"fns"`
+	Imports    []Import     `json:"imports"`
+	Risks      []Risk       `json:"risks"`
+	ParseOK    bool         `json:"parse_ok"`
+}
+
+// Promotable is one state-free instance method in a class: `Owner.name` is how a shim would call it.
+type Promotable struct {
+	Owner string `json:"owner"`
+	Name  string `json:"name"`
 }
 
 // Lang picks the grammar.

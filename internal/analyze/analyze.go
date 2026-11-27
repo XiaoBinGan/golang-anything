@@ -50,15 +50,17 @@ type Unit struct {
 	InstanceOnly       int      `json:"instance_methods,omitempty"`
 	InstanceFree       int      `json:"instance_free,omitempty"`
 	InstancePromotable int      `json:"instance_promotable,omitempty"`
-	Readiness          int      `json:"readiness"`
-	Priority           int      `json:"priority"`
-	Density            float64  `json:"density"`
-	Risks              []Risk   `json:"risks"`
-	Wave               int      `json:"wave"`
-	InternalDeps       []string `json:"internal_deps"`
-	ParseErrors        bool     `json:"parse_errors,omitempty"`
-	Status             string   `json:"status"` // ready, caution, blocked, keep
-	Notes              []string `json:"notes,omitempty"`
+	// Promotable names them: `Owner.name` is what a shim would generate.
+	Promotable   []ts.Promotable `json:"promotable,omitempty"`
+	Readiness    int             `json:"readiness"`
+	Priority     int             `json:"priority"`
+	Density      float64         `json:"density"`
+	Risks        []Risk          `json:"risks"`
+	Wave         int             `json:"wave"`
+	InternalDeps []string        `json:"internal_deps"`
+	ParseErrors  bool            `json:"parse_errors,omitempty"`
+	Status       string          `json:"status"` // ready, caution, blocked, keep
+	Notes        []string        `json:"notes,omitempty"`
 }
 
 // Report is the whole plan.
@@ -245,7 +247,7 @@ func isComponent(rel string, e Export) bool {
 // unitOf turns a parsed file into a unit: exports with their bridge blocks, risks with file:line.
 func unitOf(rel string, f *ts.File) Unit {
 	u := Unit{ID: rel, Files: []string{rel}, Loc: f.Loc, ParseErrors: !f.ParseOK, InstanceOnly: f.InstanceMethods,
-		InstanceFree: f.InstanceFree, InstancePromotable: f.InstancePromotable}
+		InstanceFree: f.InstanceFree, InstancePromotable: f.InstancePromotable, Promotable: f.Promotable}
 	for _, fn := range f.Fns {
 		e := Export{
 			Name:       fn.Name,
