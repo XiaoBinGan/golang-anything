@@ -357,6 +357,22 @@ grep -q '(thrice)' /tmp/negative-unported/check.out ||
 cd "$ROOT"
 rm -rf /tmp/negative-unported
 
+# 27. promote writes a reopening of the class, and only Ruby allows one. Without the guard it appended the Ruby
+#     block to a .php file and reported success — a file that no longer parses. The control requires the refusal,
+#     the reason, and the file byte for byte; the exit code alone would also pass on a missing go.mod.
+mkdir -p /tmp/negative-promote && cd /tmp/negative-promote
+printf '<?php\nclass Timer {\n    public function double(int $n): int { return $n * 2; }\n}\n' > timer.php
+printf 'module negpromote\n\ngo 1.24\n' > go.mod
+cp timer.php original.php
+"$GO" promote --unit timer.php . >/tmp/negative-promote/promote.err 2>&1
+expect_fail "promote refuses a language whose classes cannot be reopened" $?
+grep -q 'only Ruby' /tmp/negative-promote/promote.err ||
+  { printf 'FAIL  promote refused for some other reason: %s\n' "$(head -1 /tmp/negative-promote/promote.err)"; failures=$((failures + 1)); }
+cmp -s timer.php original.php ||
+  { printf 'FAIL  the refused promote wrote the Ruby block into the PHP file anyway\n'; failures=$((failures + 1)); }
+cd "$ROOT"
+rm -rf /tmp/negative-promote
+
 # 14. perf: no rig, no numbers.
 RUST_ANYTHING=/nonexistent ./scripts/perf.sh >/dev/null 2>&1
 expect_fail "perf refuses a missing rig" $?
