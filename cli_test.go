@@ -56,3 +56,16 @@ func TestHelpGoesToStdout(t *testing.T) {
 		t.Errorf("--help wrote to stderr: %q", errOut)
 	}
 }
+
+// The shim is a reopening of the class. PHP cannot reopen one, and before this guard `promote` wrote the Ruby
+// block into a .php file and reported success — a file that no longer parses, with a message saying it worked.
+func TestPromoteRefusesANonRubyUnit(t *testing.T) {
+	if err := promoteSupported("/tmp/timer.php", "timer.php"); err == nil {
+		t.Fatal("promote accepted a PHP unit")
+	} else if !strings.Contains(err.Error(), "only Ruby") {
+		t.Errorf("the refusal does not say why: %v", err)
+	}
+	if err := promoteSupported("/tmp/timer.rb", "timer.rb"); err != nil {
+		t.Errorf("promote refused Ruby: %v", err)
+	}
+}

@@ -1108,6 +1108,13 @@ func runPromote(args []string) error {
 		}
 		return nil
 	}
+	// The shim is a reopening of the class, and only Ruby lets a class be reopened. Writing the Ruby block into a
+	// PHP file (which is what this command did before the guard) produces a file that no longer parses, reported
+	// as success — `class Timer` twice is a fatal error in PHP, and PHP's only route is a generated proxy class
+	// plus a recorder that knows to call it, which does not exist yet.
+	if err := promoteSupported(path, m.Unit); err != nil {
+		return err
+	}
 	file, err := ts.Parse(path)
 	if err != nil {
 		return err
@@ -1136,6 +1143,17 @@ func runPromote(args []string) error {
 		} else {
 			fmt.Printf("%s already has a shim in %s.\n", owner, filepath.ToSlash(path))
 		}
+	}
+	return nil
+}
+
+// promoteSupported refuses a unit whose language has no shim. The shim is a reopening of the class, and only
+// Ruby lets a class be reopened: PHP answers `class Timer` twice with a fatal error, so its route is a generated
+// proxy class plus a recorder that calls it, and that does not exist yet.
+func promoteSupported(path, unit string) error {
+	if ext := strings.ToLower(filepath.Ext(path)); ext != ".rb" {
+		return fmt.Errorf("promote has no shim for %s: a shim reopens the class, which only Ruby allows; "+
+			"%s needs a generated proxy class and a recorder that calls it, and that is not written yet", unit, ext)
 	}
 	return nil
 }
