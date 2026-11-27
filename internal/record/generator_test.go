@@ -111,6 +111,10 @@ func TestParameterPropertiesLoad(t *testing.T) {
 	if _, err := exec.LookPath("node"); err != nil {
 		t.Skip("node is not on PATH")
 	}
+	// Node 26 removed --experimental-transform-types (only strip-types is left), and stripping cannot load a parameter
+	// property. The feature needs a node that can transform: on a machine whose node cannot, say so instead of failing
+	// as if the code were wrong. Node 22 passes this test unchanged.
+	skipUnlessNodeTransforms(t)
 	crate, unit := writeRepo(t,
 		"export class Stop extends Error {\n"+
 			"  constructor(readonly reason: unknown) { super('stop') }\n}\n\n"+
@@ -147,6 +151,7 @@ func TestAnAnswerThatIsAClassInstanceIsNotRecorded(t *testing.T) {
 	if _, err := exec.LookPath("node"); err != nil {
 		t.Skip("node is not on PATH")
 	}
+	skipUnlessNodeTransforms(t)
 	crate, unit := writeRepo(t,
 		"export class Slots { constructor(public n: number) {} }\n\n"+
 			"export const makeSlots = (n: number): Slots => new Slots(n)\n",
@@ -162,5 +167,15 @@ func TestAnAnswerThatIsAClassInstanceIsNotRecorded(t *testing.T) {
 	}
 	if sum.Cases != 0 {
 		t.Errorf("%d cases recorded for an answer JSON cannot carry", sum.Cases)
+	}
+}
+
+// skipUnlessNodeTransforms guards the two cases whose fixture is TypeScript a parameter property needs: node 26 removed
+// --experimental-transform-types and strips types only, so on such a machine the feature is unavailable, and a failure
+// there would be about the runtime rather than about the recorder.
+func skipUnlessNodeTransforms(t *testing.T) {
+	t.Helper()
+	if err := exec.Command("node", "--experimental-transform-types", "-e", "").Run(); err != nil {
+		t.Skip("this node cannot transform TypeScript: these fixtures need node <= 24")
 	}
 }
