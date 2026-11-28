@@ -5,10 +5,12 @@
 两条规则由 `scripts/doccheck.sh` 守着：每节标题上的条数等于该节实际条数；每个标题都必须对应一个真实存在的提交。
 数字都在对应的文档里（[PERF.md](PERF.md)、[EVAL.md](EVAL.md)、[PARITY.md](PARITY.md)、[CONTRACT.md](CONTRACT.md)）。
 
-## 一、修掉的错误（56 条）
+## 一、修掉的错误（57 条）
 
 每一条都是**工具说了假话**或**产物不对**，被一次具体实验抓到：
 
+- **a Kotlin secondary constructor is a constructor, and the refusal names both causes**
+  - `kotlinHasNoArgCtor` looked for a `primary_constructor` among the class's own children; a class that declares only a secondary one keeps it in the class body, so the parse saw no constructor and answered "no arguments". `promote` wrote `Timer()` and kotlinc said `no value passed for parameter 'unit'`. Parameters are `function_value_parameters` (a child, not the `parameters` field), and the refusal now names both shapes it covers: a module, and a class whose constructors all take arguments.
 - **a Kotlin object's members are not instance methods, and promoting one wrote `Timer()`**
   - Since `object` bodies started being read, their members counted as instance methods, and `promote` wrote a proxy calling `Timer().doubled(n)`. A Kotlin `object` cannot be instantiated, so that file does not compile: the tool offered a route that could not work. The walk carries `countInstances` now — false inside an object, true inside a class — and the member stays an export, which is what recording a proxy needs.
 - **the C# recorder and C# widths, so a promoted C# method records and gates**
@@ -279,9 +281,11 @@
 - **bench, map, clean, doctor, check, and the in-process bridge**
   - bench times both sides the same way; map writes PORT-MAP.md; clean and doctor round out the day-to-day commands. The fast bridge is a c-shared library plus a hand-written N-API addon: 0.73 us per call against rust-anything's ~1 us, and 16x faster than the stdio process.
 
-## 四、让检查本身可信（32 条）
+## 四、让检查本身可信（33 条）
 
 负向对照与冒烟测试——这些不增加功能，只增加「结论可信」：
+- **C# gets the constructor rule checked by a test, not by reading the code**
+  - The Kotlin bug was a constructor the parse did not see; the same question in C# deserved a test: `Needs(int unit)` blocks promotion, `Maths()` does not. Java already had its `Needs(int unit)` case.
 - **control 33 holds the state rule on the JVM route too**
   - Control 30 asserted it for PHP; a Java proxy instantiates the class without its constructor state, and `gate` cannot see the difference. `Needs.java` (a field) must be refused with no proxy written; with the field check removed the control fails three ways. Its first version read `$?` after an assignment and accused the shipped binary of a break it did not have. It now covers Kotlin and C# as well, and each half was shown red: removing the C# field check fails it twice, and blinding both `kotlinClassHasProps` call sites (the class branch and the `object` branch) fails it twice. My first attempt at that blinded one call site and reported "guarded by more than one check" — the fixture is a `class`, so the branch that mattered was still doing its job, and the conclusion was wrong until the second site was blinded too.
 - **smoke runs the Java promote chain through record and gate**
