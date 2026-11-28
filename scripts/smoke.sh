@@ -101,6 +101,12 @@ try "Java record"                bash -c "cd '$WORK/javaprom' && $GO record --un
 try "Java bridge"                bash -c "cd '$WORK/javaprom' && $GO bridge go-ports/j-go"
 try "Java build"                 bash -c "cd '$WORK/javaprom' && $GO build --fast go-ports/j-go"
 try "Java gate"                  bash -c "cd '$WORK/javaprom' && $GO gate go-ports/j-go"
+# Two classes in one file: two proxies, and a revert that finds both. A single-owner file would not have shown either.
+mkdir -p "$WORK/javatwo"
+printf 'public final class A {\n    public int twice(int n) { return n * 2; }\n}\n\npublic final class B {\n    public int thrice(int n) { return n * 3; }\n}\n' > "$WORK/javatwo/Two.java"
+printf 'module smoke-javatwo\n\ngo 1.24\n' > "$WORK/javatwo/go.mod"
+try "promote writes one Java proxy per owner" bash -c "$GO promote --unit Two.java '$WORK/javatwo' >/dev/null && [ -f '$WORK/javatwo/APromoted.java' ] && [ -f '$WORK/javatwo/BPromoted.java' ]"
+try "Java revert removes every proxy of a unit" bash -c "$GO promote --revert --unit Two.java '$WORK/javatwo' >/dev/null && [ ! -f '$WORK/javatwo/APromoted.java' ] && [ ! -f '$WORK/javatwo/BPromoted.java' ]"
 try "Java promote --revert"      bash -c "$GO promote --revert --unit Maths.java '$WORK/javaprom' && [ ! -f '$WORK/javaprom/MathsPromoted.java' ]"
 # Kotlin: the proxy is a singleton object, and recording it needs the class beside it — the recorder compiles every .kt
 # in the folder, and calls `TimerPromoted.doubled(...)` from the plan's path.
