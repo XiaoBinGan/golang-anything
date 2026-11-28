@@ -305,9 +305,11 @@
 - **bench, map, clean, doctor, check, and the in-process bridge**
   - bench times both sides the same way; map writes PORT-MAP.md; clean and doctor round out the day-to-day commands. The fast bridge is a c-shared library plus a hand-written N-API addon: 0.73 us per call against rust-anything's ~1 us, and 16x faster than the stdio process.
 
-## 四、让检查本身可信（51 条）
+## 四、让检查本身可信（52 条）
 
 负向对照与冒烟测试——这些不增加功能，只增加「结论可信」：
+- **smoke holds what `module_function` means for analyze and promote**
+  - `module_function` makes a module method callable as `Util.helper(...)` already, so the parser has to list it as an export rather than as an instance method — otherwise `promote` would try to reopen a module, which is a route that cannot work. `record` on the same fixture answers 28 cases, so the export carries real work. 133 passed, 0 failed.
 - **smoke covers two Ruby classes in one file**
   - Ruby reopens the class in place, so two classes mean two blocks in one file — the route that creates no proxy file at all, which none of the other two-owner cases exercise. Both cases run `ruby -c`, because a block in the wrong place is a syntax error rather than a wrong answer. 131 passed, 0 failed.
 - **smoke covers two C# classes in one file**
