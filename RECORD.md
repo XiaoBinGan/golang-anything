@@ -175,9 +175,11 @@
 - **measure both bridges head to head and report where we lose**
   - Built rust-anything 4.0.0 here, bridged the same unit with both tools, filled both ports and timed one call alternately in blocks so a load spike hits both sides. rust-anything's napi bridge answers in 0.073 us, ours in 0.294 us after the one-string fast path (no JSON, no malloc, quote written straight into the caller's buffer). The gap is structural: cgo costs 40-60 ns per call.
 
-## 三、能力（54 条）
+## 三、能力（55 条）
 
 功能与语言支持，每条都在提交里说明了如何验证：
+- **a Kotlin companion object's functions are listed as blocked, not dropped**
+  - `class Timer { companion object { fun twice(…) } }` produced "0 units with something a bridge can carry" — as if the file held nothing. It holds a function callable as `Timer.twice(...)` only with `@JvmStatic` and as `Timer.Companion.twice(...)` otherwise, so it is a blocked export with that reason; `ts.Fn` carries the sentence and `analyze` prefers it over its own guesses.
 - **Java says which methods a proxy could reach, and only when `new Owner()` compiles**
   - `InstancePromotable` was Ruby's and PHP's number; for Java the plan reported counts and stopped. It reports this one now, with the two conditions a proxy depends on: no instance fields, and a no-arg constructor (Java supplies an implicit one only when the class declares none). `javaReturns` also learned the primitive node types, or a method came out with an empty return type.
 - **the promote refusal lists all five routes and what a sixth would need**
