@@ -452,6 +452,23 @@ expect_fail "promote refuses a C# class that holds a field" $?
 cd "$ROOT"
 rm -rf /tmp/negative-jvmstate
 
+# 34. a Kotlin class whose only constructor takes an argument is not offered: the proxy would say `Timer()`, and
+#     kotlinc answers "no value passed for parameter". The parse could not see a secondary constructor at all until that
+#     was fixed, so this is the case that would come back first.
+mkdir -p /tmp/negative-ktctor && cd /tmp/negative-ktctor
+printf 'class Timer {\n    constructor(unit: Int) {\n        println(unit)\n    }\n\n    fun doubled(n: Int): Int = n * 2\n}\n' > Timer.kt
+printf 'module negktctor\n\ngo 1.24\n' > go.mod
+before=$failures
+"$GO" promote --unit Timer.kt . >/tmp/negative-ktctor/promote.err 2>&1
+expect_fail "promote refuses a Kotlin class whose constructor wants an argument" $?
+[ ! -f TimerPromoted.kt ] ||
+  { printf 'FAIL  a Kotlin proxy was written for a class that cannot be built\n'; failures=$((failures + 1)); }
+grep -q 'cannot be built without arguments' /tmp/negative-ktctor/promote.err ||
+  { printf 'FAIL  the refusal does not say why: %s\n' "$(head -1 /tmp/negative-ktctor/promote.err)"; failures=$((failures + 1)); }
+[ "$failures" -eq "$before" ] && printf 'ok    promote leaves a Kotlin class with a one-argument constructor alone\n'
+cd "$ROOT"
+rm -rf /tmp/negative-ktctor
+
 # 14. perf: no rig, no numbers.
 RUST_ANYTHING=/nonexistent ./scripts/perf.sh >/dev/null 2>&1
 expect_fail "perf refuses a missing rig" $?
