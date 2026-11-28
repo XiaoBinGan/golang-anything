@@ -171,9 +171,11 @@
 - **measure both bridges head to head and report where we lose**
   - Built rust-anything 4.0.0 here, bridged the same unit with both tools, filled both ports and timed one call alternately in blocks so a load spike hits both sides. rust-anything's napi bridge answers in 0.073 us, ours in 0.294 us after the one-string fast path (no JSON, no malloc, quote written straight into the caller's buffer). The gap is structural: cgo costs 40-60 ns per call.
 
-## 三、能力（52 条）
+## 三、能力（53 条）
 
 功能与语言支持，每条都在提交里说明了如何验证：
+- **the promote refusal lists all five routes and what a sixth would need**
+  - The message said "Ruby reopens the class and PHP gets a proxy class, and no other language is written yet" — true for two rounds, wrong once Java, Kotlin and C# had routes. It now names the five and says what the next language needs: its own renderer, a recorder that calls the plan's path, and a compiler check in smoke — the four steps this work actually walked.
 - **the empty-case refusal says why nothing was found**
   - `promote` on a Kotlin `object` answered "it declares no instance methods" — true, and useless: an object's members are already callable as `Owner.name(...)`. The sentence now names both shapes it covers (an object, and a module whose instance methods cannot be reached at all).
 - **C# instance methods are counted, with the same rules as Java**
