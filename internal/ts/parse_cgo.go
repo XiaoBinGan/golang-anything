@@ -1073,6 +1073,11 @@ func typedExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int,
 					}
 				}
 				walkRaises(child, func(line int) { fn.ThrowLines = append(fn.ThrowLines, line) })
+				if strings.Contains(mods, "extern") {
+					// The third spelling of "implemented elsewhere": C# `extern` with a DllImport. Recording it
+					// answers an EntryPointNotFoundException.
+					fn.Blocked = "is extern: its implementation is not in this file, so there is nothing to record"
+				}
 				out = append(out, fn)
 			case "companion_object":
 				// A `companion object` holds functions reachable as `Owner.name(...)` only when they are annotated

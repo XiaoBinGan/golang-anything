@@ -436,3 +436,32 @@ func TestKotlinExternalFunctionsAreBlocked(t *testing.T) {
 		t.Errorf("blocked=%d offerable=%d, want 1/1", blocked, offerable)
 	}
 }
+
+// C# spells "implemented elsewhere" as `extern` plus a DllImport; recording one answers an EntryPointNotFoundException.
+func TestCSharpExternMethodsAreBlocked(t *testing.T) {
+	src := []byte(`public static class N
+{
+    public static extern int Square(int n);
+
+    public static int Twice(int n) { return n * 2; }
+}
+`)
+	file, err := ParseSource(src, CSharp, "N.cs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var blocked, offerable int
+	for _, fn := range file.Fns {
+		if fn.Blocked != "" {
+			blocked++
+			if fn.Name != "Square" {
+				t.Errorf("%s is blocked, want Square", fn.Name)
+			}
+		} else {
+			offerable++
+		}
+	}
+	if blocked != 1 || offerable != 1 {
+		t.Errorf("blocked=%d offerable=%d, want 1/1", blocked, offerable)
+	}
+}
