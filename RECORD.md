@@ -291,9 +291,11 @@
 - **bench, map, clean, doctor, check, and the in-process bridge**
   - bench times both sides the same way; map writes PORT-MAP.md; clean and doctor round out the day-to-day commands. The fast bridge is a c-shared library plus a hand-written N-API addon: 0.73 us per call against rust-anything's ~1 us, and 16x faster than the stdio process.
 
-## 四、让检查本身可信（39 条）
+## 四、让检查本身可信（40 条）
 
 负向对照与冒烟测试——这些不增加功能，只增加「结论可信」：
+- **smoke holds both halves of the companion-object answer**
+  - The feature had only been checked by hand: one case asserts the JSON carries the reason (`companion object` in `blocked`), the other asserts the plan line reads "…, 1 with only blocked exports" instead of calling the unit carryable or hiding it. 114 passed, 0 failed.
 - **doccheck notices a control that greps a sentence the tool no longer says**
   - Every plain `grep -q '<text>'` in negative.sh must now exist in the Go sources. `if grep -q …` is an assertion that something is absent (skipped), documents are excluded (a doc quoting an old message would make a stale control look alive), and a message assembled from parts is listed by name with its reason. Restoring the stale wording turns doccheck red, which is how it was checked.
 - **control 33 covers Kotlin and C# as well as Java**
