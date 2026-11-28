@@ -260,6 +260,18 @@ mkdir -p "$WORK/blocked"
 printf 'public final class N {\n    public static native int square(int n);\n\n    public static int twice(int n) { return n * 2; }\n}\n' > "$WORK/blocked/N.java"
 printf 'external fun square(n: Int): Int\n\nfun twice(n: Int): Int = n * 2\n' > "$WORK/blocked/M.kt"
 printf 'public static class E {\n    public static extern int Square(int n);\n\n    public static int Twice(int n) { return n * 2; }\n}\n' > "$WORK/blocked/E.cs"
+# A companion member with @JvmStatic is callable as `Timer.twice(...)` for real, so the whole chain has to work on it.
+mkdir -p "$WORK/companion-static"
+printf 'class Timer {\n    companion object {\n        @JvmStatic\n        fun twice(n: Int): Int = n * 2\n\n        fun thrice(n: Int): Int = n * 3\n    }\n}\n' > "$WORK/companion-static/Timer.kt"
+printf 'module smoke-companion-static\n\ngo 1.24\n' > "$WORK/companion-static/go.mod"
+try "analyze offers the @JvmStatic companion member" bash -c "$GO analyze --json '$WORK/companion-static' | python3 -c 'import json,sys; d=json.load(sys.stdin); m={x[\"name\"]:(x.get(\"receiver\"),x.get(\"blocked\")) for u in d[\"units\"] for x in u[\"exports\"]}; sys.exit(0 if m.get(\"twice\")==(\"Timer\",None) and m.get(\"thrice\",(None,\"\"))[1] else 1)'"
+"$GO" scaffold --unit Timer.kt "$WORK/companion-static/go-ports/k-go" >/dev/null 2>&1
+sed -i '' "s|example.com/k-go|smoke-companion-static/go-ports/k-go|g" "$WORK/companion-static/go-ports/k-go"/*.go \
+  "$WORK/companion-static/go-ports/k-go/golang-anything.json" "$WORK/companion-static/go-ports/k-go/cmd"/*/main.go 2>/dev/null
+python3 -c 'import sys;p=sys.argv[1];s=open(p).read();s=s.replace("return nil, fmt.Errorf(\"not implemented: port twice\")","n, ok := args[0].(float64)\n\tif !ok {\n\t\treturn nil, fmt.Errorf(\"ClassCastException: twice expects int, got %T\", args[0])\n\t}\n\treturn int32(n) * 2, nil");open(p,"w").write(s)' \
+  "$WORK/companion-static/go-ports/k-go/port.go"
+try "the @JvmStatic companion member records" bash -c "cd '$WORK/companion-static' && $GO record --unit Timer.kt go-ports/k-go"
+try "@JvmStatic companion member reaches gate" bash -c "cd '$WORK/companion-static' && $GO bridge go-ports/k-go >/dev/null && $GO build --fast go-ports/k-go >/dev/null && $GO gate go-ports/k-go"
 try "analyze blocks the three implemented-elsewhere spellings" bash -c "$GO analyze --json '$WORK/blocked' | python3 -c 'import json,sys; d=json.load(sys.stdin); b=[x for u in d[\"units\"] for x in u[\"exports\"] if x.get(\"blocked\")]; sys.exit(0 if len(b)==3 else 1)'"
 try "analyze blocks a companion member with a reason" bash -c "$GO analyze --json '$WORK/companion' | python3 -c 'import json,sys; d=json.load(sys.stdin); e=[x for u in d[\"units\"] for x in u[\"exports\"] if x[\"name\"]==\"twice\"]; sys.exit(0 if e and \"companion object\" in e[0].get(\"blocked\",\"\") else 1)'"
 try "the plan counts a blocked-only unit apart" bash -c "$GO analyze '$WORK/companion' | grep -q '1 with only blocked exports'"
