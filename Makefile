@@ -6,7 +6,7 @@ GO ?= go
 BIN ?= bin
 SHELL := /bin/bash
 
-.PHONY: all build test check contract evidence matrix smoke perf negative clean
+.PHONY: all build test vet check contract evidence matrix smoke perf negative clean
 
 all: build
 
@@ -19,7 +19,15 @@ test:
 
 # Everything the project claims, in the order a person would check it: the shared rules, then the
 # crates, then the claims about the tool as a whole.
-check: build test contract matrix evidence smoke
+# Formatting and vet: every commit in this repository was checked by hand (`gofmt -l`) and by nothing else. Both pass
+# today, so this is the cheapest moment to make them a gate rather than a habit. `testdata/` is generated crates, not
+# this repository's own source.
+vet:
+	@unformatted="$$(git ls-files '*.go' | grep -v '^testdata/' | xargs gofmt -l)"; \
+	 test -z "$$unformatted" || (echo "gofmt wants to change:"; echo "$$unformatted"; exit 1)
+	. ./scripts/env.sh && CGO_ENABLED=1 $(GO) vet ./...
+
+check: build vet test contract matrix evidence smoke
 	@echo
 	@echo "all checks passed"
 
