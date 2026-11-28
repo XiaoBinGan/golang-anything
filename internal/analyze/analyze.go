@@ -432,6 +432,19 @@ func score(u Unit) (readiness, priority int, density float64) {
 	fanIn := 0.0 // a file has no fan-in of its own; the folder model in the Rust tool does
 	readinessF := 100 - riskPoints - sizePenalty - fanIn
 	readinessF = math.Max(0, math.Min(100, readinessF))
+	// A unit whose every export is blocked has nothing to carry, whatever its size: readiness 100 on such a unit is a
+	// promise the file cannot keep (a Kotlin companion object used to score exactly that).
+	if len(u.Exports) > 0 {
+		carryable := 0
+		for _, e := range u.Exports {
+			if e.Blocked == "" {
+				carryable++
+			}
+		}
+		if carryable == 0 {
+			readinessF = 0
+		}
+	}
 
 	ops := 0.0
 	for _, r := range u.Risks {
