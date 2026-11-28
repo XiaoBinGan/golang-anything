@@ -250,6 +250,12 @@ PYEOF
 mkdir -p "$WORK/instcount"
 printf 'class Timer(private val offset: Int) {\n    fun shifted(n: Int): Int = n + offset\n}\n\nclass Maths {\n    fun triple(n: Int): Int = n * 3\n}\n' > "$WORK/instcount/M.kt"
 printf 'public final class T {\n    public int double(int n) { return n * 2; }\n\n    public static int twice(int n) { return n * 2; }\n}\n' > "$WORK/instcount/T.java"
+# A Kotlin companion object's function is callable as `Owner.name(...)` only with @JvmStatic: blocked with that reason,
+# not dropped. Until this existed the plan said the file held nothing.
+mkdir -p "$WORK/companion"
+printf 'class Timer {\n    companion object {\n        fun twice(n: Int): Int = n * 2\n    }\n}\n' > "$WORK/companion/Timer.kt"
+try "analyze blocks a companion member with a reason" bash -c "$GO analyze --json '$WORK/companion' | python3 -c 'import json,sys; d=json.load(sys.stdin); e=[x for u in d[\"units\"] for x in u[\"exports\"] if x[\"name\"]==\"twice\"]; sys.exit(0 if e and \"companion object\" in e[0].get(\"blocked\",\"\") else 1)'"
+try "the plan counts a blocked-only unit apart" bash -c "$GO analyze '$WORK/companion' | grep -q '1 with only blocked exports'"
 try "analyze counts instance methods" bash -c "$GO analyze --json '$WORK/instcount' | python3 -c 'import json,sys; d=json.load(sys.stdin); want={\"M.kt\":(2,1),\"T.java\":(1,1)}; got={u[\"id\"]:(u.get(\"instance_methods\",0),u.get(\"instance_free\",0)) for u in d[\"units\"]}; sys.exit(0 if got==want else 1)'"
 try "analyze names python"      bash -c "$GO analyze '$WORK/pyroot' | head -1 | grep -q python"
 try "scaffold a .py unit"       "$GO" scaffold --unit mathx.py "$WORK/pyroot/go-ports/mathx-go"
