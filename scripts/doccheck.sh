@@ -177,6 +177,19 @@ else
   fail "a control greps something the source does not say:$(printf "$missing_literals")"
 fi
 
+# 9. `make check` is the gate the merge rule names, so the steps it runs have to include the formatting one: dropping
+#    `vet` from that line would leave CONTRIBUTING promising a check nothing performs.
+check_line=$(grep -E '^check:' Makefile | head -1)
+if [ -z "$check_line" ]; then
+  fail "Makefile has no check target"
+elif ! grep -q '^vet:' Makefile; then
+  fail "Makefile has no vet target, and check claims to run it"
+elif ! printf '%s' "$check_line" | grep -qE '(^| )vet( |$)'; then
+  fail "make check does not run vet: $check_line"
+else
+  pass "make check runs vet, and vet exists"
+fi
+
 echo
 if [ "$failures" -eq 0 ]; then
   echo "the documents match the tool"
