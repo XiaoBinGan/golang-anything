@@ -1179,10 +1179,9 @@ func runPromote(args []string) error {
 		}
 		return nil
 	}
-	// The shim is a reopening of the class, and only Ruby lets a class be reopened. Writing the Ruby block into a
-	// PHP file (which is what this command did before the guard) produces a file that no longer parses, reported
-	// as success — `class Timer` twice is a fatal error in PHP, and PHP's only route is a generated proxy class
-	// plus a recorder that knows to call it, which does not exist yet.
+	// Only Ruby lets a class be reopened. Writing the Ruby block into a PHP file (which is what this command did
+	// before the guard) produced a file that no longer parses, reported as success — `class Timer` twice is fatal in
+	// PHP. PHP, Java, Kotlin and C# get a generated proxy instead, each in a file of its own.
 	if err := promoteSupported(path, m.Unit); err != nil {
 		return err
 	}
