@@ -366,7 +366,7 @@ printf 'module negpromote\n\ngo 1.24\n' > go.mod
 cp text.ts original.ts
 "$GO" promote --unit text.ts . >/tmp/negative-promote/promote.err 2>&1
 expect_fail "promote refuses a language with no route into the instance" $?
-grep -q 'no other language is written yet' /tmp/negative-promote/promote.err ||
+grep -q 'PHP, Java, Kotlin and C# get a generated proxy' /tmp/negative-promote/promote.err ||
   { printf 'FAIL  promote refused for some other reason: %s\n' "$(head -1 /tmp/negative-promote/promote.err)"; failures=$((failures + 1)); }
 cmp -s text.ts original.ts ||
   { printf 'FAIL  the refused promote wrote to the unit anyway\n'; failures=$((failures + 1)); }
