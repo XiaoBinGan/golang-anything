@@ -17,9 +17,9 @@
 
 ```sh
 export GOROOT=$(brew --prefix go)/libexec && export PATH="$GOROOT/bin:$PATH"
-make check          # 20 套单测 + 契约 + 矩阵 + 证据 + 冒烟（71 项）
-make negative       # 21 条故意弄坏，每条都必须红
-./scripts/bench-all-languages.sh    # 十种语言各自 bench
+make check          # gofmt + go vet + 单测 + 契约 + 矩阵 + 证据 + 冒烟（122 项）
+make negative       # 33 条故意弄坏（37 行 ok），每条都必须红
+./scripts/bench-all-languages.sh    # 九种语言各自 bench，慢于文档区间的行会自动复测一次
 ```
 
 任何一条红，就不合并——**修到绿，或者把 `main` 留在上一个绿点**。
