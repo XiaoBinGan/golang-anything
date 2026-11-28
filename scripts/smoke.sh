@@ -62,6 +62,12 @@ if (
 mkdir -p "$WORK/rbtwo"
 printf 'class A\n  def twice(n)\n    n * 2\n  end\nend\n\nclass B\n  def thrice(n)\n    n * 3\n  end\nend\n' > "$WORK/rbtwo/two.rb"
 printf 'module smoke-rbtwo\n\ngo 1.24\n' > "$WORK/rbtwo/go.mod"
+# `module_function` makes a module method callable as `Util.helper(...)` already, so there is nothing to promote — and
+# `analyze` must list it as an export rather than as an instance method, or `promote` would try to reopen the module.
+mkdir -p "$WORK/rbmodulefn"
+printf 'module Util\n  module_function\n\n  def helper(n)\n    n * 2\n  end\nend\n' > "$WORK/rbmodulefn/util.rb"
+try "module_function is an export, not an instance method" bash -c "$GO analyze --json '$WORK/rbmodulefn' | python3 -c 'import json,sys; d=json.load(sys.stdin); u=d[\"units\"][0]; e=[x for x in u[\"exports\"] if x[\"name\"]==\"helper\"]; sys.exit(0 if e and e[0].get(\"receiver\")==\"Util\" and not u.get(\"instance_methods\") else 1)'"
+try "module_function is left alone by promote" bash -c "$GO promote --unit util.rb '$WORK/rbmodulefn' 2>&1 | grep -q 'declares no instance methods'"
 try "promote writes two Ruby blocks in one file" bash -c "$GO promote --unit two.rb '$WORK/rbtwo' >/dev/null && [ \$(grep -c 'def self' '$WORK/rbtwo/two.rb') = 2 ] && ruby -c '$WORK/rbtwo/two.rb' >/dev/null"
 try "Ruby revert removes both blocks" bash -c "$GO promote --revert --unit two.rb '$WORK/rbtwo' >/dev/null && [ \$(grep -c 'def self' '$WORK/rbtwo/two.rb') = 0 ] && ruby -c '$WORK/rbtwo/two.rb' >/dev/null"
 try "promote --revert"          bash -c "$GO promote --revert --unit timer.rb '$WORK/promoted' && ! grep -q 'allocate.double' '$WORK/promoted/timer.rb'"
