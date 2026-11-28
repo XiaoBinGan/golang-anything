@@ -151,6 +151,13 @@ try "C# record"                  bash -c "cd '$WORK/csprom' && $GO record --unit
 try "C# bridge"                  bash -c "cd '$WORK/csprom' && $GO bridge go-ports/c-go"
 try "C# build"                   bash -c "cd '$WORK/csprom' && $GO build --fast go-ports/c-go"
 try "C# gate"                    bash -c "cd '$WORK/csprom' && $GO gate go-ports/c-go"
+# Two classes in one C# file: one proxy file each, and a revert that removes both. The Java case covers the JVM route;
+# this one holds the C# route to the same promise.
+mkdir -p "$WORK/cstwo"
+printf 'public class A\n{\n    public int Twice(int n) { return n * 2; }\n}\n\npublic class B\n{\n    public int Thrice(int n) { return n * 3; }\n}\n' > "$WORK/cstwo/Two.cs"
+printf 'module smoke-cstwo\n\ngo 1.24\n' > "$WORK/cstwo/go.mod"
+try "promote writes one C# proxy per owner" bash -c "$GO promote --unit Two.cs '$WORK/cstwo' >/dev/null && [ -f '$WORK/cstwo/APromoted.cs' ] && [ -f '$WORK/cstwo/BPromoted.cs' ]"
+try "C# revert removes every proxy of a unit" bash -c "$GO promote --revert --unit Two.cs '$WORK/cstwo' >/dev/null && [ ! -f '$WORK/cstwo/APromoted.cs' ] && [ ! -f '$WORK/cstwo/BPromoted.cs' ]"
 try "C# promote --revert"        bash -c "$GO promote --revert --unit Maths.cs '$WORK/csprom' && [ ! -f '$WORK/csprom/MathsPromoted.cs' ]"
 try "map"                       "$GO" map "$REPO"
 mkdir -p "$REPO/go-ports"
