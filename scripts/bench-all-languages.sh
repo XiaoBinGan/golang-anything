@@ -71,7 +71,13 @@ PYP
     out=$($G bench --json go-ports/m-go 2>"$W/$name.err") || { echo "FAIL $name: $(tail -1 "$W/$name.err")"; exit 1; }
     # A reading above the band PERF.md documents is a reason to measure again, not a verdict: the same commit measured
     # 2.10x and 1.72x an hour apart. The second reading is printed next to the first, and the verdict uses it.
-    rerun_above=${BENCH_RERUN_ABOVE:-2.10}
+    # Per language, because the documented bands differ: c reads 1.72–2.07 and cpp 1.72–2.10. One shared number let a
+    # c reading of 2.10 through unmeasured while it sat outside c's own band.
+    case "$name" in
+        c)   rerun_above=${BENCH_RERUN_ABOVE:-2.07} ;;
+        cpp) rerun_above=${BENCH_RERUN_ABOVE:-2.10} ;;
+        *)   rerun_above=${BENCH_RERUN_ABOVE:-2.10} ;;
+    esac
     read -r factor slower < <(printf '%s' "$out" | python3 -c "
 import json, sys
 d = json.load(sys.stdin)
