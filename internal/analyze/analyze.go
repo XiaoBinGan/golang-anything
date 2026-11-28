@@ -506,10 +506,11 @@ func notes(u Unit) []string {
 	}
 	if u.InstanceFree > 0 {
 		out = append(out, fmt.Sprintf("%d of them touch no state and could be promoted to a static entry point "+
-			"once the language has a shim; `promote` writes one for Ruby and PHP today", u.InstanceFree))
+			"once the language has a shim; `promote` writes one for Ruby, PHP, Java, Kotlin and C# today", u.InstanceFree))
 	}
 	if u.InstancePromotable > 0 {
-		out = append(out, fmt.Sprintf("%d of those live in a class, where `allocate` can supply the instance; "+
+		// `allocate` is Ruby's trick; the other four routes generate a proxy, so the note stays language-neutral.
+		out = append(out, fmt.Sprintf("%d of those live in a class, so a shim can supply the instance; "+
 			"the rest sit in a module, which cannot be instantiated", u.InstancePromotable))
 	}
 	if len(u.InternalDeps) > 0 {
