@@ -177,9 +177,11 @@
 - **measure both bridges head to head and report where we lose**
   - Built rust-anything 4.0.0 here, bridged the same unit with both tools, filled both ports and timed one call alternately in blocks so a load spike hits both sides. rust-anything's napi bridge answers in 0.073 us, ours in 0.294 us after the one-string fast path (no JSON, no malloc, quote written straight into the caller's buffer). The gap is structural: cgo costs 40-60 ns per call.
 
-## 三、能力（59 条）
+## 三、能力（60 条）
 
 功能与语言支持，每条都在提交里说明了如何验证：
+- **doctor says whether node can transform types, and the count rule follows**
+  - Stripping is not transforming: a parameter property needs `--experimental-transform-types`, and node 26 removed it. Two tests failed on that and read as code failures until the difference was found. `doctor` reports it now (`MISS node transforms types` on 26, `ok` on 22), and doccheck's rule 6 refused the ninth check until PARITY said 九项 and the script said nine.
 - **a companion member with @JvmStatic is an export, not a blocked one**
   - Blocking every companion member was right for `Owner.Companion.name(...)` and wrong for the annotated one: `@JvmStatic` is exactly the promise that `Owner.name(...)` works. `twice` is an export of `Timer` with its parameter; `thrice` stays blocked. `kotlinFn` builds it with the same reading the main walk uses, rather than a second copy that would drift.
 - **a Java `native` method is blocked with a reason, not offered as an export**
