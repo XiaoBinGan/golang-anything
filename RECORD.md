@@ -5,10 +5,12 @@
 两条规则由 `scripts/doccheck.sh` 守着：每节标题上的条数等于该节实际条数；每个标题都必须对应一个真实存在的提交。
 数字都在对应的文档里（[PERF.md](PERF.md)、[EVAL.md](EVAL.md)、[PARITY.md](PARITY.md)、[CONTRACT.md](CONTRACT.md)）。
 
-## 一、修掉的错误（59 条）
+## 一、修掉的错误（60 条）
 
 每一条都是**工具说了假话**或**产物不对**，被一次具体实验抓到：
 
+- **a unit whose every export is blocked scores readiness 0, not 100**
+  - `class Timer { companion object { fun twice(…) } }` showed `Readiness 100` for a file with nothing the bridge can carry: the score knew about risks and size and nothing about carryability. Such a unit scores 0 now; a normal unit is unchanged (one plain export still 100).
 - **the sweep's re-run threshold is per language, because the documented bands differ**
   - One shared 2.10 let a c reading of 2.10 through unmeasured while c's documented band is 1.72–2.07. c keeps 2.07, cpp 2.10, and the next sweep showed the branch working: `cpp read 2.13x, above the 2.10 band — measuring again`, second reading 1.61x.
 - **control 27 kept grepping the promote wording I changed last round**
