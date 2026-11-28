@@ -469,6 +469,23 @@ grep -q 'cannot be built without arguments' /tmp/negative-ktctor/promote.err ||
 cd "$ROOT"
 rm -rf /tmp/negative-ktctor
 
+# 35. `@JvmStatic` is the difference between an export and a blocked member: blocking every companion member was the
+#     first version, and it hid a function that really is callable as `Owner.name(...)`.
+mkdir -p /tmp/negative-jvmstatic && cd /tmp/negative-jvmstatic
+printf 'class Timer {\n    companion object {\n        @JvmStatic\n        fun twice(n: Int): Int = n * 2\n\n        fun thrice(n: Int): Int = n * 3\n    }\n}\n' > Timer.kt
+printf 'module negjvmstatic\n\ngo 1.24\n' > go.mod
+before=$failures
+"$GO" analyze --json . >/tmp/negative-jvmstatic/out.json 2>/dev/null
+python3 -c "
+import json, sys
+d = json.load(open('/tmp/negative-jvmstatic/out.json'))
+m = {x['name']: (x.get('receiver'), x.get('blocked')) for u in d['units'] for x in u['exports']}
+sys.exit(0 if m.get('twice') == ('Timer', None) and m.get('thrice', (None, ''))[1] else 1)
+" || { printf 'FAIL  the annotated member is not an export of its class, or the plain one is not blocked\n'; failures=$((failures + 1)); }
+[ "$failures" -eq "$before" ] && printf 'ok    @JvmStatic decides export versus blocked, and nothing else does\n'
+cd "$ROOT"
+rm -rf /tmp/negative-jvmstatic
+
 # 14. perf: no rig, no numbers.
 RUST_ANYTHING=/nonexistent ./scripts/perf.sh >/dev/null 2>&1
 expect_fail "perf refuses a missing rig" $?
