@@ -254,6 +254,13 @@ printf 'public final class T {\n    public int double(int n) { return n * 2; }\n
 # not dropped. Until this existed the plan said the file held nothing.
 mkdir -p "$WORK/companion"
 printf 'class Timer {\n    companion object {\n        fun twice(n: Int): Int = n * 2\n    }\n}\n' > "$WORK/companion/Timer.kt"
+# "Implemented elsewhere" is a blocked export, not something the bridge tries to call: Java `native`, Kotlin
+# `external fun`, C# `extern`. One fixture per spelling, in one case.
+mkdir -p "$WORK/blocked"
+printf 'public final class N {\n    public static native int square(int n);\n\n    public static int twice(int n) { return n * 2; }\n}\n' > "$WORK/blocked/N.java"
+printf 'external fun square(n: Int): Int\n\nfun twice(n: Int): Int = n * 2\n' > "$WORK/blocked/M.kt"
+printf 'public static class E {\n    public static extern int Square(int n);\n\n    public static int Twice(int n) { return n * 2; }\n}\n' > "$WORK/blocked/E.cs"
+try "analyze blocks the three implemented-elsewhere spellings" bash -c "$GO analyze --json '$WORK/blocked' | python3 -c 'import json,sys; d=json.load(sys.stdin); b=[x for u in d[\"units\"] for x in u[\"exports\"] if x.get(\"blocked\")]; sys.exit(0 if len(b)==3 else 1)'"
 try "analyze blocks a companion member with a reason" bash -c "$GO analyze --json '$WORK/companion' | python3 -c 'import json,sys; d=json.load(sys.stdin); e=[x for u in d[\"units\"] for x in u[\"exports\"] if x[\"name\"]==\"twice\"]; sys.exit(0 if e and \"companion object\" in e[0].get(\"blocked\",\"\") else 1)'"
 try "the plan counts a blocked-only unit apart" bash -c "$GO analyze '$WORK/companion' | grep -q '1 with only blocked exports'"
 try "analyze counts instance methods" bash -c "$GO analyze --json '$WORK/instcount' | python3 -c 'import json,sys; d=json.load(sys.stdin); want={\"M.kt\":(2,1),\"T.java\":(1,1)}; got={u[\"id\"]:(u.get(\"instance_methods\",0),u.get(\"instance_free\",0)) for u in d[\"units\"]}; sys.exit(0 if got==want else 1)'"
