@@ -175,9 +175,11 @@
 - **measure both bridges head to head and report where we lose**
   - Built rust-anything 4.0.0 here, bridged the same unit with both tools, filled both ports and timed one call alternately in blocks so a load spike hits both sides. rust-anything's napi bridge answers in 0.073 us, ours in 0.294 us after the one-string fast path (no JSON, no malloc, quote written straight into the caller's buffer). The gap is structural: cgo costs 40-60 ns per call.
 
-## 三、能力（58 条）
+## 三、能力（59 条）
 
 功能与语言支持，每条都在提交里说明了如何验证：
+- **a companion member with @JvmStatic is an export, not a blocked one**
+  - Blocking every companion member was right for `Owner.Companion.name(...)` and wrong for the annotated one: `@JvmStatic` is exactly the promise that `Owner.name(...)` works. `twice` is an export of `Timer` with its parameter; `thrice` stays blocked. `kotlinFn` builds it with the same reading the main walk uses, rather than a second copy that would drift.
 - **a Java `native` method is blocked with a reason, not offered as an export**
   - `public static native int square(int n);` was listed like any other export, and a recording of it answers `UnsatisfiedLinkError`. It is a blocked export now; the other methods in the file are offered as before.
 - **a Kotlin `external fun` is blocked for the same reason Java's `native` is**
@@ -297,9 +299,11 @@
 - **bench, map, clean, doctor, check, and the in-process bridge**
   - bench times both sides the same way; map writes PORT-MAP.md; clean and doctor round out the day-to-day commands. The fast bridge is a c-shared library plus a hand-written N-API addon: 0.73 us per call against rust-anything's ~1 us, and 16x faster than the stdio process.
 
-## 四、让检查本身可信（41 条）
+## 四、让检查本身可信（42 条）
 
 负向对照与冒烟测试——这些不增加功能，只增加「结论可信」：
+- **smoke carries the @JvmStatic companion member through record and gate**
+  - Eligible on paper is not working: the export belongs to a companion object, so the recorder must emit `Timer.twice(...)`, valid only because of the annotation, and the port must multiply in int32. record answers 17 cases, gate says every case matches. 118 passed, 0 failed.
 - **smoke covers the three implemented-elsewhere spellings in one case**
   - Java `native`, Kotlin `external fun` and C# `extern` each had a unit test and no end-to-end check that `analyze --json` reports them blocked. One case, one fixture per spelling, asserting exactly three exports carry a reason — one spelling regressing would leave two. 115 passed, 0 failed.
 - **smoke holds both halves of the companion-object answer**
