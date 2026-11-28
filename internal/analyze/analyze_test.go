@@ -245,3 +245,21 @@ func TestInstanceMethodCountsReachThePlan(t *testing.T) {
 		t.Errorf("timer.php notes do not explain the counts: %q", joined)
 	}
 }
+
+// A unit whose exports all carry a blocked reason has nothing the bridge can carry, whatever its size: readiness 100 on
+// such a file is a promise it cannot keep. A normal unit keeps its score.
+func TestReadinessIsZeroWhenEveryExportIsBlocked(t *testing.T) {
+	blocked := Unit{Loc: 5, Exports: []Export{
+		{Name: "twice", Blocked: "sits in a companion object"},
+	}}
+	if readiness, _, _ := score(blocked); readiness != 0 {
+		t.Errorf("readiness=%d for a blocked-only unit, want 0", readiness)
+	}
+	mixed := Unit{Loc: 5, Exports: []Export{
+		{Name: "twice", Blocked: "sits in a companion object"},
+		{Name: "thrice"},
+	}}
+	if readiness, _, _ := score(mixed); readiness == 0 {
+		t.Errorf("readiness=0 for a unit with one carryable export")
+	}
+}
