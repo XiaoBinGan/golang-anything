@@ -582,6 +582,10 @@ MISS go builds a program  go: cannot find GOROOT directory: /nonexistent
      fix: the go binary and its GOROOT disagree: set GOROOT to the installation the binary came from
 ```
 
+`MISS` 是**环境提示**，不是工具坏了：每行都带修复命令，`doctor` 因此以非零退出，好让 CI 拦住。本机就会有一条——
+`node transforms types`：node 26 只剥离类型、移除了 `--experimental-transform-types`，而带 parameter property 的单元
+需要它（`check`/`record` 会报 `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`）。换 node 24 或更旧即可，`make check` 不受影响。
+
 ## 一条命令验证全部主张
 
 ```sh
