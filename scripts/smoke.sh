@@ -70,6 +70,7 @@ printf 'module Util\n  module_function\n\n  def helper(n)\n    n * 2\n  end\nend
 mkdir -p "$WORK/broken"
 printf 'def ok(n):\n    return n * 2\n\ndef bad(:\n    pass\n' > "$WORK/broken/m.py"
 try "a file that does not parse is flagged" bash -c "$GO analyze '$WORK/broken' | grep -q 'parse errors: results for this unit are partial'"
+try "an export inside the parse error is blocked" bash -c "$GO analyze --json '$WORK/broken' | python3 -c 'import json,sys; u=json.load(sys.stdin)[\"units\"][0]; m={e[\"name\"]:e.get(\"blocked\",\"\") for e in u[\"exports\"]}; sys.exit(0 if not m.get(\"ok\") and m.get(\"bad\") else 1)'"
 try "the parse-error flag reaches --json" bash -c "$GO analyze --json '$WORK/broken' | python3 -c 'import json,sys; u=json.load(sys.stdin)[\"units\"][0]; sys.exit(0 if u.get(\"parse_errors\") else 1)'"
 try "module_function is an export, not an instance method" bash -c "$GO analyze --json '$WORK/rbmodulefn' | python3 -c 'import json,sys; d=json.load(sys.stdin); u=d[\"units\"][0]; e=[x for x in u[\"exports\"] if x[\"name\"]==\"helper\"]; sys.exit(0 if e and e[0].get(\"receiver\")==\"Util\" and not u.get(\"instance_methods\") else 1)'"
 try "module_function is left alone by promote" bash -c "$GO promote --unit util.rb '$WORK/rbmodulefn' 2>&1 | grep -q 'declares no instance methods'"
