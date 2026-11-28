@@ -175,9 +175,15 @@
 - **measure both bridges head to head and report where we lose**
   - Built rust-anything 4.0.0 here, bridged the same unit with both tools, filled both ports and timed one call alternately in blocks so a load spike hits both sides. rust-anything's napi bridge answers in 0.073 us, ours in 0.294 us after the one-string fast path (no JSON, no malloc, quote written straight into the caller's buffer). The gap is structural: cgo costs 40-60 ns per call.
 
-## 三、能力（55 条）
+## 三、能力（58 条）
 
 功能与语言支持，每条都在提交里说明了如何验证：
+- **a Java `native` method is blocked with a reason, not offered as an export**
+  - `public static native int square(int n);` was listed like any other export, and a recording of it answers `UnsatisfiedLinkError`. It is a blocked export now; the other methods in the file are offered as before.
+- **a Kotlin `external fun` is blocked for the same reason Java's `native` is**
+  - `external fun square(n: Int): Int` is implemented outside the crate too (a JNI binding). The C# spelling was left open in that commit because the patch had landed in the wrong branch, which the next commit says.
+- **C# `extern` is blocked too, which finishes the third spelling**
+  - The patch had gone to the wrong `method_declaration` tail — the file has three — so the modifier never reached the branch. With it in the C# branch, all three spellings of "implemented elsewhere" carry a reason: Java `native`, Kotlin `external fun`, C# `extern`.
 - **a Kotlin companion object's functions are listed as blocked, not dropped**
   - `class Timer { companion object { fun twice(…) } }` produced "0 units with something a bridge can carry" — as if the file held nothing. It holds a function callable as `Timer.twice(...)` only with `@JvmStatic` and as `Timer.Companion.twice(...)` otherwise, so it is a blocked export with that reason; `ts.Fn` carries the sentence and `analyze` prefers it over its own guesses.
 - **Java says which methods a proxy could reach, and only when `new Owner()` compiles**
