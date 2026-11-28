@@ -1094,10 +1094,17 @@ func typedExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int,
 							if name == "" {
 								continue
 							}
-							out = append(out, Fn{Name: name, Line: int(fn.StartPoint().Row) + 1,
-								EndLine: int(fn.EndPoint().Row) + 1, Params: []Param{},
-								Blocked: "sits in a companion object: it is callable as Owner.name(...) only with " +
-									"@JvmStatic, and the port would have to pick one spelling"})
+							entry := kotlinFn(fn, "", text)
+							if strings.Contains(text(fn), "@JvmStatic") {
+								// With @JvmStatic the function IS callable as `Owner.name(...)`: a real export, not a
+								// blocked one. Without it the JVM entry is `Owner.Companion.name(...)`.
+								entry.Method = true
+								entry.Receiver = className
+							} else {
+								entry.Blocked = "sits in a companion object: it is callable as Owner.name(...) only " +
+									"with @JvmStatic, and the port would have to pick one spelling"
+							}
+							out = append(out, entry)
 						}
 					}
 				}
@@ -1251,6 +1258,41 @@ func kotlinHasNoArgCtor(class *sitter.Node) bool {
 		}
 	}
 	return !sawSecondary
+}
+
+// kotlinFn builds an Fn for a function found outside the main walk's code path, reading the same fields the walk does.
+func kotlinFn(fn *sitter.Node, className string, text func(*sitter.Node) string) Fn {
+	out := Fn{Name: kotlinName(fn, text), Line: int(fn.StartPoint().Row) + 1,
+		EndLine: int(fn.EndPoint().Row) + 1, Params: []Param{}}
+	if className != "" {
+		out.Method = true
+		out.Receiver = className
+	}
+	if typ := kotlinField(fn, text, "user_type", "nullable_type"); typ != "" {
+		out.Returns = ktDialect(typ)
+	}
+	if params := kotlinParams(fn); params != nil {
+		for i := 0; i < int(params.NamedChildCount()); i++ {
+			p := params.NamedChild(i)
+			if p.Type() != "parameter" {
+				continue
+			}
+			name, typ := "", "any"
+			for k := 0; k < int(p.NamedChildCount()); k++ {
+				c := p.NamedChild(k)
+				switch c.Type() {
+				case "simple_identifier":
+					if name == "" {
+						name = text(c)
+					}
+				case "user_type", "nullable_type":
+					typ = ktDialect(text(c))
+				}
+			}
+			out.Params = append(out.Params, Param{Name: name, Type: typ})
+		}
+	}
+	return out
 }
 
 // kotlinClassHasProps reports whether a Kotlin class body declares a property: a `val`/`var` inside the body, or a

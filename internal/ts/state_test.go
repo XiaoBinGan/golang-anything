@@ -465,3 +465,34 @@ func TestCSharpExternMethodsAreBlocked(t *testing.T) {
 		t.Errorf("blocked=%d offerable=%d, want 1/1", blocked, offerable)
 	}
 }
+
+// A companion member annotated `@JvmStatic` really is callable as `Owner.name(...)`, so it is an export; the one without
+// the annotation stays blocked, because its JVM entry is `Owner.Companion.name(...)`.
+func TestKotlinCompanionJvmStaticIsAnExport(t *testing.T) {
+	src := []byte(`class Timer {
+    companion object {
+        @JvmStatic
+        fun twice(n: Int): Int = n * 2
+
+        fun thrice(n: Int): Int = n * 3
+    }
+}
+`)
+	file, err := ParseSource(src, Kotlin, "Timer.kt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, fn := range file.Fns {
+		switch fn.Name {
+		case "twice":
+			if fn.Blocked != "" || fn.Receiver != "Timer" || len(fn.Params) != 1 {
+				t.Errorf("twice: blocked=%q receiver=%q params=%d, want an export of Timer with one parameter",
+					fn.Blocked, fn.Receiver, len(fn.Params))
+			}
+		case "thrice":
+			if fn.Blocked == "" {
+				t.Errorf("thrice is offered without @JvmStatic")
+			}
+		}
+	}
+}
