@@ -305,9 +305,11 @@
 - **bench, map, clean, doctor, check, and the in-process bridge**
   - bench times both sides the same way; map writes PORT-MAP.md; clean and doctor round out the day-to-day commands. The fast bridge is a c-shared library plus a hand-written N-API addon: 0.73 us per call against rust-anything's ~1 us, and 16x faster than the stdio process.
 
-## 四、让检查本身可信（45 条）
+## 四、让检查本身可信（46 条）
 
 负向对照与冒烟测试——这些不增加功能，只增加「结论可信」：
+- **smoke holds promote's two refusal paths**
+  - A unit that is not there (`no folder above . holds Missing.java`) and no unit at all before a manifest exists (`pass --unit …`) both exit 1 with a sentence saying which. Neither was asserted; both are now. 122 passed, 0 failed.
 - **smoke covers a Java unit with two owners**
   - Every Java case had one class. Two classes in one file mean two proxy files and a revert that must find both — neither of which a single-owner file exercises. 120 passed, 0 failed.
 - **the readiness rule gets a test, not only two fixtures**
