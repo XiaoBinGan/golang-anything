@@ -179,9 +179,15 @@
 - **measure both bridges head to head and report where we lose**
   - Built rust-anything 4.0.0 here, bridged the same unit with both tools, filled both ports and timed one call alternately in blocks so a load spike hits both sides. rust-anything's napi bridge answers in 0.073 us, ours in 0.294 us after the one-string fast path (no JSON, no malloc, quote written straight into the caller's buffer). The gap is structural: cgo costs 40-60 ns per call.
 
-## 三、能力（60 条）
+## 三、能力（63 条）
 
 功能与语言支持，每条都在提交里说明了如何验证：
+- **a Python function inside a parse error is blocked per node, not per file**
+  - `def bad(:` still produces a function node, so `bad` was offered with a signature the parser guessed at, and the whole-file "partial" warning was the only thing in the way. The test is `n.HasError()` on the function's own subtree, so the intact function beside it stays offerable.
+- **the parse-error block reaches Ruby, Go, Java and PHP too**
+  - The helper was Python's; wired into `rbFn`, the Go reader, Java's static methods and PHP's. Ruby's `def bad2(` produces no node at all, so there is nothing to block — worth knowing before expecting a Ruby fixture to fail.
+- **the parse-error block reaches Kotlin and C# as well**
+  - Six call sites for one rule, all through `blockOnParseError`, which only fills `Blocked` when it is still empty so a more specific reason (a companion object, `native`, `extern`) wins.
 - **doctor says whether node can transform types, and the count rule follows**
   - Stripping is not transforming: a parameter property needs `--experimental-transform-types`, and node 26 removed it. Two tests failed on that and read as code failures until the difference was found. `doctor` reports it now (`MISS node transforms types` on 26, `ok` on 22), and doccheck's rule 6 refused the ninth check until PARITY said 九项 and the script said nine.
 - **a companion member with @JvmStatic is an export, not a blocked one**
