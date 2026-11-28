@@ -305,9 +305,11 @@
 - **bench, map, clean, doctor, check, and the in-process bridge**
   - bench times both sides the same way; map writes PORT-MAP.md; clean and doctor round out the day-to-day commands. The fast bridge is a c-shared library plus a hand-written N-API addon: 0.73 us per call against rust-anything's ~1 us, and 16x faster than the stdio process.
 
-## 四、让检查本身可信（46 条）
+## 四、让检查本身可信（47 条）
 
 负向对照与冒烟测试——这些不增加功能，只增加「结论可信」：
+- **doccheck holds `make check` to running vet**
+  - Dropping `vet` from the `check:` line would leave CONTRIBUTING promising a check nothing performs, and nothing would notice. Rule 9 asserts the target exists and the line names it; removing it from the line turns doccheck red.
 - **smoke holds promote's two refusal paths**
   - A unit that is not there (`no folder above . holds Missing.java`) and no unit at all before a manifest exists (`pass --unit …`) both exit 1 with a sentence saying which. Neither was asserted; both are now. 122 passed, 0 failed.
 - **smoke covers a Java unit with two owners**
