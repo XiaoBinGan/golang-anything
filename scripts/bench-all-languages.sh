@@ -69,6 +69,27 @@ PYP
     # stdout only: bench writes `sink=…` to stderr, and merging the two turned the JSON into a parse error
     # for five of the nine languages on the first try.
     out=$($G bench --json go-ports/m-go 2>"$W/$name.err") || { echo "FAIL $name: $(tail -1 "$W/$name.err")"; exit 1; }
+    # A reading above the band PERF.md documents is a reason to measure again, not a verdict: the same commit measured
+    # 2.10x and 1.72x an hour apart. The second reading is printed next to the first, and the verdict uses it.
+    rerun_above=${BENCH_RERUN_ABOVE:-2.10}
+    read -r factor slower < <(printf '%s' "$out" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+x = d['speedup']
+print('%.4f' % (x if x >= 1 else 1 / x), 'no' if x >= 1 else 'yes')
+")
+    if [ "$slower" = yes ] && python3 -c "import sys; sys.exit(0 if $factor > $rerun_above else 1)"; then
+        printf 'note  %s: %.2fx slower, above the %.2fx band — measuring again\n' "$name" "$factor" "$rerun_above"
+        second=$($G bench --json go-ports/m-go 2>>"$W/$name.err") || { echo "FAIL $name: $(tail -1 "$W/$name.err")"; exit 1; }
+        second_factor=$(printf '%s' "$second" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+x = d['speedup']
+print('%.4f' % (x if x >= 1 else 1 / x))
+")
+        printf 'note  %s: second reading %.2fx slower\n' "$name" "$second_factor"
+        out=$second
+    fi
     printf '%s' "$out" | python3 -c "
 import json, sys
 d = json.load(sys.stdin)
