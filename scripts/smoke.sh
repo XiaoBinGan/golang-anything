@@ -107,6 +107,10 @@ printf 'public final class A {\n    public int twice(int n) { return n * 2; }\n}
 printf 'module smoke-javatwo\n\ngo 1.24\n' > "$WORK/javatwo/go.mod"
 try "promote writes one Java proxy per owner" bash -c "$GO promote --unit Two.java '$WORK/javatwo' >/dev/null && [ -f '$WORK/javatwo/APromoted.java' ] && [ -f '$WORK/javatwo/BPromoted.java' ]"
 try "Java revert removes every proxy of a unit" bash -c "$GO promote --revert --unit Two.java '$WORK/javatwo' >/dev/null && [ ! -f '$WORK/javatwo/APromoted.java' ] && [ ! -f '$WORK/javatwo/BPromoted.java' ]"
+# Two ways to ask for the wrong thing, both of which used to be silent: a unit that is not there, and no unit at all
+# before a manifest exists. Each has to fail and say which.
+try "promote fails on a unit that is not there" bash -c "! $GO promote --unit Missing.java '$WORK/javatwo' 2>/dev/null"
+try "promote asks for --unit before a manifest exists" bash -c "cd '$WORK/javatwo' && ! $GO promote . 2>/dev/null"
 try "Java promote --revert"      bash -c "$GO promote --revert --unit Maths.java '$WORK/javaprom' && [ ! -f '$WORK/javaprom/MathsPromoted.java' ]"
 # Kotlin: the proxy is a singleton object, and recording it needs the class beside it — the recorder compiles every .kt
 # in the folder, and calls `TimerPromoted.doubled(...)` from the plan's path.
