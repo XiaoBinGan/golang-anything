@@ -305,9 +305,13 @@
 - **bench, map, clean, doctor, check, and the in-process bridge**
   - bench times both sides the same way; map writes PORT-MAP.md; clean and doctor round out the day-to-day commands. The fast bridge is a c-shared library plus a hand-written N-API addon: 0.73 us per call against rust-anything's ~1 us, and 16x faster than the stdio process.
 
-## 四、让检查本身可信（48 条）
+## 四、让检查本身可信（50 条）
 
 负向对照与冒烟测试——这些不增加功能，只增加「结论可信」：
+- **smoke covers two C# classes in one file**
+  - Java and PHP had the two-owner case and C# did not: one proxy file each, both written, both removed by a revert.
+- **smoke covers two Kotlin classes in one file**
+  - Kotlin finishes the set — one proxy each, both compile beside the unit, both removed. With Java, PHP and C#, every proxy language now has the two-owner case; Ruby reopens the class in place and has no proxy file to multiply.
 - **smoke covers two PHP classes in one file**
   - Both proxies land in the shared `promoted.php` (the second insert appends without a second `<?php`), the file still parses, and a revert removes both. Java had the two-owner case; PHP's is a different path. 124 passed, 0 failed. The first version of the case compared `$(grep -c …)` computed by the outer shell before the file existed.
 - **doccheck holds `make check` to running vet**
