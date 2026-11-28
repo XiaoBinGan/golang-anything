@@ -5,10 +5,12 @@
 两条规则由 `scripts/doccheck.sh` 守着：每节标题上的条数等于该节实际条数；每个标题都必须对应一个真实存在的提交。
 数字都在对应的文档里（[PERF.md](PERF.md)、[EVAL.md](EVAL.md)、[PARITY.md](PARITY.md)、[CONTRACT.md](CONTRACT.md)）。
 
-## 一、修掉的错误（57 条）
+## 一、修掉的错误（58 条）
 
 每一条都是**工具说了假话**或**产物不对**，被一次具体实验抓到：
 
+- **control 27 kept grepping the promote wording I changed last round**
+  - `make negative` went red on a green tree: control 27 asserts a TypeScript unit is refused *and* that the refusal says why, and the sentence it grepped was the one the previous commit replaced. The control did its job; the pairing was the thing that broke.
 - **a Kotlin secondary constructor is a constructor, and the refusal names both causes**
   - `kotlinHasNoArgCtor` looked for a `primary_constructor` among the class's own children; a class that declares only a secondary one keeps it in the class body, so the parse saw no constructor and answered "no arguments". `promote` wrote `Timer()` and kotlinc said `no value passed for parameter 'unit'`. Parameters are `function_value_parameters` (a child, not the `parameters` field), and the refusal now names both shapes it covers: a module, and a class whose constructors all take arguments.
 - **a Kotlin object's members are not instance methods, and promoting one wrote `Timer()`**
@@ -171,9 +173,11 @@
 - **measure both bridges head to head and report where we lose**
   - Built rust-anything 4.0.0 here, bridged the same unit with both tools, filled both ports and timed one call alternately in blocks so a load spike hits both sides. rust-anything's napi bridge answers in 0.073 us, ours in 0.294 us after the one-string fast path (no JSON, no malloc, quote written straight into the caller's buffer). The gap is structural: cgo costs 40-60 ns per call.
 
-## 三、能力（53 条）
+## 三、能力（54 条）
 
 功能与语言支持，每条都在提交里说明了如何验证：
+- **Java says which methods a proxy could reach, and only when `new Owner()` compiles**
+  - `InstancePromotable` was Ruby's and PHP's number; for Java the plan reported counts and stopped. It reports this one now, with the two conditions a proxy depends on: no instance fields, and a no-arg constructor (Java supplies an implicit one only when the class declares none). `javaReturns` also learned the primitive node types, or a method came out with an empty return type.
 - **the promote refusal lists all five routes and what a sixth would need**
   - The message said "Ruby reopens the class and PHP gets a proxy class, and no other language is written yet" — true for two rounds, wrong once Java, Kotlin and C# had routes. It now names the five and says what the next language needs: its own renderer, a recorder that calls the plan's path, and a compiler check in smoke — the four steps this work actually walked.
 - **the empty-case refusal says why nothing was found**
@@ -283,9 +287,17 @@
 - **bench, map, clean, doctor, check, and the in-process bridge**
   - bench times both sides the same way; map writes PORT-MAP.md; clean and doctor round out the day-to-day commands. The fast bridge is a c-shared library plus a hand-written N-API addon: 0.73 us per call against rust-anything's ~1 us, and 16x faster than the stdio process.
 
-## 四、让检查本身可信（35 条）
+## 四、让检查本身可信（39 条）
 
 负向对照与冒烟测试——这些不增加功能，只增加「结论可信」：
+- **doccheck notices a control that greps a sentence the tool no longer says**
+  - Every plain `grep -q '<text>'` in negative.sh must now exist in the Go sources. `if grep -q …` is an assertion that something is absent (skipped), documents are excluded (a doc quoting an old message would make a stale control look alive), and a message assembled from parts is listed by name with its reason. Restoring the stale wording turns doccheck red, which is how it was checked.
+- **control 33 covers Kotlin and C# as well as Java**
+  - The state rule belongs to every proxy language. The Kotlin fixture is a body property, not a constructor parameter — a parameter is refused by the no-arg rule anyway, and a control that cannot fail is decoration. Both halves were shown red by their own edits.
+- **smoke runs the C# promote chain through record and gate**
+  - Seven cases, the same shape as Java and Kotlin, with a port that multiplies in int32. The record case is the one that caught both C# gaps: the project without its sibling class, and the 32-bit int.
+- **smoke runs the Kotlin promote chain through record and gate**
+  - Seven cases: the proxy is an `object`, `kotlinc` accepts it with the class beside it, and record → bridge → build → gate close. The record case is the one that caught both Kotlin recorder bugs — the unit compiled alone, and the call used the export name instead of the plan's path.
 - **the sweep measures an out-of-band row again instead of reporting it as a result**
   - The rule was in PERF.md and the script did not follow it: one run read c 2.10x / cpp 2.20x, a run an hour later read 1.72x / 2.07x on the same commit. A row slower than the documented band is now re-measured, both readings printed, and the verdict uses the second — the threshold is overridable (`BENCH_RERUN_ABOVE`), which is how the branch was exercised without waiting for a bad day.
 - **control 34 keeps promote away from a Kotlin constructor that wants an argument**
