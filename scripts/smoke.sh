@@ -58,6 +58,12 @@ if (
     "$GO" build --fast go-ports/timer-go &&
     "$GO" gate go-ports/timer-go
 ) >"$WORK/promote.log" 2>&1; then ok "promote → record → gate"; else bad "promote → record → gate" "$(tail -1 "$WORK/promote.log" | cut -c1-70)"; fi
+# Ruby reopens in place, so two classes mean two blocks in the same file — the route that does not create a second file.
+mkdir -p "$WORK/rbtwo"
+printf 'class A\n  def twice(n)\n    n * 2\n  end\nend\n\nclass B\n  def thrice(n)\n    n * 3\n  end\nend\n' > "$WORK/rbtwo/two.rb"
+printf 'module smoke-rbtwo\n\ngo 1.24\n' > "$WORK/rbtwo/go.mod"
+try "promote writes two Ruby blocks in one file" bash -c "$GO promote --unit two.rb '$WORK/rbtwo' >/dev/null && [ \$(grep -c 'def self' '$WORK/rbtwo/two.rb') = 2 ] && ruby -c '$WORK/rbtwo/two.rb' >/dev/null"
+try "Ruby revert removes both blocks" bash -c "$GO promote --revert --unit two.rb '$WORK/rbtwo' >/dev/null && [ \$(grep -c 'def self' '$WORK/rbtwo/two.rb') = 0 ] && ruby -c '$WORK/rbtwo/two.rb' >/dev/null"
 try "promote --revert"          bash -c "$GO promote --revert --unit timer.rb '$WORK/promoted' && ! grep -q 'allocate.double' '$WORK/promoted/timer.rb'"
 # PHP cannot reopen a class, so its route is a proxy class in its own file — and the point of the file is that
 # `analyze` then finds the method as an export of its own.
