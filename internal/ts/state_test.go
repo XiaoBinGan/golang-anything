@@ -383,3 +383,32 @@ func TestCSharpConstructorWithArgumentsBlocksPromotion(t *testing.T) {
 		t.Errorf("InstancePromotable=%d, want 1: `new Maths()` compiles", file.InstancePromotable)
 	}
 }
+
+// A `native` method has no body in the crate: the JVM links it at run time, so recording one answers
+// UnsatisfiedLinkError. It is a blocked export with that reason, not an export the bridge will try to call.
+func TestJavaNativeMethodsAreBlocked(t *testing.T) {
+	src := []byte(`public final class Native {
+    public static native int square(int n);
+
+    public static int twice(int n) { return n * 2; }
+}
+`)
+	file, err := ParseSource(src, Java, "Native.java")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var blocked, offerable int
+	for _, fn := range file.Fns {
+		if fn.Blocked != "" {
+			blocked++
+			if fn.Name != "square" {
+				t.Errorf("%s is blocked, want square", fn.Name)
+			}
+		} else {
+			offerable++
+		}
+	}
+	if blocked != 1 || offerable != 1 {
+		t.Errorf("blocked=%d offerable=%d, want 1/1", blocked, offerable)
+	}
+}

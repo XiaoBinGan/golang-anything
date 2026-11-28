@@ -577,6 +577,11 @@ func javaExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int, 
 				fn := Fn{Name: name, Returns: javaReturns(child, text), Method: true, Receiver: className,
 					Line: int(child.StartPoint().Row) + 1, EndLine: int(child.EndPoint().Row) + 1,
 					Params: javaParams(child, text)}
+				if strings.Contains(mods, "native") {
+					// A `native` method has no body in the crate: the JVM links it at run time. Recording one answers
+					// UnsatisfiedLinkError, so it is listed with that reason instead of offered as an export.
+					fn.Blocked = "is native: its implementation is not in this file, so there is nothing to record"
+				}
 				walkRaises(child, func(line int) { fn.ThrowLines = append(fn.ThrowLines, line) })
 				out = append(out, fn)
 			}
