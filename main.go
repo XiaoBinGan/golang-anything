@@ -1081,7 +1081,8 @@ func runCheck(args []string) error {
 	return nil
 }
 
-// runPromote writes the Ruby shim that makes a state-free instance method callable as Owner.name(...).
+// runPromote writes the shim that makes a state-free instance method callable: Ruby reopens the class in place, the other
+// four languages get a proxy file, and each is checked by that language's compiler in smoke.
 //
 // Nothing is invented: the methods come from the same parse `analyze` reports, and only the ones it calls
 // promotable — a class, and a body that reads no state. A module's methods are never offered because a module

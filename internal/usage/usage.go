@@ -23,7 +23,7 @@ const Text = `golang-anything: port a codebase into Go, one unit at a time.
   golang-anything check    <crate>                   replay the cases through the host wrapper (addon or stdio)
   golang-anything enable   <crate> [--only a,b] [--async]   make the original call the port
   golang-anything disable  <crate>                   take that block out again, byte for byte
-  golang-anything promote  <crate> [--unit f] [--revert]   Ruby shim: a state-free instance method as Owner.name
+  golang-anything promote  <crate> [--unit f] [--revert]   a state-free instance method as a callable entry point (5 languages)
   golang-anything shadow   <crate>                   write shadow.cjs: original and port side by side
   golang-anything shadow-report <crate>              summarize what shadow.cjs has seen
   golang-anything fuzz     <crate> [--count N] [--seed S] [--keep]   fresh inputs from a new seed, both sides

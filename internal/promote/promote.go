@@ -1,4 +1,5 @@
-// Package promote writes the Ruby shim that turns a state-free instance method into a module function.
+// Package promote writes the shim that turns a state-free instance method into a callable entry point: Ruby reopens the
+// class, PHP/Java/Kotlin/C# get a generated proxy in a file of its own.
 //
 // A method that touches no state is still not callable as `Owner.name(...)`: the bridge has no instance. The
 // shim supplies one with `allocate`, which skips `initialize` — safe precisely because the method reads nothing
