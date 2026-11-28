@@ -305,9 +305,11 @@
 - **bench, map, clean, doctor, check, and the in-process bridge**
   - bench times both sides the same way; map writes PORT-MAP.md; clean and doctor round out the day-to-day commands. The fast bridge is a c-shared library plus a hand-written N-API addon: 0.73 us per call against rust-anything's ~1 us, and 16x faster than the stdio process.
 
-## 四、让检查本身可信（52 条）
+## 四、让检查本身可信（53 条）
 
 负向对照与冒烟测试——这些不增加功能，只增加「结论可信」：
+- **smoke holds the parse-error flag, in the plan and in --json**
+  - A file with a syntax error still yields an export list, and the warning is the only thing between that and a wrong port. `analyze` prints "parse errors: results for this unit are partial" and `--json` carries `parse_errors: true`; both are asserted now. 135 passed, 0 failed.
 - **smoke holds what `module_function` means for analyze and promote**
   - `module_function` makes a module method callable as `Util.helper(...)` already, so the parser has to list it as an export rather than as an instance method — otherwise `promote` would try to reopen a module, which is a route that cannot work. `record` on the same fixture answers 28 cases, so the export carries real work. 133 passed, 0 failed.
 - **smoke covers two Ruby classes in one file**
