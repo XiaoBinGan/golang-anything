@@ -726,6 +726,17 @@ func runDoctor(args []string) error {
 			Fix:  "record adds --experimental-strip-types itself on older Node",
 		})
 	}
+	// Stripping is not transforming: a unit with a parameter property (`constructor(readonly reason: unknown)`) needs
+	// --experimental-transform-types, and node 26 removed it. Saying so here beats a SyntaxError in the middle of a
+	// recording, which is what it looked like for two rounds.
+	{
+		canTransform := exec.Command("node", "--experimental-transform-types", "-e", "").Run() == nil
+		c := check{Name: "node transforms types", OK: canTransform, Note: "parameter properties"}
+		if !canTransform {
+			c.Fix = "node 24 or older: newer node strips types only, so a unit with a parameter property cannot be recorded"
+		}
+		checks = append(checks, c)
+	}
 	// A GOROOT that does not match the `go` binary compiles nothing, and the error it gives names neither:
 	// "compile: version go1.22.5 does not match go tool version go1.26.2". It cost an hour here, so the
 	// check compiles something instead of trusting `go env`.

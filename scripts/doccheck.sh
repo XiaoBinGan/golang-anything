@@ -100,13 +100,13 @@ fi
 
 # 6. the doctor checks it lists have to be the checks doctor runs
 doctor_checks=$(GOLANG_ANYTHING_PARSE=$PWD/bin/golang-anything-cgo "$GO" doctor 2>&1 | grep -cE '^(ok|MISS)')
-stated_doctor=$(grep -o '八项' PARITY.md | head -1)
-if [ "$doctor_checks" -ne 8 ]; then
-  fail "doctor runs $doctor_checks checks; PARITY.md and this script both say eight"
+stated_doctor=$(grep -o '九项' PARITY.md | head -1)
+if [ "$doctor_checks" -ne 9 ]; then
+  fail "doctor runs $doctor_checks checks; PARITY.md and this script both say nine"
 elif [ -z "$stated_doctor" ]; then
   fail "PARITY.md does not say how many checks doctor runs"
 else
-  pass "doctor runs the eight checks PARITY.md lists"
+  pass "doctor runs the nine checks PARITY.md lists"
 fi
 
 # 7. RECORD.md states how many items each section holds, and the number has to be the number of items. 一
