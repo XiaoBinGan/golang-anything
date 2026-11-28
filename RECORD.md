@@ -301,9 +301,11 @@
 - **bench, map, clean, doctor, check, and the in-process bridge**
   - bench times both sides the same way; map writes PORT-MAP.md; clean and doctor round out the day-to-day commands. The fast bridge is a c-shared library plus a hand-written N-API addon: 0.73 us per call against rust-anything's ~1 us, and 16x faster than the stdio process.
 
-## 四、让检查本身可信（43 条）
+## 四、让检查本身可信（44 条）
 
 负向对照与冒烟测试——这些不增加功能，只增加「结论可信」：
+- **the readiness rule gets a test, not only two fixtures**
+  - The fix was verified by running `analyze` on two files and reading the table, which nobody can re-run without the files. `score` is now asserted directly: a blocked-only unit reads 0, a unit with one plain export does not.
 - **control 35 holds the @JvmStatic rule from both sides**
   - Blocking every companion member was the first version and hid a function that really is callable as `Owner.name(...)`. The control asserts the pair — the annotated member is an export of its class, the plain one is blocked — and a binary with the annotation check replaced by `if false` fails it. 37 ok lines for 33 controls.
 - **smoke carries the @JvmStatic companion member through record and gate**
