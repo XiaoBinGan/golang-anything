@@ -72,3 +72,23 @@ func TestLangOfKnowsWhatItCannotRead(t *testing.T) {
 		t.Errorf("the language name is %q", Python)
 	}
 }
+
+// `def bad(:` still produces a node. Offering it would invite a recording of a signature the parser guessed at, so the
+// function whose own subtree carries the error is blocked and the intact one beside it is not.
+func TestAPythonExportInsideAParseErrorIsBlocked(t *testing.T) {
+	src := []byte("def ok(n):\n    return n * 2\n\ndef bad(:\n    pass\n")
+	file, err := ParseSource(src, Python, "m.py")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]string{}
+	for _, fn := range file.Fns {
+		got[fn.Name] = fn.Blocked
+	}
+	if got["ok"] != "" {
+		t.Errorf("ok is blocked: %q", got["ok"])
+	}
+	if got["bad"] == "" {
+		t.Errorf("bad is offered with no reason, but it sits inside a parse error")
+	}
+}

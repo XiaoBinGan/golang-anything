@@ -337,6 +337,11 @@ func pyExports(root *sitter.Node, src []byte, text func(*sitter.Node) string) []
 			continue
 		}
 		fn := Fn{Name: name, Line: int(n.StartPoint().Row) + 1, EndLine: int(n.EndPoint().Row) + 1}
+		if n.HasError() {
+			// The function's own subtree contains the syntax error: `def bad(:` still produces a node, and offering it
+			// would invite a recording of something the parser only guessed at.
+			fn.Blocked = "sits inside a parse error: the parser recovered around it, so its signature is a guess"
+		}
 		params := n.ChildByFieldName("parameters")
 		if params != nil {
 			for j := 0; j < int(params.NamedChildCount()); j++ {
