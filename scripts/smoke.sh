@@ -82,6 +82,12 @@ try "PHP record"                bash -c "cd '$WORK/phpprom' && $GO record --unit
 try "PHP bridge"                bash -c "cd '$WORK/phpprom' && $GO bridge go-ports/p-go"
 try "PHP build"                 bash -c "cd '$WORK/phpprom' && $GO build --fast go-ports/p-go"
 try "PHP gate"                  bash -c "cd '$WORK/phpprom' && $GO gate go-ports/p-go"
+# Two classes in one PHP file: both proxies land in promoted.php, the file still parses, and a revert removes both.
+mkdir -p "$WORK/phptwo"
+printf '<?php\nclass A { public function twice(int $n): int { return $n * 2; } }\nclass B { public function thrice(int $n): int { return $n * 3; } }\n' > "$WORK/phptwo/two.php"
+printf 'module smoke-phptwo\n\ngo 1.24\n' > "$WORK/phptwo/go.mod"
+try "promote writes both PHP proxies into one file" bash -c "$GO promote --unit two.php '$WORK/phptwo' >/dev/null && grep -c 'class .*Promoted' '$WORK/phptwo/promoted.php' | grep -qx 2 && php -l '$WORK/phptwo/promoted.php' >/dev/null"
+try "PHP revert removes both proxies" bash -c "$GO promote --revert --unit two.php '$WORK/phptwo' >/dev/null && [ ! -f '$WORK/phptwo/promoted.php' ]"
 try "PHP promote --revert"      bash -c "$GO promote --revert --unit timer.php '$WORK/phpprom' && [ ! -f '$WORK/phpprom/promoted.php' ]"
 # Java: one proxy file per class, with `//` markers, and `javac` has to accept it — a proxy that does not compile is
 # not a shim.
