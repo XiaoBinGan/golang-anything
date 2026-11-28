@@ -1074,6 +1074,7 @@ func typedExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int,
 				}
 				fn := Fn{Name: name, Method: true, Receiver: className,
 					Line: int(child.StartPoint().Row) + 1, EndLine: int(child.EndPoint().Row) + 1, Params: []Param{}}
+				blockOnParseError(child, &fn)
 				if typ := child.ChildByFieldName("returns"); typ != nil {
 					fn.Returns = csDialect(text(typ))
 				}
