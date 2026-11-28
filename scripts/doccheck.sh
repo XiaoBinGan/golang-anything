@@ -148,6 +148,35 @@ else
   fail "RECORD.md names commits git log does not have:$record_ghosts"
 fi
 
+# A control that greps a sentence the tool no longer says is a control that cannot fail — and that is exactly what
+# happened when a refusal message was reworded: `make negative` went red a round later, on a green tree. Every plain
+# `grep -q '<text>'` in negative.sh is checked against the source here, so rewording a message without its control is a
+# red document instead of a surprise.
+missing_literals=""
+# Messages assembled from parts in Go (`… cannot " + "be built …`) never appear contiguously in the source, so a
+# source search cannot see them. Listed here, one line each, with the reason.
+assembled_messages="cannot be built without arguments"
+while IFS= read -r literal; do
+  [ -z "$literal" ] && continue
+  case "$literal" in
+    *'$'*|*'\\'*|*'['*|*']'*|*'*'*|*'('*|*')'*|*'|'*|*'^'*|*'?'*) continue ;;
+  esac
+  # -e so a literal that starts with a dash is still a pattern, and the includes before it so they stay options.
+  case "$assembled_messages" in
+    *"$literal"*) continue ;;
+  esac
+  # Go sources only: a document that quotes an old message would otherwise make a stale control look alive.
+  if ! grep -rqF --include='*.go' -e "$literal" .; then
+    missing_literals="$missing_literals\n  $literal"
+  fi
+# `if grep -q …` is an assertion that something is absent: those literals are meant to be missing from the source.
+done < <(grep -v "^ *if grep" scripts/negative.sh | grep -o "grep -q '[^']*'" | sed "s/^grep -q '//; s/'$//")
+if [ -z "$missing_literals" ]; then
+  pass "every sentence a control greps still exists in the source"
+else
+  fail "a control greps something the source does not say:$(printf "$missing_literals")"
+fi
+
 echo
 if [ "$failures" -eq 0 ]; then
   echo "the documents match the tool"
