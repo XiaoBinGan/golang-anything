@@ -281,9 +281,11 @@
 - **bench, map, clean, doctor, check, and the in-process bridge**
   - bench times both sides the same way; map writes PORT-MAP.md; clean and doctor round out the day-to-day commands. The fast bridge is a c-shared library plus a hand-written N-API addon: 0.73 us per call against rust-anything's ~1 us, and 16x faster than the stdio process.
 
-## 四、让检查本身可信（33 条）
+## 四、让检查本身可信（34 条）
 
 负向对照与冒烟测试——这些不增加功能，只增加「结论可信」：
+- **control 34 keeps promote away from a Kotlin constructor that wants an argument**
+  - A proxy for such a class says `Timer()`, and kotlinc answers "no value passed for parameter". The parse could not see a secondary constructor until two rounds ago, so this is the case that would come back first; with the old logic the control fails twice, and it also requires the refusal to say why, since the message was wrong for this shape before it was fixed.
 - **C# gets the constructor rule checked by a test, not by reading the code**
   - The Kotlin bug was a constructor the parse did not see; the same question in C# deserved a test: `Needs(int unit)` blocks promotion, `Maths()` does not. Java already had its `Needs(int unit)` case.
 - **control 33 holds the state rule on the JVM route too**
