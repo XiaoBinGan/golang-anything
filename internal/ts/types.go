@@ -28,6 +28,9 @@ type Fn struct {
 	Receiver  string  `json:"receiver,omitempty"` // the class, for a static method
 	// ThrowLines are the lines of `throw` statements: each needs a recorded failing case.
 	ThrowLines []int `json:"throw_lines,omitempty"`
+	// Blocked says why the bridge cannot carry this function, when the parse can tell. A blocked export is listed
+	// rather than dropped: "nothing here" and "something the bridge cannot take" are different answers.
+	Blocked string `json:"blocked,omitempty"`
 	// State marks a method whose body reads or writes state outside its arguments: `$this->`, `self::$x`,
 	// `@ivar`. It cannot cross a bridge — the port has no instance — and pretending otherwise records
 	// answers that depend on a call order nobody wrote down.

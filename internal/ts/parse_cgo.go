@@ -1064,6 +1064,28 @@ func typedExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int,
 				}
 				walkRaises(child, func(line int) { fn.ThrowLines = append(fn.ThrowLines, line) })
 				out = append(out, fn)
+			case "companion_object":
+				// A `companion object` holds functions reachable as `Owner.name(...)` only when they are annotated
+				// `@JvmStatic`; otherwise the JVM entry is `Owner.Companion.name(...)`. Reported as blocked, because
+				// "nothing here" is what this unit used to say, and it is not nothing.
+				for j := 0; j < int(child.NamedChildCount()); j++ {
+					if body := child.NamedChild(j); body.Type() == "class_body" {
+						for k := 0; k < int(body.NamedChildCount()); k++ {
+							fn := body.NamedChild(k)
+							if fn.Type() != "function_declaration" {
+								continue
+							}
+							name := kotlinName(fn, text)
+							if name == "" {
+								continue
+							}
+							out = append(out, Fn{Name: name, Line: int(fn.StartPoint().Row) + 1,
+								EndLine: int(fn.EndPoint().Row) + 1, Params: []Param{},
+								Blocked: "sits in a companion object: it is callable as Owner.name(...) only with " +
+									"@JvmStatic, and the port would have to pick one spelling"})
+						}
+					}
+				}
 			case "object_declaration":
 				// A Kotlin `object` is a singleton whose members are reachable as `Object.name(...)`: the same shape a
 				// generated proxy needs, and the parser used to ignore the body entirely.

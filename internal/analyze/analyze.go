@@ -262,6 +262,10 @@ func unitOf(rel string, f *ts.File) Unit {
 			ThrowLines: fn.ThrowLines,
 		}
 		switch {
+		case fn.Blocked != "":
+			// The parse already knows why this one cannot cross (a Kotlin companion object's member, say). Its sentence
+			// is more specific than anything this switch could infer.
+			e.Blocked = fn.Blocked
 		case fn.Generator:
 			e.Blocked = "is a generator"
 		case fn.Generic:

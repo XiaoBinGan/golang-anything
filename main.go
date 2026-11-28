@@ -178,7 +178,27 @@ func runAnalyze(args []string) error {
 		fmt.Printf("%d source file(s) in languages this tool does not read: %s\n"+
 			"  it reads TypeScript, TSX, JavaScript and Python.\n\n", total, strings.Join(kinds, ", "))
 	}
-	fmt.Printf("%d units with something a bridge can carry.\n\n", len(rep.Units))
+	// `rep.Units` holds units with at least one export, blocked ones included: counting them as "carryable" would call a
+	// companion object's member carryable, so the sentence names both.
+	carryable, blocked := 0, 0
+	for _, u := range rep.Units {
+		free := 0
+		for _, e := range u.Exports {
+			if e.Blocked == "" {
+				free++
+			}
+		}
+		if free > 0 {
+			carryable++
+		} else {
+			blocked++
+		}
+	}
+	if blocked > 0 {
+		fmt.Printf("%d units with something a bridge can carry, %d with only blocked exports.\n\n", carryable, blocked)
+	} else {
+		fmt.Printf("%d units with something a bridge can carry.\n\n", carryable)
+	}
 	fmt.Printf("| Unit | Lines | Exports | Wave | Readiness | Priority |\n| --- | ---: | ---: | ---: | ---: | ---: |\n")
 	for _, u := range rep.Units {
 		fmt.Printf("| `%s` | %d | %d | %d | %d | %d |\n", u.ID, u.Loc, len(u.Exports), u.Wave, u.Readiness, u.Priority)
