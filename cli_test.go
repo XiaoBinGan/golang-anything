@@ -68,7 +68,7 @@ func TestPromoteRefusesALanguageWithNoShim(t *testing.T) {
 	}
 	if err := promoteSupported("/tmp/text.ts", "text.ts"); err == nil {
 		t.Fatal("promote accepted a TypeScript unit")
-	} else if !strings.Contains(err.Error(), "no other language is written yet") {
+	} else if !strings.Contains(err.Error(), "PHP, Java, Kotlin and C# get a generated proxy") {
 		t.Errorf("the refusal does not say why: %v", err)
 	}
 }

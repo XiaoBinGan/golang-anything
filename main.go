@@ -1237,16 +1237,16 @@ func runPromote(args []string) error {
 	return nil
 }
 
-// promoteSupported refuses a unit whose language has no shim. The shim is a reopening of the class, and only
-// Ruby lets a class be reopened: PHP answers `class Timer` twice with a fatal error, so its route is a generated
-// proxy class plus a recorder that calls it, and that does not exist yet.
+// promoteSupported refuses a unit whose language has no shim. Five languages have one: Ruby reopens the class in place,
+// and PHP, Java, Kotlin and C# get a generated proxy in a file of its own — each checked by that language's compiler.
 func promoteSupported(path, unit string) error {
 	switch strings.ToLower(filepath.Ext(path)) {
 	case ".rb", ".php", ".java", ".kt", ".cs":
 		return nil
 	}
-	return fmt.Errorf("promote has no shim for %s: Ruby reopens the class and PHP gets a proxy class, and no other "+
-		"language is written yet", unit)
+	return fmt.Errorf("promote has no shim for %s: Ruby reopens the class, and PHP, Java, Kotlin and C# get a "+
+		"generated proxy. Another language needs its own renderer, a recorder that calls the plan's path, and a "+
+		"compiler check in smoke", unit)
 }
 
 // shimTarget is the file a shim goes into. Ruby reopens the class in place; PHP cannot, so the proxy class lives in
