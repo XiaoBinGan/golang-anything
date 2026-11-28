@@ -321,6 +321,15 @@ func normalizeType(t string) string {
 // function exists so the code that asks compiles in both builds.
 func ParserPath() (string, error) { return "", errors.New("this build parses TypeScript itself") }
 
+// blockOnParseError marks an export whose own subtree carries a syntax error. The parser recovers and produces a node
+// anyway; offering it invites a recording of a signature the parser guessed at. The check is per node, so the intact
+// functions beside it stay offerable.
+func blockOnParseError(n *sitter.Node, fn *Fn) {
+	if n != nil && n.HasError() && fn.Blocked == "" {
+		fn.Blocked = "sits inside a parse error: the parser recovered around it, so its signature is a guess"
+	}
+}
+
 // pyExports reads the module-level functions of a Python file.
 //
 // A name that starts with an underscore is private, and a function defined inside a class has `self` as its
@@ -512,6 +521,7 @@ func usableRbName(name string) bool {
 // rbFn reads one Ruby method definition.
 func rbFn(n *sitter.Node, name string, text func(*sitter.Node) string) Fn {
 	fn := Fn{Name: name, Line: int(n.StartPoint().Row) + 1, EndLine: int(n.EndPoint().Row) + 1, Params: []Param{}}
+	blockOnParseError(n, &fn)
 	if params := n.ChildByFieldName("parameters"); params != nil {
 		for j := 0; j < int(params.NamedChildCount()); j++ {
 			p := params.NamedChild(j)
@@ -582,6 +592,7 @@ func javaExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int, 
 				fn := Fn{Name: name, Returns: javaReturns(child, text), Method: true, Receiver: className,
 					Line: int(child.StartPoint().Row) + 1, EndLine: int(child.EndPoint().Row) + 1,
 					Params: javaParams(child, text)}
+				blockOnParseError(child, &fn)
 				if strings.Contains(mods, "native") {
 					// A `native` method has no body in the crate: the JVM links it at run time. Recording one answers
 					// UnsatisfiedLinkError, so it is listed with that reason instead of offered as an export.
@@ -742,6 +753,7 @@ func cExports(root *sitter.Node, text func(*sitter.Node) string) []Fn {
 			continue
 		}
 		fn := Fn{Name: name, Line: int(n.StartPoint().Row) + 1, EndLine: int(n.EndPoint().Row) + 1, Params: []Param{}}
+		blockOnParseError(n, &fn)
 		if typ := n.ChildByFieldName("type"); typ != nil {
 			fn.Returns = cDialect(text(typ))
 		}
@@ -981,6 +993,7 @@ func typedExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int,
 					continue
 				}
 				fn := Fn{Name: name, Line: int(child.StartPoint().Row) + 1, EndLine: int(child.EndPoint().Row) + 1, Params: []Param{}}
+				blockOnParseError(child, &fn)
 				if className != "" {
 					fn.Method = true
 					fn.Receiver = className
