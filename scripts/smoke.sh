@@ -134,6 +134,14 @@ try "Kotlin record"              bash -c "cd '$WORK/ktprom' && $GO record --unit
 try "Kotlin bridge"              bash -c "cd '$WORK/ktprom' && $GO bridge go-ports/k-go"
 try "Kotlin build"               bash -c "cd '$WORK/ktprom' && $GO build --fast go-ports/k-go"
 try "Kotlin gate"                bash -c "cd '$WORK/ktprom' && $GO gate go-ports/k-go"
+# Two classes in one Kotlin file: one proxy each, both compile with the unit, and a revert removes both. That finishes the
+# two-owner case in all four proxy languages.
+mkdir -p "$WORK/kttwo"
+printf 'class A {\n    fun twice(n: Int): Int = n * 2\n}\n\nclass B {\n    fun thrice(n: Int): Int = n * 3\n}\n' > "$WORK/kttwo/Two.kt"
+printf 'module smoke-kttwo\n\ngo 1.24\n' > "$WORK/kttwo/go.mod"
+try "promote writes one Kotlin proxy per owner" bash -c "$GO promote --unit Two.kt '$WORK/kttwo' >/dev/null && [ -f '$WORK/kttwo/APromoted.kt' ] && [ -f '$WORK/kttwo/BPromoted.kt' ]"
+try "both Kotlin proxies compile with the unit" bash -c "cd '$WORK/kttwo' && kotlinc Two.kt APromoted.kt BPromoted.kt -include-runtime -d out.jar"
+try "Kotlin revert removes every proxy of a unit" bash -c "$GO promote --revert --unit Two.kt '$WORK/kttwo' >/dev/null && [ ! -f '$WORK/kttwo/APromoted.kt' ] && [ ! -f '$WORK/kttwo/BPromoted.kt' ]"
 try "Kotlin promote --revert"    bash -c "$GO promote --revert --unit Timer.kt '$WORK/ktprom' && [ ! -f '$WORK/ktprom/TimerPromoted.kt' ]"
 # C#: a static class, and `dotnet build` has to accept it — the unit alone does not compile, the class beside it does.
 mkdir -p "$WORK/csprom"
