@@ -1005,6 +1005,11 @@ func typedExports(root *sitter.Node, text func(*sitter.Node) string) ([]Fn, int,
 					}
 				}
 				walkRaises(child, func(line int) { fn.ThrowLines = append(fn.ThrowLines, line) })
+				if strings.Contains(text(child), "external fun") {
+					// `external fun` is implemented outside the crate (a JNI binding): recording it answers
+					// UnsatisfiedLinkError. Same reason Java's `native` carries now.
+					fn.Blocked = "is external: its implementation is not in this file, so there is nothing to record"
+				}
 				out = append(out, fn)
 				if className != "" && countInstances {
 					instances++

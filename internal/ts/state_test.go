@@ -412,3 +412,27 @@ func TestJavaNativeMethodsAreBlocked(t *testing.T) {
 		t.Errorf("blocked=%d offerable=%d, want 1/1", blocked, offerable)
 	}
 }
+
+// `external fun` in Kotlin is implemented outside the crate, like Java's `native`: recording it answers
+// UnsatisfiedLinkError, so it is a blocked export with that reason.
+func TestKotlinExternalFunctionsAreBlocked(t *testing.T) {
+	src := []byte("external fun square(n: Int): Int\n\nfun twice(n: Int): Int = n * 2\n")
+	file, err := ParseSource(src, Kotlin, "M.kt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var blocked, offerable int
+	for _, fn := range file.Fns {
+		if fn.Blocked != "" {
+			blocked++
+			if fn.Name != "square" {
+				t.Errorf("%s is blocked, want square", fn.Name)
+			}
+		} else {
+			offerable++
+		}
+	}
+	if blocked != 1 || offerable != 1 {
+		t.Errorf("blocked=%d offerable=%d, want 1/1", blocked, offerable)
+	}
+}
